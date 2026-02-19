@@ -46,6 +46,10 @@ config :jido_conversation, JidoConversation.EventSystem,
     controller: [
       require_accept_streak: 2,
       rollback_stage: :shadow
+    ],
+    manager: [
+      auto_apply: false,
+      max_history: 100
     ]
   ]
 

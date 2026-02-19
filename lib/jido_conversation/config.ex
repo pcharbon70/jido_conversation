@@ -55,6 +55,10 @@ defmodule JidoConversation.Config do
       controller: [
         require_accept_streak: 2,
         rollback_stage: :shadow
+      ],
+      manager: [
+        auto_apply: false,
+        max_history: 100
       ]
     ]
   ]
@@ -108,6 +112,9 @@ defmodule JidoConversation.Config do
           :controller, controller_defaults, controller_overrides
           when is_list(controller_overrides) ->
             Keyword.merge(controller_defaults, controller_overrides)
+
+          :manager, manager_defaults, manager_overrides when is_list(manager_overrides) ->
+            Keyword.merge(manager_defaults, manager_overrides)
 
           _rollout_key, _rollout_defaults, rollout_override ->
             rollout_override
@@ -201,6 +208,11 @@ defmodule JidoConversation.Config do
     rollout() |> Keyword.fetch!(:controller)
   end
 
+  @spec rollout_manager() :: keyword()
+  def rollout_manager do
+    rollout() |> Keyword.fetch!(:manager)
+  end
+
   def telemetry_events, do: @telemetry_events
 
   @spec bus_options() :: keyword()
@@ -290,6 +302,7 @@ defmodule JidoConversation.Config do
     validate_rollout_parity!(Keyword.fetch!(rollout, :parity))
     validate_rollout_verification!(Keyword.fetch!(rollout, :verification))
     validate_rollout_controller!(Keyword.fetch!(rollout, :controller))
+    validate_rollout_manager!(Keyword.fetch!(rollout, :manager))
     :ok
   end
 
@@ -382,6 +395,24 @@ defmodule JidoConversation.Config do
   defp validate_rollout_controller!(other) do
     raise ArgumentError,
           "expected rollout.controller to be a keyword list, got: #{inspect(other)}"
+  end
+
+  defp validate_rollout_manager!(manager) when is_list(manager) do
+    auto_apply = Keyword.fetch!(manager, :auto_apply)
+    max_history = Keyword.fetch!(manager, :max_history)
+
+    if not is_boolean(auto_apply) do
+      raise ArgumentError,
+            "expected rollout.manager.auto_apply to be a boolean, got: #{inspect(auto_apply)}"
+    end
+
+    ensure_positive_integer!(max_history, :"rollout.manager.max_history")
+    :ok
+  end
+
+  defp validate_rollout_manager!(other) do
+    raise ArgumentError,
+          "expected rollout.manager to be a keyword list, got: #{inspect(other)}"
   end
 
   defp validate_binary_list!(values, _key) when is_list(values) do
