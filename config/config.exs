@@ -23,6 +23,7 @@ config :jido_conversation, JidoConversation.EventSystem,
   ],
   rollout: [
     mode: :event_based,
+    stage: :canary,
     canary: [
       enabled: false,
       subjects: [],
@@ -41,6 +42,10 @@ config :jido_conversation, JidoConversation.EventSystem,
       max_mismatch_rate: 0.05,
       max_legacy_unavailable_rate: 0.1,
       max_drop_rate: 0.2
+    ],
+    controller: [
+      require_accept_streak: 2,
+      rollback_stage: :shadow
     ]
   ]
 

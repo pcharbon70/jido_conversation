@@ -208,4 +208,15 @@ defmodule JidoConversation do
   def rollout_verify(opts \\ []) do
     Operations.rollout_verify(opts)
   end
+
+  @doc """
+  Returns rollout verification plus a staged transition recommendation.
+  """
+  @spec rollout_recommend(keyword()) :: %{
+          verification: JidoConversation.Rollout.Verification.report(),
+          recommendation: JidoConversation.Rollout.Controller.recommendation()
+        }
+  def rollout_recommend(opts \\ []) do
+    Operations.rollout_recommend(opts)
+  end
 end
