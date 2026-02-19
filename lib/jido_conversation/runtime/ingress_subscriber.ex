@@ -10,6 +10,7 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
   alias Jido.Signal.Bus
   alias JidoConversation.Config
   alias JidoConversation.Runtime.Coordinator
+  alias JidoConversation.Signal.Contract
 
   @retry_ms 1_000
 
@@ -36,7 +37,14 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
 
   @impl true
   def handle_info({:signal, signal}, state) do
-    Coordinator.enqueue(signal)
+    case Contract.normalize(signal) do
+      {:ok, normalized} ->
+        Coordinator.enqueue(normalized)
+
+      {:error, reason} ->
+        Logger.warning("dropping contract-invalid signal: #{inspect(reason)}")
+    end
+
     {:noreply, state}
   end
 
