@@ -20,6 +20,21 @@ config :jido_conversation, JidoConversation.EventSystem,
     llm: [max_attempts: 3, backoff_ms: 100, timeout_ms: 5_000],
     tool: [max_attempts: 3, backoff_ms: 100, timeout_ms: 3_000],
     timer: [max_attempts: 2, backoff_ms: 50, timeout_ms: 1_000]
+  ],
+  rollout: [
+    mode: :event_based,
+    canary: [
+      enabled: false,
+      subjects: [],
+      tenant_ids: [],
+      channels: []
+    ],
+    parity: [
+      enabled: false,
+      sample_rate: 1.0,
+      max_reports: 200,
+      legacy_adapter: JidoConversation.Rollout.Parity.NoopLegacyAdapter
+    ]
   ]
 
 config :jido_signal,

@@ -29,6 +29,21 @@ defmodule JidoConversation.Config do
       llm: [max_attempts: 3, backoff_ms: 100, timeout_ms: 5_000],
       tool: [max_attempts: 3, backoff_ms: 100, timeout_ms: 3_000],
       timer: [max_attempts: 2, backoff_ms: 50, timeout_ms: 1_000]
+    ],
+    rollout: [
+      mode: :event_based,
+      canary: [
+        enabled: false,
+        subjects: [],
+        tenant_ids: [],
+        channels: []
+      ],
+      parity: [
+        enabled: false,
+        sample_rate: 1.0,
+        max_reports: 200,
+        legacy_adapter: JidoConversation.Rollout.Parity.NoopLegacyAdapter
+      ]
     ]
   ]
 
@@ -66,6 +81,18 @@ defmodule JidoConversation.Config do
             class_overrides
         end)
 
+      :rollout, defaults, overrides when is_list(overrides) ->
+        Keyword.merge(defaults, overrides, fn
+          :canary, canary_defaults, canary_overrides when is_list(canary_overrides) ->
+            Keyword.merge(canary_defaults, canary_overrides)
+
+          :parity, parity_defaults, parity_overrides when is_list(parity_overrides) ->
+            Keyword.merge(parity_defaults, parity_overrides)
+
+          _rollout_key, _rollout_defaults, rollout_override ->
+            rollout_override
+        end)
+
       _key, _defaults, overrides ->
         overrides
     end)
@@ -82,6 +109,7 @@ defmodule JidoConversation.Config do
     ensure_positive_integer!(cfg[:runtime_partitions], :runtime_partitions)
     ensure_binary!(cfg[:subscription_pattern], :subscription_pattern)
     validate_effect_runtime!(cfg[:effect_runtime])
+    validate_rollout!(cfg[:rollout])
 
     :ok
   end
@@ -116,6 +144,26 @@ defmodule JidoConversation.Config do
     event_system()
     |> Keyword.fetch!(:effect_runtime)
     |> Keyword.fetch!(class)
+  end
+
+  @spec rollout() :: keyword()
+  def rollout do
+    event_system() |> Keyword.fetch!(:rollout)
+  end
+
+  @spec rollout_mode() :: :event_based | :shadow | :disabled
+  def rollout_mode do
+    rollout() |> Keyword.fetch!(:mode)
+  end
+
+  @spec rollout_canary() :: keyword()
+  def rollout_canary do
+    rollout() |> Keyword.fetch!(:canary)
+  end
+
+  @spec rollout_parity() :: keyword()
+  def rollout_parity do
+    rollout() |> Keyword.fetch!(:parity)
   end
 
   def telemetry_events, do: @telemetry_events
@@ -187,5 +235,76 @@ defmodule JidoConversation.Config do
 
   defp validate_effect_runtime!(other) do
     raise ArgumentError, "expected effect_runtime to be a keyword list, got: #{inspect(other)}"
+  end
+
+  defp validate_rollout!(rollout) when is_list(rollout) do
+    mode = Keyword.fetch!(rollout, :mode)
+
+    if mode not in [:event_based, :shadow, :disabled] do
+      raise ArgumentError,
+            "expected rollout.mode to be :event_based, :shadow, or :disabled, got: #{inspect(mode)}"
+    end
+
+    validate_rollout_canary!(Keyword.fetch!(rollout, :canary))
+    validate_rollout_parity!(Keyword.fetch!(rollout, :parity))
+    :ok
+  end
+
+  defp validate_rollout!(other) do
+    raise ArgumentError, "expected rollout to be a keyword list, got: #{inspect(other)}"
+  end
+
+  defp validate_rollout_canary!(canary) when is_list(canary) do
+    enabled = Keyword.fetch!(canary, :enabled)
+
+    if not is_boolean(enabled) do
+      raise ArgumentError,
+            "expected rollout.canary.enabled to be a boolean, got: #{inspect(enabled)}"
+    end
+
+    validate_binary_list!(Keyword.fetch!(canary, :subjects), :"rollout.canary.subjects")
+    validate_binary_list!(Keyword.fetch!(canary, :tenant_ids), :"rollout.canary.tenant_ids")
+    validate_binary_list!(Keyword.fetch!(canary, :channels), :"rollout.canary.channels")
+    :ok
+  end
+
+  defp validate_rollout_canary!(other) do
+    raise ArgumentError, "expected rollout.canary to be a keyword list, got: #{inspect(other)}"
+  end
+
+  defp validate_rollout_parity!(parity) when is_list(parity) do
+    enabled = Keyword.fetch!(parity, :enabled)
+    sample_rate = Keyword.fetch!(parity, :sample_rate)
+    max_reports = Keyword.fetch!(parity, :max_reports)
+    legacy_adapter = Keyword.fetch!(parity, :legacy_adapter)
+
+    if not is_boolean(enabled) do
+      raise ArgumentError,
+            "expected rollout.parity.enabled to be a boolean, got: #{inspect(enabled)}"
+    end
+
+    if not (is_number(sample_rate) and sample_rate >= 0 and sample_rate <= 1) do
+      raise ArgumentError,
+            "expected rollout.parity.sample_rate to be between 0 and 1, got: #{inspect(sample_rate)}"
+    end
+
+    ensure_positive_integer!(max_reports, :"rollout.parity.max_reports")
+    ensure_atom!(legacy_adapter, :"rollout.parity.legacy_adapter")
+    :ok
+  end
+
+  defp validate_rollout_parity!(other) do
+    raise ArgumentError, "expected rollout.parity to be a keyword list, got: #{inspect(other)}"
+  end
+
+  defp validate_binary_list!(values, _key) when is_list(values) do
+    case Enum.all?(values, &is_binary/1) do
+      true -> :ok
+      false -> raise ArgumentError, "expected list of binaries, got: #{inspect(values)}"
+    end
+  end
+
+  defp validate_binary_list!(value, key) do
+    raise ArgumentError, "expected #{key} to be a list of binaries, got: #{inspect(value)}"
   end
 end
