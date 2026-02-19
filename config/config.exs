@@ -34,6 +34,13 @@ config :jido_conversation, JidoConversation.EventSystem,
       sample_rate: 1.0,
       max_reports: 200,
       legacy_adapter: JidoConversation.Rollout.Parity.NoopLegacyAdapter
+    ],
+    verification: [
+      min_runtime_decisions: 25,
+      min_parity_reports: 10,
+      max_mismatch_rate: 0.05,
+      max_legacy_unavailable_rate: 0.1,
+      max_drop_rate: 0.2
     ]
   ]
 

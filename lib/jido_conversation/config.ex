@@ -43,6 +43,13 @@ defmodule JidoConversation.Config do
         sample_rate: 1.0,
         max_reports: 200,
         legacy_adapter: JidoConversation.Rollout.Parity.NoopLegacyAdapter
+      ],
+      verification: [
+        min_runtime_decisions: 25,
+        min_parity_reports: 10,
+        max_mismatch_rate: 0.05,
+        max_legacy_unavailable_rate: 0.1,
+        max_drop_rate: 0.2
       ]
     ]
   ]
@@ -88,6 +95,10 @@ defmodule JidoConversation.Config do
 
           :parity, parity_defaults, parity_overrides when is_list(parity_overrides) ->
             Keyword.merge(parity_defaults, parity_overrides)
+
+          :verification, verification_defaults, verification_overrides
+          when is_list(verification_overrides) ->
+            Keyword.merge(verification_defaults, verification_overrides)
 
           _rollout_key, _rollout_defaults, rollout_override ->
             rollout_override
@@ -164,6 +175,11 @@ defmodule JidoConversation.Config do
   @spec rollout_parity() :: keyword()
   def rollout_parity do
     rollout() |> Keyword.fetch!(:parity)
+  end
+
+  @spec rollout_verification() :: keyword()
+  def rollout_verification do
+    rollout() |> Keyword.fetch!(:verification)
   end
 
   def telemetry_events, do: @telemetry_events
@@ -247,6 +263,7 @@ defmodule JidoConversation.Config do
 
     validate_rollout_canary!(Keyword.fetch!(rollout, :canary))
     validate_rollout_parity!(Keyword.fetch!(rollout, :parity))
+    validate_rollout_verification!(Keyword.fetch!(rollout, :verification))
     :ok
   end
 
@@ -297,6 +314,31 @@ defmodule JidoConversation.Config do
     raise ArgumentError, "expected rollout.parity to be a keyword list, got: #{inspect(other)}"
   end
 
+  defp validate_rollout_verification!(verification) when is_list(verification) do
+    min_runtime_decisions = Keyword.fetch!(verification, :min_runtime_decisions)
+    min_parity_reports = Keyword.fetch!(verification, :min_parity_reports)
+    max_mismatch_rate = Keyword.fetch!(verification, :max_mismatch_rate)
+    max_legacy_unavailable_rate = Keyword.fetch!(verification, :max_legacy_unavailable_rate)
+    max_drop_rate = Keyword.fetch!(verification, :max_drop_rate)
+
+    ensure_positive_integer!(min_runtime_decisions, :"rollout.verification.min_runtime_decisions")
+    ensure_positive_integer!(min_parity_reports, :"rollout.verification.min_parity_reports")
+    ensure_probability!(max_mismatch_rate, :"rollout.verification.max_mismatch_rate")
+
+    ensure_probability!(
+      max_legacy_unavailable_rate,
+      :"rollout.verification.max_legacy_unavailable_rate"
+    )
+
+    ensure_probability!(max_drop_rate, :"rollout.verification.max_drop_rate")
+    :ok
+  end
+
+  defp validate_rollout_verification!(other) do
+    raise ArgumentError,
+          "expected rollout.verification to be a keyword list, got: #{inspect(other)}"
+  end
+
   defp validate_binary_list!(values, _key) when is_list(values) do
     case Enum.all?(values, &is_binary/1) do
       true -> :ok
@@ -306,5 +348,13 @@ defmodule JidoConversation.Config do
 
   defp validate_binary_list!(value, key) do
     raise ArgumentError, "expected #{key} to be a list of binaries, got: #{inspect(value)}"
+  end
+
+  defp ensure_probability!(value, _key) when is_number(value) and value >= 0 and value <= 1,
+    do: :ok
+
+  defp ensure_probability!(value, key) do
+    raise ArgumentError,
+          "expected #{key} to be a probability between 0 and 1, got: #{inspect(value)}"
   end
 end

@@ -10,6 +10,7 @@ defmodule JidoConversation.Operations do
   alias JidoConversation.Ingest
   alias JidoConversation.Rollout.Parity
   alias JidoConversation.Rollout.Reporter
+  alias JidoConversation.Rollout.Verification
 
   @type subscription_summary :: %{
           subscription_id: String.t(),
@@ -40,6 +41,7 @@ defmodule JidoConversation.Operations do
         }
 
   @type rollout_snapshot :: JidoConversation.Rollout.Reporter.snapshot()
+  @type rollout_verification_report :: JidoConversation.Rollout.Verification.report()
 
   @spec replay_conversation(String.t(), keyword()) ::
           {:ok, [RecordedSignal.t()]} | {:error, term()}
@@ -188,6 +190,12 @@ defmodule JidoConversation.Operations do
   def rollout_parity_compare(conversation_id, opts \\ [])
       when is_binary(conversation_id) and is_list(opts) do
     Parity.compare_conversation(conversation_id, opts)
+  end
+
+  @spec rollout_verify(keyword()) :: rollout_verification_report()
+  def rollout_verify(opts \\ []) when is_list(opts) do
+    snapshot = rollout_snapshot()
+    Verification.evaluate(snapshot, opts)
   end
 
   @spec stream_subscriptions() :: {:ok, [subscription_summary()]} | {:error, term()}
