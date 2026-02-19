@@ -175,4 +175,29 @@ defmodule JidoConversation do
   def clear_dlq(subscription_id) do
     Operations.clear_dlq(subscription_id)
   end
+
+  @doc """
+  Returns rollout migration counters and recent parity artifacts.
+  """
+  @spec rollout_snapshot() :: JidoConversation.Operations.rollout_snapshot()
+  def rollout_snapshot do
+    Operations.rollout_snapshot()
+  end
+
+  @doc """
+  Resets rollout migration counters and parity artifacts.
+  """
+  @spec rollout_reset() :: :ok
+  def rollout_reset do
+    Operations.rollout_reset()
+  end
+
+  @doc """
+  Compares `conv.out.*` outputs for a conversation with the configured legacy adapter.
+  """
+  @spec rollout_parity_compare(String.t(), keyword()) ::
+          {:ok, JidoConversation.Rollout.Parity.parity_report()} | {:error, term()}
+  def rollout_parity_compare(conversation_id, opts \\ []) do
+    Operations.rollout_parity_compare(conversation_id, opts)
+  end
 end

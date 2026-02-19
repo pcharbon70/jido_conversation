@@ -9,6 +9,7 @@ defmodule JidoConversation.Application do
 
     children = [
       JidoConversation.Telemetry,
+      JidoConversation.Rollout.Reporter,
       JidoConversation.Signal.Supervisor,
       JidoConversation.Ingest.Pipeline,
       JidoConversation.Runtime.Supervisor

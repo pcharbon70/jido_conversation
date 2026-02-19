@@ -8,6 +8,8 @@ defmodule JidoConversation.Operations do
   alias Jido.Signal.Bus.RecordedSignal
   alias JidoConversation.Config
   alias JidoConversation.Ingest
+  alias JidoConversation.Rollout.Parity
+  alias JidoConversation.Rollout.Reporter
 
   @type subscription_summary :: %{
           subscription_id: String.t(),
@@ -36,6 +38,8 @@ defmodule JidoConversation.Operations do
           signal_type: String.t(),
           subject: String.t() | nil
         }
+
+  @type rollout_snapshot :: JidoConversation.Rollout.Reporter.snapshot()
 
   @spec replay_conversation(String.t(), keyword()) ::
           {:ok, [RecordedSignal.t()]} | {:error, term()}
@@ -167,6 +171,23 @@ defmodule JidoConversation.Operations do
   @spec clear_dlq(String.t()) :: :ok | {:error, term()}
   def clear_dlq(subscription_id) when is_binary(subscription_id) do
     Bus.clear_dlq(Config.bus_name(), subscription_id)
+  end
+
+  @spec rollout_snapshot() :: rollout_snapshot()
+  def rollout_snapshot do
+    Reporter.snapshot()
+  end
+
+  @spec rollout_reset() :: :ok
+  def rollout_reset do
+    Reporter.reset()
+  end
+
+  @spec rollout_parity_compare(String.t(), keyword()) ::
+          {:ok, Parity.parity_report()} | {:error, term()}
+  def rollout_parity_compare(conversation_id, opts \\ [])
+      when is_binary(conversation_id) and is_list(opts) do
+    Parity.compare_conversation(conversation_id, opts)
   end
 
   @spec stream_subscriptions() :: {:ok, [subscription_summary()]} | {:error, term()}
