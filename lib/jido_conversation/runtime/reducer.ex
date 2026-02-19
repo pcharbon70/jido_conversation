@@ -9,6 +9,11 @@ defmodule JidoConversation.Runtime.Reducer do
   alias Jido.Signal
 
   @max_history 100
+  @effect_id_prefixes %{
+    llm: "llm-generation",
+    tool: "tool-execution",
+    timer: "timer-wait"
+  }
 
   @type conversation_state :: %{
           conversation_id: String.t(),
@@ -20,19 +25,46 @@ defmodule JidoConversation.Runtime.Reducer do
           history: [map()]
         }
 
+  @type applied_marker_directive :: %{
+          type: :emit_applied_marker,
+          payload: %{
+            applied_event_id: String.t(),
+            original_type: String.t(),
+            subject: String.t(),
+            priority: non_neg_integer(),
+            partition_id: non_neg_integer(),
+            scheduler_seq: non_neg_integer()
+          },
+          cause_id: String.t()
+        }
+
+  @type start_effect_directive :: %{
+          type: :start_effect,
+          payload: %{
+            effect_id: String.t(),
+            conversation_id: String.t(),
+            class: :llm | :tool | :timer,
+            kind: String.t(),
+            input: map(),
+            simulate: map(),
+            policy: keyword() | map()
+          },
+          cause_id: String.t()
+        }
+
+  @type cancel_effects_directive :: %{
+          type: :cancel_effects,
+          payload: %{
+            conversation_id: String.t(),
+            reason: String.t()
+          },
+          cause_id: String.t()
+        }
+
   @type directive ::
-          %{
-            type: :emit_applied_marker,
-            payload: %{
-              applied_event_id: String.t(),
-              original_type: String.t(),
-              subject: String.t(),
-              priority: non_neg_integer(),
-              partition_id: non_neg_integer(),
-              scheduler_seq: non_neg_integer()
-            },
-            cause_id: String.t()
-          }
+          applied_marker_directive()
+          | start_effect_directive()
+          | cancel_effects_directive()
 
   @spec new(String.t()) :: conversation_state()
   def new(conversation_id) when is_binary(conversation_id) do
@@ -80,6 +112,7 @@ defmodule JidoConversation.Runtime.Reducer do
             },
             cause_id: signal.id
           }
+          | effect_directives(state, signal)
         ]
       end
 
@@ -98,6 +131,14 @@ defmodule JidoConversation.Runtime.Reducer do
 
   defp update_flags(state, %Signal{type: "conv.in.control.abort_requested"}) do
     %{state | flags: Map.put(state.flags, :abort_requested, true)}
+  end
+
+  defp update_flags(state, %Signal{type: "conv.in.control.stop_requested"}) do
+    %{state | flags: Map.put(state.flags, :stop_requested, true)}
+  end
+
+  defp update_flags(state, %Signal{type: "conv.in.control.cancel_requested"}) do
+    %{state | flags: Map.put(state.flags, :cancel_requested, true)}
   end
 
   defp update_flags(state, _signal), do: state
@@ -142,6 +183,60 @@ defmodule JidoConversation.Runtime.Reducer do
     %{state | history: history}
   end
 
+  defp effect_directives(_state, %Signal{type: "conv.in.message.received"} = signal) do
+    [start_effect_directive(signal, :llm, "generation")]
+  end
+
+  defp effect_directives(_state, %Signal{type: "conv.in.timer.tick"} = signal) do
+    [start_effect_directive(signal, :timer, "wait")]
+  end
+
+  defp effect_directives(state, %Signal{type: "conv.in.control.abort_requested"} = signal) do
+    [
+      %{
+        type: :cancel_effects,
+        payload: %{
+          conversation_id: state.conversation_id,
+          reason: signal.type
+        },
+        cause_id: signal.id
+      }
+    ]
+  end
+
+  defp effect_directives(state, %Signal{type: "conv.in.control.stop_requested"} = signal) do
+    [
+      %{
+        type: :cancel_effects,
+        payload: %{
+          conversation_id: state.conversation_id,
+          reason: signal.type
+        },
+        cause_id: signal.id
+      }
+    ]
+  end
+
+  defp effect_directives(_state, _signal), do: []
+
+  defp start_effect_directive(%Signal{} = signal, class, kind) do
+    payload = %{
+      effect_id: "#{effect_id_prefix(class)}-#{signal.id}",
+      conversation_id: signal.subject || "default",
+      class: class,
+      kind: kind,
+      input: normalize_map(signal.data),
+      simulate: normalize_map(get_field(signal.data, :simulate_effect)),
+      policy: get_field(signal.data, :effect_policy) || []
+    }
+
+    %{
+      type: :start_effect,
+      payload: payload,
+      cause_id: signal.id
+    }
+  end
+
   defp stream_family(type) when is_binary(type) do
     cond do
       String.starts_with?(type, "conv.in.") -> :in
@@ -158,4 +253,11 @@ defmodule JidoConversation.Runtime.Reducer do
   end
 
   defp get_field(_data, _key), do: nil
+
+  defp normalize_map(value) when is_map(value), do: value
+  defp normalize_map(_value), do: %{}
+
+  defp effect_id_prefix(class) when class in [:llm, :tool, :timer] do
+    Map.fetch!(@effect_id_prefixes, class)
+  end
 end

@@ -16,6 +16,9 @@ defmodule JidoConversation.Runtime.Supervisor do
       {Registry, keys: :unique, name: JidoConversation.Runtime.Registry},
       {DynamicSupervisor,
        strategy: :one_for_one, name: JidoConversation.Runtime.PartitionSupervisor},
+      {DynamicSupervisor,
+       strategy: :one_for_one, name: JidoConversation.Runtime.EffectSupervisor},
+      JidoConversation.Runtime.EffectManager,
       JidoConversation.Runtime.Coordinator,
       JidoConversation.Runtime.IngressSubscriber
     ]

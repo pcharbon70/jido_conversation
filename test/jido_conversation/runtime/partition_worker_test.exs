@@ -3,6 +3,7 @@ defmodule JidoConversation.Runtime.PartitionWorkerTest do
 
   alias JidoConversation.Ingest
   alias JidoConversation.Runtime.Coordinator
+  alias JidoConversation.Runtime.EffectManager
   alias JidoConversation.Runtime.IngressSubscriber
   alias JidoConversation.Runtime.PartitionWorker
 
@@ -136,6 +137,7 @@ defmodule JidoConversation.Runtime.PartitionWorkerTest do
   defp wait_for_runtime_idle! do
     eventually(fn ->
       stats = Coordinator.stats()
+      effect_stats = EffectManager.stats()
 
       busy? =
         stats.partitions
@@ -144,7 +146,7 @@ defmodule JidoConversation.Runtime.PartitionWorkerTest do
           partition.queue_size > 0
         end)
 
-      if busy? do
+      if busy? or effect_stats.in_flight_count > 0 do
         :retry
       else
         {:ok, :ready}

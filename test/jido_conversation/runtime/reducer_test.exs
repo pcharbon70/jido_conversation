@@ -4,7 +4,7 @@ defmodule JidoConversation.Runtime.ReducerTest do
   alias Jido.Signal
   alias JidoConversation.Runtime.Reducer
 
-  test "apply_event updates state and emits applied marker directive" do
+  test "message ingress emits applied marker and start_effect directives" do
     state = Reducer.new("conversation-reducer")
 
     signal =
@@ -21,12 +21,18 @@ defmodule JidoConversation.Runtime.ReducerTest do
     assert new_state.applied_count == 1
     assert new_state.stream_counts[:in] == 1
     assert new_state.last_event.id == "sig-1"
-    assert length(directives) == 1
 
-    directive = hd(directives)
-    assert directive.type == :emit_applied_marker
-    assert directive.payload.applied_event_id == "sig-1"
-    assert directive.cause_id == "sig-1"
+    assert Enum.any?(directives, fn directive ->
+             directive.type == :emit_applied_marker and
+               directive.payload.applied_event_id == "sig-1" and
+               directive.cause_id == "sig-1"
+           end)
+
+    assert Enum.any?(directives, fn directive ->
+             directive.type == :start_effect and
+               directive.payload.class == :llm and
+               directive.payload.conversation_id == "conversation-reducer"
+           end)
   end
 
   test "applied stream events do not emit nested applied directives" do
@@ -86,7 +92,7 @@ defmodule JidoConversation.Runtime.ReducerTest do
     refute Map.has_key?(state_after_done.in_flight_effects, "eff-1")
   end
 
-  test "abort control event sets abort flag" do
+  test "abort control event sets abort flag and emits cancel directive" do
     state = Reducer.new("conversation-reducer")
 
     signal =
@@ -97,9 +103,15 @@ defmodule JidoConversation.Runtime.ReducerTest do
         extensions: %{"contract_major" => 1}
       )
 
-    {:ok, new_state, _} =
+    {:ok, new_state, directives} =
       Reducer.apply_event(state, signal, priority: 0, partition_id: 0, scheduler_seq: 1)
 
     assert new_state.flags[:abort_requested] == true
+
+    assert Enum.any?(directives, fn directive ->
+             directive.type == :cancel_effects and
+               directive.payload.conversation_id == "conversation-reducer" and
+               directive.payload.reason == "conv.in.control.abort_requested"
+           end)
   end
 end

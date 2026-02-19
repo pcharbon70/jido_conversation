@@ -15,6 +15,11 @@ config :jido_conversation, JidoConversation.EventSystem,
     max_pending: 5_000,
     max_attempts: 5,
     retry_interval: 500
+  ],
+  effect_runtime: [
+    llm: [max_attempts: 3, backoff_ms: 100, timeout_ms: 5_000],
+    tool: [max_attempts: 3, backoff_ms: 100, timeout_ms: 3_000],
+    timer: [max_attempts: 2, backoff_ms: 50, timeout_ms: 1_000]
   ]
 
 config :jido_signal,

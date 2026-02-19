@@ -12,6 +12,7 @@ defmodule JidoConversation.Runtime.PartitionWorker do
 
   alias Jido.Signal
   alias JidoConversation.Ingest
+  alias JidoConversation.Runtime.EffectManager
   alias JidoConversation.Runtime.Reducer
   alias JidoConversation.Runtime.Scheduler
 
@@ -238,6 +239,22 @@ defmodule JidoConversation.Runtime.PartitionWorker do
 
         0
     end
+  end
+
+  defp execute_directive(%{type: :start_effect, payload: payload, cause_id: cause_id}) do
+    EffectManager.start_effect(payload, cause_id)
+    0
+  end
+
+  defp execute_directive(%{type: :cancel_effects, payload: payload, cause_id: cause_id}) do
+    conversation_id = payload.conversation_id || payload["conversation_id"]
+    reason = payload.reason || payload["reason"] || "cancel_requested"
+
+    if is_binary(conversation_id) and is_binary(reason) do
+      EffectManager.cancel_conversation(conversation_id, reason, cause_id)
+    end
+
+    0
   end
 
   defp execute_directive(_directive), do: 0
