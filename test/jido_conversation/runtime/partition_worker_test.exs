@@ -103,6 +103,56 @@ defmodule JidoConversation.Runtime.PartitionWorkerTest do
            end)
   end
 
+  test "runtime emits ordered conv.out assistant events from llm lifecycle signals" do
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    progress_attrs = %{
+      type: "conv.effect.llm.generation.progress",
+      source: "/llm/runtime",
+      subject: conversation_id,
+      data: %{effect_id: effect_id, lifecycle: "progress", token_delta: "hello "},
+      extensions: %{"contract_major" => 1}
+    }
+
+    completed_attrs = %{
+      type: "conv.effect.llm.generation.completed",
+      source: "/llm/runtime",
+      subject: conversation_id,
+      data: %{effect_id: effect_id, lifecycle: "completed", result: %{text: "hello world"}},
+      extensions: %{"contract_major" => 1}
+    }
+
+    assert {:ok, _} = Ingest.ingest(progress_attrs)
+    assert {:ok, _} = Ingest.ingest(completed_attrs)
+
+    assert {:ok, replayed} =
+             eventually(fn ->
+               case Ingest.replay("conv.out.assistant.**", replay_start) do
+                 {:ok, recorded} ->
+                   matches =
+                     Enum.filter(recorded, fn record ->
+                       data = record.signal.data || %{}
+                       effect_value = data[:effect_id] || data["effect_id"]
+                       effect_value == effect_id
+                     end)
+
+                   if length(matches) < 2, do: :retry, else: {:ok, {:ok, matches}}
+
+                 other ->
+                   {:ok, other}
+               end
+             end)
+
+    ordered_types =
+      replayed
+      |> Enum.sort_by(& &1.signal.id)
+      |> Enum.map(& &1.signal.type)
+
+    assert ordered_types == ["conv.out.assistant.delta", "conv.out.assistant.completed"]
+  end
+
   defp eventually(fun, attempts \\ 200)
 
   defp eventually(_fun, 0), do: raise("condition not met within timeout")
