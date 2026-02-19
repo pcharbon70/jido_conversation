@@ -1,0 +1,16 @@
+import Config
+
+config :jido_conversation, JidoConversation.EventSystem,
+  journal_adapter: Jido.Signal.Journal.Adapters.InMemory,
+  partition_count: 1,
+  runtime_partitions: 1,
+  persistent_subscription: [
+    max_in_flight: 10,
+    max_pending: 100,
+    max_attempts: 2,
+    retry_interval: 10
+  ]
+
+config :jido_signal,
+  journal_adapter: Jido.Signal.Journal.Adapters.InMemory,
+  journal_adapter_opts: []
