@@ -252,4 +252,13 @@ defmodule JidoConversation do
   def rollout_runbook_assess(opts \\ []) do
     Operations.rollout_runbook_assess(opts)
   end
+
+  @doc """
+  Evaluates post-rollout verification window acceptance and returns window action items.
+  """
+  @spec rollout_window_assess(keyword()) ::
+          JidoConversation.Operations.rollout_window_assessment()
+  def rollout_window_assess(opts \\ []) do
+    Operations.rollout_window_assess(opts)
+  end
 end
