@@ -126,6 +126,7 @@ defmodule JidoConversation.Ingest.Pipeline do
   defp do_ingest(attrs, opts, state) do
     with {:ok, cause_id} <- normalize_cause_id(opts),
          {:ok, signal} <- normalize_signal(attrs) do
+      signal = maybe_attach_cause_id(signal, cause_id)
       key = dedupe_key(signal)
 
       case Map.get(state.dedupe, key) do
@@ -206,6 +207,13 @@ defmodule JidoConversation.Ingest.Pipeline do
 
   defp publish_signal(bus_name, signal) do
     Bus.publish(bus_name, [signal])
+  end
+
+  defp maybe_attach_cause_id(%Signal{} = signal, nil), do: signal
+
+  defp maybe_attach_cause_id(%Signal{} = signal, cause_id) when is_binary(cause_id) do
+    extensions = Map.put(signal.extensions, "cause_id", cause_id)
+    %{signal | extensions: extensions}
   end
 
   defp dedupe_key(%Signal{} = signal), do: {signal.subject, signal.id}

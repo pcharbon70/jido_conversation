@@ -22,7 +22,8 @@ defmodule JidoConversation.Ingest.PipelineTest do
     assert hd(recorded).signal.id == signal.id
 
     conversation_events = Pipeline.conversation_events(conversation_id)
-    assert Enum.map(conversation_events, & &1.id) == [signal.id]
+    assert Enum.count(conversation_events, &(&1.id == signal.id)) == 1
+    assert Enum.count(conversation_events, &(&1.type == "conv.in.message.received")) == 1
 
     assert {:ok, replayed} = Pipeline.replay("conv.in.**", replay_start)
     assert Enum.any?(replayed, &(&1.signal.id == signal.id))
@@ -45,8 +46,8 @@ defmodule JidoConversation.Ingest.PipelineTest do
     assert {:ok, %{status: :duplicate, recorded: []}} = Pipeline.ingest(attrs)
 
     conversation_events = Pipeline.conversation_events(conversation_id)
-    assert length(conversation_events) == 1
-    assert hd(conversation_events).id == signal_id
+    assert Enum.count(conversation_events, &(&1.id == signal_id)) == 1
+    assert Enum.count(conversation_events, &(&1.type == "conv.in.message.received")) == 1
   end
 
   test "cause_id links derived events for chain tracing" do
