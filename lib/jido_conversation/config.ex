@@ -36,10 +36,15 @@ defmodule JidoConversation.Config do
     [:jido, :signal, :bus, :before_dispatch],
     [:jido, :signal, :bus, :after_dispatch],
     [:jido, :signal, :bus, :dispatch_error],
+    [:jido, :signal, :subscription, :dispatch, :retry],
+    [:jido, :signal, :subscription, :dlq],
     [:jido, :signal, :bus, :subscription_backpressure],
     [:jido, :signal, :bus, :backpressure],
     [:jido, :signal, :bus, :log_prune],
-    [:jido, :dispatch, :exception]
+    [:jido, :dispatch, :exception],
+    [:jido_conversation, :runtime, :queue, :depth],
+    [:jido_conversation, :runtime, :apply, :stop],
+    [:jido_conversation, :runtime, :abort, :latency]
   ]
 
   @type t :: keyword()
