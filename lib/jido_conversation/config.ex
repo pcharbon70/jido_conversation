@@ -13,6 +13,7 @@ defmodule JidoConversation.Config do
     bus_name: :jido_conversation_bus,
     journal_adapter: ETS,
     journal_adapter_opts: [],
+    ingestion_dedupe_cache_size: 50_000,
     partition_count: 4,
     max_log_size: 100_000,
     log_ttl_ms: nil,
@@ -56,6 +57,8 @@ defmodule JidoConversation.Config do
     cfg = event_system()
 
     ensure_atom!(cfg[:bus_name], :bus_name)
+    ensure_atom!(cfg[:journal_adapter], :journal_adapter)
+    ensure_positive_integer!(cfg[:ingestion_dedupe_cache_size], :ingestion_dedupe_cache_size)
     ensure_positive_integer!(cfg[:partition_count], :partition_count)
     ensure_positive_integer!(cfg[:runtime_partitions], :runtime_partitions)
     ensure_binary!(cfg[:subscription_pattern], :subscription_pattern)
@@ -71,6 +74,16 @@ defmodule JidoConversation.Config do
   @spec runtime_partitions() :: pos_integer()
   def runtime_partitions do
     event_system() |> Keyword.fetch!(:runtime_partitions)
+  end
+
+  @spec journal_adapter() :: module()
+  def journal_adapter do
+    event_system() |> Keyword.fetch!(:journal_adapter)
+  end
+
+  @spec ingestion_dedupe_cache_size() :: pos_integer()
+  def ingestion_dedupe_cache_size do
+    event_system() |> Keyword.fetch!(:ingestion_dedupe_cache_size)
   end
 
   @spec subscription_pattern() :: String.t()
