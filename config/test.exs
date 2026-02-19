@@ -2,6 +2,7 @@ import Config
 
 config :jido_conversation, JidoConversation.EventSystem,
   journal_adapter: Jido.Signal.Journal.Adapters.InMemory,
+  ingestion_dedupe_cache_size: 100,
   partition_count: 1,
   runtime_partitions: 1,
   persistent_subscription: [

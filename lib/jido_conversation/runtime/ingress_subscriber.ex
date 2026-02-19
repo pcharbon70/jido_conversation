@@ -36,7 +36,29 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
   end
 
   @impl true
+  def handle_info({:signal, {signal_log_id, signal}}, %{subscription_id: subscription_id} = state) do
+    process_signal(signal)
+
+    case Bus.ack(Config.bus_name(), subscription_id, signal_log_id) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(
+          "failed to ack signal_log_id=#{inspect(signal_log_id)}: #{inspect(reason)}"
+        )
+    end
+
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info({:signal, signal}, state) do
+    process_signal(signal)
+    {:noreply, state}
+  end
+
+  defp process_signal(signal) do
     case Contract.normalize(signal) do
       {:ok, normalized} ->
         Coordinator.enqueue(normalized)
@@ -44,8 +66,6 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
       {:error, reason} ->
         Logger.warning("dropping contract-invalid signal: #{inspect(reason)}")
     end
-
-    {:noreply, state}
   end
 
   @impl true
