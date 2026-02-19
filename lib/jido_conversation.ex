@@ -133,4 +133,46 @@ defmodule JidoConversation do
   def checkpoints do
     Operations.checkpoints()
   end
+
+  @doc """
+  Lists in-flight signals for a persistent subscription.
+  """
+  @spec subscription_in_flight(String.t()) ::
+          {:ok, [JidoConversation.Operations.in_flight_signal()]} | {:error, term()}
+  def subscription_in_flight(subscription_id) do
+    Operations.subscription_in_flight(subscription_id)
+  end
+
+  @doc """
+  Acknowledges a specific signal log id for a persistent subscription.
+  """
+  @spec ack_stream(String.t(), String.t() | integer()) :: :ok | {:error, term()}
+  def ack_stream(subscription_id, signal_log_id) do
+    Operations.ack_stream(subscription_id, signal_log_id)
+  end
+
+  @doc """
+  Lists DLQ entries for a subscription.
+  """
+  @spec dlq_entries(String.t()) :: {:ok, [map()]} | {:error, term()}
+  def dlq_entries(subscription_id) do
+    Operations.dlq_entries(subscription_id)
+  end
+
+  @doc """
+  Re-drives DLQ entries for a subscription.
+  """
+  @spec redrive_dlq(String.t(), keyword()) ::
+          {:ok, %{succeeded: integer(), failed: integer()}} | {:error, term()}
+  def redrive_dlq(subscription_id, opts \\ []) do
+    Operations.redrive_dlq(subscription_id, opts)
+  end
+
+  @doc """
+  Clears DLQ entries for a subscription.
+  """
+  @spec clear_dlq(String.t()) :: :ok | {:error, term()}
+  def clear_dlq(subscription_id) do
+    Operations.clear_dlq(subscription_id)
+  end
 end
