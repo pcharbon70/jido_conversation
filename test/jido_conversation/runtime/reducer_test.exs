@@ -114,4 +114,46 @@ defmodule JidoConversation.Runtime.ReducerTest do
                directive.payload.reason == "conv.in.control.abort_requested"
            end)
   end
+
+  test "llm effect lifecycle emits output projection directives" do
+    state = Reducer.new("conversation-reducer")
+
+    progress =
+      Signal.new!(
+        "conv.effect.llm.generation.progress",
+        %{effect_id: "eff-2", lifecycle: "progress", token_delta: "hello "},
+        id: "eff-progress",
+        source: "/tests/reducer",
+        subject: "conversation-reducer",
+        extensions: %{"contract_major" => 1}
+      )
+
+    completed =
+      Signal.new!(
+        "conv.effect.llm.generation.completed",
+        %{effect_id: "eff-2", lifecycle: "completed", result: %{text: "hello world"}},
+        id: "eff-completed",
+        source: "/tests/reducer",
+        subject: "conversation-reducer",
+        extensions: %{"contract_major" => 1}
+      )
+
+    {:ok, _progress_state, progress_directives} =
+      Reducer.apply_event(state, progress, priority: 2, partition_id: 0, scheduler_seq: 1)
+
+    {:ok, _completed_state, completed_directives} =
+      Reducer.apply_event(state, completed, priority: 1, partition_id: 0, scheduler_seq: 2)
+
+    assert Enum.any?(progress_directives, fn directive ->
+             directive.type == :emit_output and
+               directive.payload.output_type == "conv.out.assistant.delta" and
+               directive.payload.data.delta == "hello "
+           end)
+
+    assert Enum.any?(completed_directives, fn directive ->
+             directive.type == :emit_output and
+               directive.payload.output_type == "conv.out.assistant.completed" and
+               directive.payload.data.content == "hello world"
+           end)
+  end
 end

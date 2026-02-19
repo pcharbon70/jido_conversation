@@ -12,6 +12,7 @@ defmodule JidoConversation.Runtime.PartitionWorker do
 
   alias Jido.Signal
   alias JidoConversation.Ingest
+  alias JidoConversation.Ingest.Adapters.Outbound
   alias JidoConversation.Runtime.EffectManager
   alias JidoConversation.Runtime.Reducer
   alias JidoConversation.Runtime.Scheduler
@@ -213,7 +214,19 @@ defmodule JidoConversation.Runtime.PartitionWorker do
     end)
   end
 
-  defp execute_directive(%{type: :emit_applied_marker, payload: payload, cause_id: cause_id}) do
+  defp execute_directive(%{type: type} = directive) do
+    case type do
+      :emit_applied_marker -> execute_emit_applied_marker(directive)
+      :start_effect -> execute_start_effect(directive)
+      :cancel_effects -> execute_cancel_effects(directive)
+      :emit_output -> execute_emit_output(directive)
+      _unknown -> 0
+    end
+  end
+
+  defp execute_directive(_directive), do: 0
+
+  defp execute_emit_applied_marker(%{payload: payload, cause_id: cause_id}) do
     attrs = %{
       type: "conv.applied.event.applied",
       source: "/runtime/reducer",
@@ -241,14 +254,14 @@ defmodule JidoConversation.Runtime.PartitionWorker do
     end
   end
 
-  defp execute_directive(%{type: :start_effect, payload: payload, cause_id: cause_id}) do
+  defp execute_start_effect(%{payload: payload, cause_id: cause_id}) do
     EffectManager.start_effect(payload, cause_id)
     0
   end
 
-  defp execute_directive(%{type: :cancel_effects, payload: payload, cause_id: cause_id}) do
-    conversation_id = payload.conversation_id || payload["conversation_id"]
-    reason = payload.reason || payload["reason"] || "cancel_requested"
+  defp execute_cancel_effects(%{payload: payload, cause_id: cause_id}) do
+    conversation_id = get_payload_field(payload, :conversation_id)
+    reason = get_payload_field(payload, :reason, "cancel_requested")
 
     if is_binary(conversation_id) and is_binary(reason) do
       EffectManager.cancel_conversation(conversation_id, reason, cause_id)
@@ -257,5 +270,31 @@ defmodule JidoConversation.Runtime.PartitionWorker do
     0
   end
 
-  defp execute_directive(_directive), do: 0
+  defp execute_emit_output(%{payload: payload, cause_id: cause_id}) do
+    conversation_id = get_payload_field(payload, :conversation_id)
+    output_type = get_payload_field(payload, :output_type)
+    output_id = get_payload_field(payload, :output_id)
+    channel = get_payload_field(payload, :channel, "primary")
+    source = get_payload_field(payload, :source, "/runtime/projections")
+    data = get_payload_field(payload, :data, %{})
+
+    case Outbound.ingest_output(conversation_id, output_type, output_id, channel, data,
+           cause_id: cause_id,
+           source: source
+         ) do
+      {:ok, _result} ->
+        1
+
+      {:error, reason} ->
+        Logger.warning(
+          "failed to emit output event type=#{inspect(output_type)} id=#{inspect(output_id)}: #{inspect(reason)}"
+        )
+
+        0
+    end
+  end
+
+  defp get_payload_field(payload, key, default \\ nil) when is_map(payload) do
+    Map.get(payload, key) || Map.get(payload, to_string(key)) || default
+  end
 end

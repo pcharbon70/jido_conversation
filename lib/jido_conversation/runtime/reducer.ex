@@ -61,10 +61,24 @@ defmodule JidoConversation.Runtime.Reducer do
           cause_id: String.t()
         }
 
+  @type emit_output_directive :: %{
+          type: :emit_output,
+          payload: %{
+            conversation_id: String.t(),
+            output_type: String.t(),
+            output_id: String.t(),
+            channel: String.t(),
+            source: String.t(),
+            data: map()
+          },
+          cause_id: String.t()
+        }
+
   @type directive ::
           applied_marker_directive()
           | start_effect_directive()
           | cancel_effects_directive()
+          | emit_output_directive()
 
   @spec new(String.t()) :: conversation_state()
   def new(conversation_id) when is_binary(conversation_id) do
@@ -99,6 +113,8 @@ defmodule JidoConversation.Runtime.Reducer do
       if String.starts_with?(signal.type, "conv.applied.") do
         []
       else
+        derived_directives = effect_directives(state, signal) ++ output_directives(signal)
+
         [
           %{
             type: :emit_applied_marker,
@@ -112,7 +128,7 @@ defmodule JidoConversation.Runtime.Reducer do
             },
             cause_id: signal.id
           }
-          | effect_directives(state, signal)
+          | derived_directives
         ]
       end
 
@@ -219,6 +235,26 @@ defmodule JidoConversation.Runtime.Reducer do
 
   defp effect_directives(_state, _signal), do: []
 
+  defp output_directives(%Signal{type: "conv.effect.llm.generation.progress"} = signal) do
+    case assistant_delta_directive(signal) do
+      nil -> []
+      directive -> [directive]
+    end
+  end
+
+  defp output_directives(%Signal{type: "conv.effect.llm.generation.completed"} = signal) do
+    [assistant_completed_directive(signal)]
+  end
+
+  defp output_directives(
+         %Signal{type: <<"conv.effect.tool.execution.", lifecycle::binary>>} = signal
+       )
+       when lifecycle in ["started", "progress", "completed", "failed", "canceled"] do
+    [tool_status_directive(signal, lifecycle)]
+  end
+
+  defp output_directives(_signal), do: []
+
   defp start_effect_directive(%Signal{} = signal, class, kind) do
     payload = %{
       effect_id: "#{effect_id_prefix(class)}-#{signal.id}",
@@ -237,6 +273,107 @@ defmodule JidoConversation.Runtime.Reducer do
     }
   end
 
+  defp assistant_delta_directive(%Signal{} = signal) do
+    delta =
+      first_non_empty([
+        get_field(signal.data, :token_delta),
+        get_field(signal.data, :delta),
+        get_nested_field(signal.data, :result, :delta),
+        get_nested_field(signal.data, :result, :text),
+        get_field(signal.data, :status)
+      ])
+
+    if is_binary(delta) and String.trim(delta) != "" do
+      effect_id = get_field(signal.data, :effect_id) || signal.id
+      output_id = "assistant-#{effect_id}"
+
+      output_directive(
+        signal,
+        "conv.out.assistant.delta",
+        output_id,
+        output_channel(signal),
+        %{
+          effect_id: effect_id,
+          lifecycle: "progress",
+          delta: delta
+        }
+      )
+    end
+  end
+
+  defp assistant_completed_directive(%Signal{} = signal) do
+    effect_id = get_field(signal.data, :effect_id) || signal.id
+    output_id = "assistant-#{effect_id}"
+
+    content =
+      first_non_empty([
+        get_field(signal.data, :content),
+        get_nested_field(signal.data, :result, :text),
+        get_nested_field(signal.data, :result, :summary),
+        format_result(get_field(signal.data, :result))
+      ]) || "completed"
+
+    output_directive(
+      signal,
+      "conv.out.assistant.completed",
+      output_id,
+      output_channel(signal),
+      %{
+        effect_id: effect_id,
+        lifecycle: "completed",
+        content: content
+      }
+    )
+  end
+
+  defp tool_status_directive(%Signal{} = signal, lifecycle) do
+    effect_id = get_field(signal.data, :effect_id) || signal.id
+    output_id = "tool-#{effect_id}"
+
+    message =
+      first_non_empty([
+        get_field(signal.data, :message),
+        get_field(signal.data, :reason),
+        get_field(signal.data, :status),
+        lifecycle
+      ])
+
+    output_directive(
+      signal,
+      "conv.out.tool.status",
+      output_id,
+      output_channel(signal),
+      %{
+        effect_id: effect_id,
+        lifecycle: lifecycle,
+        message: message
+      }
+    )
+  end
+
+  defp output_directive(%Signal{} = signal, output_type, output_id, channel, data) do
+    %{
+      type: :emit_output,
+      payload: %{
+        conversation_id: signal.subject || "default",
+        output_type: output_type,
+        output_id: output_id,
+        channel: channel,
+        source: "/runtime/projections",
+        data: data
+      },
+      cause_id: signal.id
+    }
+  end
+
+  defp output_channel(%Signal{} = signal) do
+    first_non_empty([
+      get_field(signal.data, :channel),
+      get_field(signal.data, :ingress),
+      "primary"
+    ])
+  end
+
   defp stream_family(type) when is_binary(type) do
     cond do
       String.starts_with?(type, "conv.in.") -> :in
@@ -253,6 +390,28 @@ defmodule JidoConversation.Runtime.Reducer do
   end
 
   defp get_field(_data, _key), do: nil
+
+  defp get_nested_field(data, parent_key, child_key) when is_map(data) do
+    case get_field(data, parent_key) do
+      nested when is_map(nested) -> get_field(nested, child_key)
+      _ -> nil
+    end
+  end
+
+  defp get_nested_field(_data, _parent_key, _child_key), do: nil
+
+  defp first_non_empty(values) when is_list(values) do
+    Enum.find(values, fn
+      value when is_binary(value) -> String.trim(value) != ""
+      nil -> false
+      _ -> true
+    end)
+  end
+
+  defp format_result(nil), do: nil
+  defp format_result(result) when is_binary(result), do: result
+  defp format_result(result) when is_map(result), do: inspect(result)
+  defp format_result(_result), do: nil
 
   defp normalize_map(value) when is_map(value), do: value
   defp normalize_map(_value), do: %{}

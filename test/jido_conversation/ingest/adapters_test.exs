@@ -4,6 +4,7 @@ defmodule JidoConversation.Ingest.AdaptersTest do
   alias JidoConversation.Ingest.Adapters.Control
   alias JidoConversation.Ingest.Adapters.Llm
   alias JidoConversation.Ingest.Adapters.Messaging
+  alias JidoConversation.Ingest.Adapters.Outbound
   alias JidoConversation.Ingest.Adapters.Timer
   alias JidoConversation.Ingest.Adapters.Tool
   alias JidoConversation.Ingest.Pipeline
@@ -23,6 +24,25 @@ defmodule JidoConversation.Ingest.AdaptersTest do
 
     conversation_events = Pipeline.conversation_events(conversation_id)
     assert Enum.any?(conversation_events, &(&1.id == signal.id))
+  end
+
+  test "messaging adapter ingests normalized channel message payload" do
+    conversation_id = unique_id("conversation")
+
+    assert {:ok, %{signal: signal}} =
+             Messaging.ingest_channel_message(%{
+               conversation_id: conversation_id,
+               id: unique_id("msg"),
+               channel: "slack",
+               text: "hello from channel",
+               role: :user,
+               metadata: %{workspace: "ops"}
+             })
+
+    assert signal.type == "conv.in.message.received"
+    assert signal.source == "/messaging/slack"
+    assert signal.data[:content] == "hello from channel"
+    assert signal.data[:role] == "user"
   end
 
   test "tool and llm adapters can preserve causal linkage" do
@@ -66,6 +86,40 @@ defmodule JidoConversation.Ingest.AdaptersTest do
 
     assert control_signal.id in event_ids
     assert timer_signal.id in event_ids
+  end
+
+  test "outbound adapter emits conv.out assistant and tool projection events" do
+    conversation_id = unique_id("conversation")
+
+    assert {:ok, %{signal: delta_signal}} =
+             Outbound.emit_assistant_delta(
+               conversation_id,
+               unique_id("out"),
+               "web",
+               "partial ",
+               %{effect_id: unique_id("effect")}
+             )
+
+    assert {:ok, %{signal: completed_signal}} =
+             Outbound.emit_assistant_completed(
+               conversation_id,
+               unique_id("out"),
+               "web",
+               "final response"
+             )
+
+    assert {:ok, %{signal: tool_signal}} =
+             Outbound.emit_tool_status(
+               conversation_id,
+               unique_id("tool"),
+               "web",
+               "completed",
+               %{effect_id: unique_id("effect")}
+             )
+
+    assert delta_signal.type == "conv.out.assistant.delta"
+    assert completed_signal.type == "conv.out.assistant.completed"
+    assert tool_signal.type == "conv.out.tool.status"
   end
 
   defp unique_id(prefix) do
