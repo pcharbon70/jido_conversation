@@ -243,4 +243,13 @@ defmodule JidoConversation do
   def rollout_evaluate(opts \\ []) do
     Operations.rollout_evaluate(opts)
   end
+
+  @doc """
+  Produces rollout gate assessment and structured operator action items.
+  """
+  @spec rollout_runbook_assess(keyword()) ::
+          JidoConversation.Operations.rollout_runbook_assessment()
+  def rollout_runbook_assess(opts \\ []) do
+    Operations.rollout_runbook_assess(opts)
+  end
 end

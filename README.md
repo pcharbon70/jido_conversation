@@ -4,8 +4,9 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 
 ## Current status
 
-- Phase 0 complete: architecture baseline, ADRs, taxonomy, SLOs, failure matrix.
-- Phase 1 in progress: project foundation and runtime skeleton.
+- Phases 0-13 complete:
+  - architecture baseline through reliability hardening
+  - rollout migration, verification, controller, manager, and runbook tooling
 
 ## Local setup
 
