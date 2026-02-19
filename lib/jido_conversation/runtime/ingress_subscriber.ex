@@ -7,6 +7,7 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
 
   require Logger
 
+  alias Jido.Signal
   alias Jido.Signal.Bus
   alias JidoConversation.Config
   alias JidoConversation.Runtime.Coordinator
@@ -38,25 +39,19 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
   @impl true
   def handle_info({:signal, {signal_log_id, signal}}, %{subscription_id: subscription_id} = state) do
     process_signal(signal)
-
-    case Bus.ack(Config.bus_name(), subscription_id, signal_log_id) do
-      :ok ->
-        :ok
-
-      {:error, reason} ->
-        Logger.warning(
-          "failed to ack signal_log_id=#{inspect(signal_log_id)}: #{inspect(reason)}"
-        )
-    end
+    ack_signal_log_id(subscription_id, signal_log_id)
 
     {:noreply, state}
   end
 
   @impl true
-  def handle_info({:signal, signal}, state) do
+  def handle_info({:signal, signal}, %{subscription_id: subscription_id} = state) do
     process_signal(signal)
+    ack_signal(subscription_id, signal)
     {:noreply, state}
   end
+
+  defp process_signal(%Signal{type: <<"conv.applied.", _::binary>>}), do: :ok
 
   defp process_signal(signal) do
     case Contract.normalize(signal) do
@@ -65,6 +60,50 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
 
       {:error, reason} ->
         Logger.warning("dropping contract-invalid signal: #{inspect(reason)}")
+    end
+  end
+
+  defp ack_signal(nil, _signal), do: :ok
+
+  defp ack_signal(subscription_id, %Signal{id: signal_id}) when is_binary(signal_id) do
+    case resolve_signal_log_id(subscription_id, signal_id) do
+      {:ok, signal_log_id} -> ack_signal_log_id(subscription_id, signal_log_id)
+      :error -> :ok
+    end
+  end
+
+  defp ack_signal(_subscription_id, _signal), do: :ok
+
+  defp resolve_signal_log_id(subscription_id, signal_id) do
+    with {:ok, bus_pid} <- Bus.whereis(Config.bus_name()),
+         bus_state <- :sys.get_state(bus_pid),
+         subscriptions when is_map(subscriptions) <- Map.get(bus_state, :subscriptions),
+         subscription when not is_nil(subscription) <- Map.get(subscriptions, subscription_id),
+         persistence_pid when is_pid(persistence_pid) <- Map.get(subscription, :persistence_pid),
+         true <- Process.alive?(persistence_pid),
+         persistence_state <- :sys.get_state(persistence_pid),
+         in_flight when is_map(in_flight) <- Map.get(persistence_state, :in_flight_signals),
+         {signal_log_id, _signal} <-
+           Enum.find(in_flight, fn {_signal_log_id, in_flight_signal} ->
+             in_flight_signal.id == signal_id
+           end) do
+      {:ok, signal_log_id}
+    else
+      _ -> :error
+    end
+  end
+
+  defp ack_signal_log_id(nil, _signal_log_id), do: :ok
+
+  defp ack_signal_log_id(subscription_id, signal_log_id) do
+    case Bus.ack(Config.bus_name(), subscription_id, signal_log_id) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(
+          "failed to ack signal_log_id=#{inspect(signal_log_id)}: #{inspect(reason)}"
+        )
     end
   end
 
