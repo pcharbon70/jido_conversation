@@ -32,6 +32,7 @@ defmodule JidoConversation.Config do
     ],
     rollout: [
       mode: :event_based,
+      stage: :canary,
       canary: [
         enabled: false,
         subjects: [],
@@ -50,6 +51,10 @@ defmodule JidoConversation.Config do
         max_mismatch_rate: 0.05,
         max_legacy_unavailable_rate: 0.1,
         max_drop_rate: 0.2
+      ],
+      controller: [
+        require_accept_streak: 2,
+        rollback_stage: :shadow
       ]
     ]
   ]
@@ -99,6 +104,10 @@ defmodule JidoConversation.Config do
           :verification, verification_defaults, verification_overrides
           when is_list(verification_overrides) ->
             Keyword.merge(verification_defaults, verification_overrides)
+
+          :controller, controller_defaults, controller_overrides
+          when is_list(controller_overrides) ->
+            Keyword.merge(controller_defaults, controller_overrides)
 
           _rollout_key, _rollout_defaults, rollout_override ->
             rollout_override
@@ -172,6 +181,11 @@ defmodule JidoConversation.Config do
     rollout() |> Keyword.fetch!(:canary)
   end
 
+  @spec rollout_stage() :: JidoConversation.Rollout.Controller.stage()
+  def rollout_stage do
+    rollout() |> Keyword.fetch!(:stage)
+  end
+
   @spec rollout_parity() :: keyword()
   def rollout_parity do
     rollout() |> Keyword.fetch!(:parity)
@@ -180,6 +194,11 @@ defmodule JidoConversation.Config do
   @spec rollout_verification() :: keyword()
   def rollout_verification do
     rollout() |> Keyword.fetch!(:verification)
+  end
+
+  @spec rollout_controller() :: keyword()
+  def rollout_controller do
+    rollout() |> Keyword.fetch!(:controller)
   end
 
   def telemetry_events, do: @telemetry_events
@@ -255,15 +274,22 @@ defmodule JidoConversation.Config do
 
   defp validate_rollout!(rollout) when is_list(rollout) do
     mode = Keyword.fetch!(rollout, :mode)
+    stage = Keyword.fetch!(rollout, :stage)
 
     if mode not in [:event_based, :shadow, :disabled] do
       raise ArgumentError,
             "expected rollout.mode to be :event_based, :shadow, or :disabled, got: #{inspect(mode)}"
     end
 
+    if stage not in [:shadow, :canary, :ramp, :full] do
+      raise ArgumentError,
+            "expected rollout.stage to be :shadow, :canary, :ramp, or :full, got: #{inspect(stage)}"
+    end
+
     validate_rollout_canary!(Keyword.fetch!(rollout, :canary))
     validate_rollout_parity!(Keyword.fetch!(rollout, :parity))
     validate_rollout_verification!(Keyword.fetch!(rollout, :verification))
+    validate_rollout_controller!(Keyword.fetch!(rollout, :controller))
     :ok
   end
 
@@ -337,6 +363,25 @@ defmodule JidoConversation.Config do
   defp validate_rollout_verification!(other) do
     raise ArgumentError,
           "expected rollout.verification to be a keyword list, got: #{inspect(other)}"
+  end
+
+  defp validate_rollout_controller!(controller) when is_list(controller) do
+    require_accept_streak = Keyword.fetch!(controller, :require_accept_streak)
+    rollback_stage = Keyword.fetch!(controller, :rollback_stage)
+
+    ensure_positive_integer!(require_accept_streak, :"rollout.controller.require_accept_streak")
+
+    if rollback_stage not in [:shadow, :canary, :ramp, :full] do
+      raise ArgumentError,
+            "expected rollout.controller.rollback_stage to be a rollout stage atom, got: #{inspect(rollback_stage)}"
+    end
+
+    :ok
+  end
+
+  defp validate_rollout_controller!(other) do
+    raise ArgumentError,
+          "expected rollout.controller to be a keyword list, got: #{inspect(other)}"
   end
 
   defp validate_binary_list!(values, _key) when is_list(values) do
