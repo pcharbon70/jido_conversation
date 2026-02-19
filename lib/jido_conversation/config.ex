@@ -24,6 +24,11 @@ defmodule JidoConversation.Config do
       max_pending: 5_000,
       max_attempts: 5,
       retry_interval: 500
+    ],
+    effect_runtime: [
+      llm: [max_attempts: 3, backoff_ms: 100, timeout_ms: 5_000],
+      tool: [max_attempts: 3, backoff_ms: 100, timeout_ms: 3_000],
+      timer: [max_attempts: 2, backoff_ms: 50, timeout_ms: 1_000]
     ]
   ]
 
@@ -47,6 +52,15 @@ defmodule JidoConversation.Config do
       :persistent_subscription, defaults, overrides when is_list(overrides) ->
         Keyword.merge(defaults, overrides)
 
+      :effect_runtime, defaults, overrides when is_list(overrides) ->
+        Keyword.merge(defaults, overrides, fn
+          _class, class_defaults, class_overrides when is_list(class_overrides) ->
+            Keyword.merge(class_defaults, class_overrides)
+
+          _class, _class_defaults, class_overrides ->
+            class_overrides
+        end)
+
       _key, _defaults, overrides ->
         overrides
     end)
@@ -62,6 +76,7 @@ defmodule JidoConversation.Config do
     ensure_positive_integer!(cfg[:partition_count], :partition_count)
     ensure_positive_integer!(cfg[:runtime_partitions], :runtime_partitions)
     ensure_binary!(cfg[:subscription_pattern], :subscription_pattern)
+    validate_effect_runtime!(cfg[:effect_runtime])
 
     :ok
   end
@@ -89,6 +104,13 @@ defmodule JidoConversation.Config do
   @spec subscription_pattern() :: String.t()
   def subscription_pattern do
     event_system() |> Keyword.fetch!(:subscription_pattern)
+  end
+
+  @spec effect_runtime_policy(:llm | :tool | :timer) :: keyword()
+  def effect_runtime_policy(class) when class in [:llm, :tool, :timer] do
+    event_system()
+    |> Keyword.fetch!(:effect_runtime)
+    |> Keyword.fetch!(class)
   end
 
   def telemetry_events, do: @telemetry_events
@@ -133,5 +155,32 @@ defmodule JidoConversation.Config do
   defp ensure_positive_integer!(value, key) do
     raise ArgumentError,
           "expected #{key} to be a positive integer, got: #{inspect(value)}"
+  end
+
+  defp validate_effect_runtime!(policies) when is_list(policies) do
+    Enum.each([:llm, :tool, :timer], fn class ->
+      class_policy = Keyword.fetch!(policies, class)
+
+      ensure_positive_integer!(
+        Keyword.fetch!(class_policy, :max_attempts),
+        :"effect_runtime.#{class}.max_attempts"
+      )
+
+      ensure_positive_integer!(
+        Keyword.fetch!(class_policy, :backoff_ms),
+        :"effect_runtime.#{class}.backoff_ms"
+      )
+
+      ensure_positive_integer!(
+        Keyword.fetch!(class_policy, :timeout_ms),
+        :"effect_runtime.#{class}.timeout_ms"
+      )
+    end)
+
+    :ok
+  end
+
+  defp validate_effect_runtime!(other) do
+    raise ArgumentError, "expected effect_runtime to be a keyword list, got: #{inspect(other)}"
   end
 end
