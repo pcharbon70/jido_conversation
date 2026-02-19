@@ -30,6 +30,13 @@ defmodule JidoConversation.Operations do
           retry_interval: pos_integer() | nil
         }
 
+  @type in_flight_signal :: %{
+          signal_log_id: String.t(),
+          signal_id: String.t(),
+          signal_type: String.t(),
+          subject: String.t() | nil
+        }
+
   @spec replay_conversation(String.t(), keyword()) ::
           {:ok, [RecordedSignal.t()]} | {:error, term()}
   def replay_conversation(conversation_id, opts \\ [])
@@ -112,6 +119,56 @@ defmodule JidoConversation.Operations do
     Bus.unsubscribe(Config.bus_name(), subscription_id, opts)
   end
 
+  @spec ack_stream(String.t(), String.t() | integer()) :: :ok | {:error, term()}
+  def ack_stream(subscription_id, signal_log_id)
+      when is_binary(subscription_id) and (is_binary(signal_log_id) or is_integer(signal_log_id)) do
+    Bus.ack(Config.bus_name(), subscription_id, signal_log_id)
+  end
+
+  @spec subscription_in_flight(String.t()) :: {:ok, [in_flight_signal()]} | {:error, term()}
+  def subscription_in_flight(subscription_id) when is_binary(subscription_id) do
+    with {:ok, bus_pid} <- Bus.whereis(Config.bus_name()),
+         {:ok, subscription} <- fetch_subscription(bus_pid, subscription_id),
+         {:ok, persistence_pid} <- fetch_persistence_pid(subscription),
+         true <- Process.alive?(persistence_pid) do
+      in_flight =
+        persistence_pid
+        |> :sys.get_state()
+        |> Map.get(:in_flight_signals, %{})
+        |> Enum.map(fn {signal_log_id, signal} ->
+          %{
+            signal_log_id: signal_log_id,
+            signal_id: signal.id,
+            signal_type: signal.type,
+            subject: signal.subject
+          }
+        end)
+        |> Enum.sort_by(& &1.signal_log_id)
+
+      {:ok, in_flight}
+    else
+      false -> {:error, :persistence_not_alive}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  @spec dlq_entries(String.t()) :: {:ok, [map()]} | {:error, term()}
+  def dlq_entries(subscription_id) when is_binary(subscription_id) do
+    Bus.dlq_entries(Config.bus_name(), subscription_id)
+  end
+
+  @spec redrive_dlq(String.t(), keyword()) ::
+          {:ok, %{succeeded: integer(), failed: integer()}} | {:error, term()}
+  def redrive_dlq(subscription_id, opts \\ [])
+      when is_binary(subscription_id) and is_list(opts) do
+    Bus.redrive_dlq(Config.bus_name(), subscription_id, opts)
+  end
+
+  @spec clear_dlq(String.t()) :: :ok | {:error, term()}
+  def clear_dlq(subscription_id) when is_binary(subscription_id) do
+    Bus.clear_dlq(Config.bus_name(), subscription_id)
+  end
+
   @spec stream_subscriptions() :: {:ok, [subscription_summary()]} | {:error, term()}
   def stream_subscriptions do
     with {:ok, bus_pid} <- Bus.whereis(Config.bus_name()) do
@@ -158,6 +215,30 @@ defmodule JidoConversation.Operations do
 
   defp normalize_subscriptions(subscriptions) when is_map(subscriptions), do: subscriptions
   defp normalize_subscriptions(_subscriptions), do: %{}
+
+  defp fetch_subscription(bus_pid, subscription_id) when is_pid(bus_pid) do
+    subscriptions =
+      bus_pid
+      |> :sys.get_state()
+      |> Map.get(:subscriptions, %{})
+      |> normalize_subscriptions()
+
+    case Map.get(subscriptions, subscription_id) do
+      nil -> {:error, :subscription_not_found}
+      subscription -> {:ok, subscription}
+    end
+  end
+
+  defp fetch_persistence_pid(subscription) do
+    if Map.get(subscription, :persistent?, false) do
+      case Map.get(subscription, :persistence_pid) do
+        pid when is_pid(pid) -> {:ok, pid}
+        _other -> {:error, :subscription_not_persistent}
+      end
+    else
+      {:error, :subscription_not_persistent}
+    end
+  end
 
   defp checkpoint_for_subscription(_subscription_id, %{persistent?: false}), do: []
 
