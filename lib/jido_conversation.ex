@@ -219,4 +219,28 @@ defmodule JidoConversation do
   def rollout_recommend(opts \\ []) do
     Operations.rollout_recommend(opts)
   end
+
+  @doc """
+  Returns rollout manager state with streaks, history, and apply counters.
+  """
+  @spec rollout_manager_snapshot() :: JidoConversation.Operations.rollout_manager_snapshot()
+  def rollout_manager_snapshot do
+    Operations.rollout_manager_snapshot()
+  end
+
+  @doc """
+  Resets rollout manager streak/history counters.
+  """
+  @spec rollout_manager_reset() :: :ok
+  def rollout_manager_reset do
+    Operations.rollout_manager_reset()
+  end
+
+  @doc """
+  Evaluates verification plus controller recommendation and optionally applies rollout transitions.
+  """
+  @spec rollout_evaluate(keyword()) :: JidoConversation.Operations.rollout_evaluation_result()
+  def rollout_evaluate(opts \\ []) do
+    Operations.rollout_evaluate(opts)
+  end
 end

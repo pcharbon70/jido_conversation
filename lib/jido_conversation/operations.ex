@@ -9,6 +9,7 @@ defmodule JidoConversation.Operations do
   alias JidoConversation.Config
   alias JidoConversation.Ingest
   alias JidoConversation.Rollout.Controller
+  alias JidoConversation.Rollout.Manager
   alias JidoConversation.Rollout.Parity
   alias JidoConversation.Rollout.Reporter
   alias JidoConversation.Rollout.Verification
@@ -44,6 +45,8 @@ defmodule JidoConversation.Operations do
   @type rollout_snapshot :: JidoConversation.Rollout.Reporter.snapshot()
   @type rollout_verification_report :: JidoConversation.Rollout.Verification.report()
   @type rollout_recommendation :: JidoConversation.Rollout.Controller.recommendation()
+  @type rollout_manager_snapshot :: JidoConversation.Rollout.Manager.snapshot()
+  @type rollout_evaluation_result :: JidoConversation.Rollout.Manager.evaluation_result()
 
   @spec replay_conversation(String.t(), keyword()) ::
           {:ok, [RecordedSignal.t()]} | {:error, term()}
@@ -212,6 +215,21 @@ defmodule JidoConversation.Operations do
     recommendation = Controller.recommend(verification, controller_opts)
 
     %{verification: verification, recommendation: recommendation}
+  end
+
+  @spec rollout_manager_snapshot() :: rollout_manager_snapshot()
+  def rollout_manager_snapshot do
+    Manager.snapshot()
+  end
+
+  @spec rollout_manager_reset() :: :ok
+  def rollout_manager_reset do
+    Manager.reset()
+  end
+
+  @spec rollout_evaluate(keyword()) :: rollout_evaluation_result()
+  def rollout_evaluate(opts \\ []) when is_list(opts) do
+    Manager.evaluate(opts)
   end
 
   @spec stream_subscriptions() :: {:ok, [subscription_summary()]} | {:error, term()}
