@@ -18,6 +18,11 @@ defmodule JidoConversation.Runtime.PartitionWorker do
   alias JidoConversation.Runtime.Scheduler
 
   @max_steps_per_drain 200
+  @control_latency_types [
+    "conv.in.control.abort_requested",
+    "conv.in.control.stop_requested",
+    "conv.in.control.cancel_requested"
+  ]
 
   @type state :: %{
           partition_id: non_neg_integer(),
@@ -78,6 +83,7 @@ defmodule JidoConversation.Runtime.PartitionWorker do
       |> Map.put(:next_seq, state.next_seq + 1)
       |> Map.put(:queue_entries, state.queue_entries ++ [entry])
       |> drain_and_schedule()
+      |> emit_queue_depth()
 
     {:noreply, state}
   end
@@ -88,6 +94,7 @@ defmodule JidoConversation.Runtime.PartitionWorker do
       state
       |> Map.put(:drain_scheduled?, false)
       |> drain_and_schedule()
+      |> emit_queue_depth()
 
     {:noreply, state}
   end
@@ -183,12 +190,17 @@ defmodule JidoConversation.Runtime.PartitionWorker do
         Reducer.new(conversation_id)
       end)
 
-    {:ok, updated_conversation, directives} =
-      Reducer.apply_event(conversation_state, entry.signal,
-        priority: entry.priority,
-        partition_id: state.partition_id,
-        scheduler_seq: entry.seq
-      )
+    {{:ok, updated_conversation, directives}, duration_us} =
+      timed_us(fn ->
+        Reducer.apply_event(conversation_state, entry.signal,
+          priority: entry.priority,
+          partition_id: state.partition_id,
+          scheduler_seq: entry.seq
+        )
+      end)
+
+    emit_apply_latency(state.partition_id, conversation_id, entry, duration_us)
+    emit_control_latency(state.partition_id, conversation_id, entry)
 
     emitted_count = execute_directives(directives)
 
@@ -296,5 +308,57 @@ defmodule JidoConversation.Runtime.PartitionWorker do
 
   defp get_payload_field(payload, key, default \\ nil) when is_map(payload) do
     Map.get(payload, key) || Map.get(payload, to_string(key)) || default
+  end
+
+  defp timed_us(fun) when is_function(fun, 0) do
+    start_us = System.monotonic_time(:microsecond)
+    result = fun.()
+    {result, System.monotonic_time(:microsecond) - start_us}
+  end
+
+  defp emit_queue_depth(state) do
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :queue, :depth],
+      %{depth: length(state.queue_entries)},
+      %{
+        partition_id: state.partition_id,
+        drain_scheduled?: state.drain_scheduled?
+      }
+    )
+
+    state
+  end
+
+  defp emit_apply_latency(partition_id, conversation_id, entry, duration_us) do
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :apply, :stop],
+      %{duration_us: max(duration_us, 0)},
+      %{
+        partition_id: partition_id,
+        conversation_id: conversation_id,
+        signal_id: entry.signal.id,
+        signal_type: entry.signal.type,
+        priority: entry.priority,
+        scheduler_seq: entry.seq
+      }
+    )
+  end
+
+  defp emit_control_latency(partition_id, conversation_id, entry) do
+    if entry.signal.type in @control_latency_types and is_integer(entry.enqueued_at_us) do
+      duration_us = max(System.monotonic_time(:microsecond) - entry.enqueued_at_us, 0)
+
+      :telemetry.execute(
+        [:jido_conversation, :runtime, :abort, :latency],
+        %{duration_us: duration_us},
+        %{
+          partition_id: partition_id,
+          conversation_id: conversation_id,
+          signal_id: entry.signal.id,
+          signal_type: entry.signal.type,
+          scheduler_seq: entry.seq
+        }
+      )
+    end
   end
 end

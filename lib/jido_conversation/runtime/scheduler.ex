@@ -18,7 +18,8 @@ defmodule JidoConversation.Runtime.Scheduler do
           signal: Signal.t(),
           priority: priority(),
           cause_id: String.t() | nil,
-          subject: String.t()
+          subject: String.t(),
+          enqueued_at_us: integer()
         }
 
   @type scheduler_state :: %{
@@ -50,7 +51,8 @@ defmodule JidoConversation.Runtime.Scheduler do
       signal: signal,
       priority: priority_for(signal.type),
       cause_id: cause_id(signal),
-      subject: signal.subject || "default"
+      subject: signal.subject || "default",
+      enqueued_at_us: System.monotonic_time(:microsecond)
     }
   end
 

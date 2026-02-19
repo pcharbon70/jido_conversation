@@ -147,7 +147,7 @@ defmodule JidoConversation.Runtime.PartitionWorkerTest do
 
     ordered_types =
       replayed
-      |> Enum.sort_by(& &1.signal.id)
+      |> Enum.sort_by(& &1.id)
       |> Enum.map(& &1.signal.type)
 
     assert ordered_types == ["conv.out.assistant.delta", "conv.out.assistant.completed"]
