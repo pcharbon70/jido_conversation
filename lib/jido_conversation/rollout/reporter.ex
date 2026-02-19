@@ -14,6 +14,9 @@ defmodule JidoConversation.Rollout.Reporter do
           reason_counts: %{atom() => non_neg_integer()},
           parity_sample_count: non_neg_integer(),
           parity_report_count: non_neg_integer(),
+          parity_status_counts: %{
+            JidoConversation.Rollout.Parity.parity_status() => non_neg_integer()
+          },
           recent_parity_samples: [map()],
           recent_parity_reports: [map()]
         }
@@ -89,10 +92,14 @@ defmodule JidoConversation.Rollout.Reporter do
   end
 
   def handle_cast({:record_parity_report, report}, state) do
+    status = Map.get(report, :status) || Map.get(report, "status")
+    parity_status_counts = increment_parity_status(state.parity_status_counts, status)
+
     {:noreply,
      %{
        state
        | parity_report_count: state.parity_report_count + 1,
+         parity_status_counts: parity_status_counts,
          recent_parity_reports:
            bounded_prepend(state.recent_parity_reports, report, state.max_reports)
      }}
@@ -105,6 +112,7 @@ defmodule JidoConversation.Rollout.Reporter do
       reason_counts: state.reason_counts,
       parity_sample_count: state.parity_sample_count,
       parity_report_count: state.parity_report_count,
+      parity_status_counts: state.parity_status_counts,
       recent_parity_samples: state.recent_parity_samples,
       recent_parity_reports: state.recent_parity_reports
     }
@@ -127,6 +135,11 @@ defmodule JidoConversation.Rollout.Reporter do
       reason_counts: %{},
       parity_sample_count: 0,
       parity_report_count: 0,
+      parity_status_counts: %{
+        match: 0,
+        mismatch: 0,
+        legacy_unavailable: 0
+      },
       recent_parity_samples: [],
       recent_parity_reports: []
     }
@@ -136,4 +149,11 @@ defmodule JidoConversation.Rollout.Reporter do
     [entry | list]
     |> Enum.take(max_reports)
   end
+
+  defp increment_parity_status(counts, status)
+       when status in [:match, :mismatch, :legacy_unavailable] do
+    Map.update(counts, status, 1, &(&1 + 1))
+  end
+
+  defp increment_parity_status(counts, _status), do: counts
 end

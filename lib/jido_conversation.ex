@@ -200,4 +200,12 @@ defmodule JidoConversation do
   def rollout_parity_compare(conversation_id, opts \\ []) do
     Operations.rollout_parity_compare(conversation_id, opts)
   end
+
+  @doc """
+  Evaluates rollout acceptance status from rollout counters and parity reports.
+  """
+  @spec rollout_verify(keyword()) :: JidoConversation.Rollout.Verification.report()
+  def rollout_verify(opts \\ []) do
+    Operations.rollout_verify(opts)
+  end
 end
