@@ -11,8 +11,7 @@ defmodule JidoConversation.Application do
       JidoConversation.Telemetry,
       JidoConversation.Signal.Supervisor,
       JidoConversation.Ingest.Pipeline,
-      JidoConversation.Runtime.Supervisor,
-      JidoConversation.LaunchReadiness.Monitor
+      JidoConversation.Runtime.Supervisor
     ]
 
     opts = [strategy: :one_for_one, name: JidoConversation.Supervisor]

@@ -10,7 +10,6 @@ defmodule JidoConversation.TelemetryTest do
 
   test "aggregates runtime and dispatch metrics" do
     now = System.monotonic_time(:microsecond)
-    readiness_timestamp_ms = System.system_time(:millisecond)
     partition_id = System.unique_integer([:positive, :monotonic]) + 1_000
     signal_id = "signal-#{System.unique_integer([:positive, :monotonic])}"
     baseline = Telemetry.snapshot()
@@ -57,18 +56,6 @@ defmodule JidoConversation.TelemetryTest do
       }
     )
 
-    :telemetry.execute(
-      [:jido_conversation, :launch_readiness, :snapshot],
-      %{total_checks: 1, issue_count: 2, timestamp_ms: readiness_timestamp_ms},
-      %{status: :warning, critical_issue_count: 0, warning_issue_count: 2}
-    )
-
-    :telemetry.execute(
-      [:jido_conversation, :launch_readiness, :alert],
-      %{total_alerts: 1, timestamp_ms: readiness_timestamp_ms},
-      %{status: :not_ready, critical_issue_count: 1, warning_issue_count: 0}
-    )
-
     snapshot =
       eventually(fn ->
         current = Telemetry.snapshot()
@@ -77,9 +64,7 @@ defmodule JidoConversation.TelemetryTest do
              current.dlq_count >= baseline.dlq_count + 1 and
              current.dispatch_failure_count >= baseline.dispatch_failure_count + 1 and
              current.apply_latency_ms.count >= baseline.apply_latency_ms.count + 1 and
-             current.abort_latency_ms.count >= baseline.abort_latency_ms.count + 1 and
-             current.launch_readiness.checks >= baseline.launch_readiness.checks + 1 and
-             current.launch_readiness.alerts >= baseline.launch_readiness.alerts + 1 do
+             current.abort_latency_ms.count >= baseline.abort_latency_ms.count + 1 do
           {:ok, current}
         else
           :retry
@@ -94,9 +79,6 @@ defmodule JidoConversation.TelemetryTest do
     assert snapshot.dlq_count >= baseline.dlq_count + 1
     assert snapshot.dispatch_failure_count >= baseline.dispatch_failure_count + 1
     assert is_map(snapshot.last_dispatch_failure)
-    assert snapshot.launch_readiness.last_status == :warning
-    assert is_integer(snapshot.launch_readiness.last_checked_at_ms)
-    assert is_integer(snapshot.launch_readiness.last_alerted_at_ms)
   end
 
   test "reset clears metrics to baseline" do

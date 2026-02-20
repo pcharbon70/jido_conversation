@@ -319,33 +319,6 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - Operators can determine launch status from one report (`ready`, `warning`, `not_ready`).
 - Staging launch drills pass with no critical readiness issues.
 
-## Phase 10: Launch-readiness automation and alerting (2-4 days)
-
-### Objectives
-
-- Continuously evaluate readiness status without manual operator polling.
-
-### Tasks
-
-- Add a background monitor that periodically runs launch-readiness checks.
-- Emit telemetry snapshot events for each monitor check.
-- Emit alert telemetry when status transitions into `not_ready`.
-- Expose APIs for:
-  - immediate readiness check
-  - latest monitor snapshot state
-
-### Deliverables
-
-- Supervised launch-readiness monitor process.
-- Readiness monitor telemetry and alert emission.
-- Operator docs for automated checks and alert semantics.
-
-### Exit criteria
-
-- Readiness checks run periodically from configuration.
-- Operators can fetch latest monitor state and trigger on-demand checks.
-- `not_ready` transitions produce explicit alert telemetry.
-
 ## Cross-phase quality gates
 
 - Determinism: replayed state equals live state for sampled conversations.
@@ -360,11 +333,10 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - Weeks 3-5: Phases 3-5
 - Weeks 6-7: Phases 6-7
 - Weeks 8-9: Phases 8-9
-- Week 10: Phase 10
 
 ## Recommended immediate next backlog items
 
-1. Add historical readiness trend storage for operational review.
-2. Expand replay determinism checks with sampled production traffic in staging.
-3. Add runbook drills to CI/staging smoke suites.
-4. Add escalation routing for repeated `not_ready` alert streaks.
+1. Automate periodic launch-readiness snapshots and alerting on `not_ready` reports.
+2. Add historical readiness trend storage for operational review.
+3. Expand replay determinism checks with sampled production traffic in staging.
+4. Add runbook drills to CI/staging smoke suites.

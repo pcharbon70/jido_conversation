@@ -5,7 +5,6 @@ defmodule JidoConversation do
 
   alias JidoConversation.Health
   alias JidoConversation.Ingest
-  alias JidoConversation.LaunchReadiness.Monitor, as: LaunchReadinessMonitor
   alias JidoConversation.Operations
   alias JidoConversation.Projections
   alias JidoConversation.Telemetry, as: RuntimeTelemetry
@@ -142,22 +141,6 @@ defmodule JidoConversation do
           {:ok, JidoConversation.Operations.launch_readiness_report()}
   def launch_readiness(opts \\ []) do
     Operations.launch_readiness(opts)
-  end
-
-  @doc """
-  Triggers an immediate launch-readiness monitor check.
-  """
-  @spec launch_readiness_check() :: {:ok, JidoConversation.Operations.launch_readiness_report()}
-  def launch_readiness_check do
-    LaunchReadinessMonitor.check_now()
-  end
-
-  @doc """
-  Returns the latest launch-readiness monitor snapshot.
-  """
-  @spec launch_readiness_snapshot() :: JidoConversation.LaunchReadiness.Monitor.monitor_snapshot()
-  def launch_readiness_snapshot do
-    LaunchReadinessMonitor.snapshot()
   end
 
   @doc """
