@@ -144,6 +144,30 @@ defmodule JidoConversation do
   end
 
   @doc """
+  Records a launch-readiness snapshot as an audit event and returns the stored signal.
+  """
+  @spec record_launch_readiness_snapshot(keyword()) ::
+          {:ok,
+           %{
+             report: JidoConversation.Operations.launch_readiness_report(),
+             audit_signal: Jido.Signal.t()
+           }}
+          | {:error, JidoConversation.Ingest.Pipeline.ingest_error()}
+  def record_launch_readiness_snapshot(opts \\ []) do
+    Operations.record_launch_readiness_snapshot(opts)
+  end
+
+  @doc """
+  Returns historical launch-readiness snapshots from recorded audit events.
+  """
+  @spec launch_readiness_history(keyword()) ::
+          {:ok, [JidoConversation.Operations.launch_readiness_history_entry()]}
+          | {:error, term()}
+  def launch_readiness_history(opts \\ []) do
+    Operations.launch_readiness_history(opts)
+  end
+
+  @doc """
   Lists in-flight signals for a persistent subscription.
   """
   @spec subscription_in_flight(String.t()) ::

@@ -4,9 +4,10 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 
 ## Current status
 
-- Phases 0-9 complete:
+- Phases 0-10 complete:
   - architecture baseline through reliability hardening
   - production launch-readiness reporting
+  - launch-readiness trend storage for operational review
 
 ## Launch readiness
 
@@ -24,6 +25,13 @@ Status values:
 - `:ready` (no issues)
 - `:warning` (non-critical issues detected)
 - `:not_ready` (critical issues detected)
+
+Store and review historical readiness snapshots:
+
+```elixir
+JidoConversation.record_launch_readiness_snapshot()
+JidoConversation.launch_readiness_history(limit: 20)
+```
 
 ## Local setup
 

@@ -227,6 +227,75 @@ defmodule JidoConversation.OperationsTest do
            end)
   end
 
+  test "record_launch_readiness_snapshot stores audit event and exposes it in history" do
+    wait_for_runtime_healthy!()
+
+    subject = unique_id("launch-readiness-history")
+    start_timestamp = DateTime.utc_now() |> DateTime.to_unix()
+
+    assert {:ok, %{report: report, audit_signal: audit_signal}} =
+             Operations.record_launch_readiness_snapshot(
+               subject: subject,
+               max_queue_depth: 10_000,
+               max_dispatch_failures: 10_000
+             )
+
+    assert audit_signal.type == "conv.audit.launch_readiness.snapshot_recorded"
+    assert audit_signal.subject == subject
+
+    {_entries, entry} =
+      eventually(fn ->
+        case Operations.launch_readiness_history(
+               start_timestamp: start_timestamp,
+               subject: subject
+             ) do
+          {:ok, entries} ->
+            case Enum.find(entries, &(&1.signal_id == audit_signal.id)) do
+              nil -> :retry
+              found -> {:ok, {entries, found}}
+            end
+
+          {:error, _reason} ->
+            :retry
+        end
+      end)
+
+    assert entry.status == report.status
+    assert entry.subject == subject
+    assert entry.issue_counts.total >= entry.issue_counts.critical + entry.issue_counts.warning
+    assert entry.thresholds.max_queue_depth == 10_000
+    assert entry.thresholds.max_dispatch_failures == 10_000
+    assert is_integer(entry.checked_at_unix_ms)
+    assert %DateTime{} = entry.checked_at
+  end
+
+  test "launch_readiness_history supports subject and limit filters" do
+    wait_for_runtime_healthy!()
+
+    subject_a = unique_id("launch-readiness-a")
+    subject_b = unique_id("launch-readiness-b")
+
+    assert {:ok, _result} = Operations.record_launch_readiness_snapshot(subject: subject_a)
+    assert {:ok, _result} = Operations.record_launch_readiness_snapshot(subject: subject_b)
+
+    entries =
+      eventually(fn ->
+        case Operations.launch_readiness_history(subject: subject_a, limit: 1) do
+          {:ok, []} ->
+            :retry
+
+          {:ok, result} ->
+            {:ok, result}
+
+          {:error, _reason} ->
+            :retry
+        end
+      end)
+
+    assert length(entries) == 1
+    assert Enum.all?(entries, &(&1.subject == subject_a))
+  end
+
   defp unique_id(prefix) do
     "#{prefix}-#{System.unique_integer([:positive, :monotonic])}"
   end

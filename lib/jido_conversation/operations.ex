@@ -70,6 +70,32 @@ defmodule JidoConversation.Operations do
           issues: [readiness_issue()]
         }
 
+  @type launch_readiness_issue_counts :: %{
+          critical: non_neg_integer(),
+          warning: non_neg_integer(),
+          total: non_neg_integer()
+        }
+
+  @type launch_readiness_thresholds :: %{
+          max_queue_depth: non_neg_integer(),
+          max_dispatch_failures: non_neg_integer()
+        }
+
+  @type launch_readiness_history_entry :: %{
+          signal_id: String.t(),
+          subject: String.t() | nil,
+          snapshot_id: String.t() | nil,
+          status: readiness_status() | nil,
+          checked_at_unix_ms: non_neg_integer() | nil,
+          checked_at: DateTime.t() | nil,
+          issue_counts: launch_readiness_issue_counts(),
+          thresholds: launch_readiness_thresholds(),
+          subscriptions: map(),
+          checkpoints: map(),
+          dlq: map(),
+          signal: Signal.t()
+        }
+
   @spec replay_conversation(String.t(), keyword()) ::
           {:ok, [RecordedSignal.t()]} | {:error, term()}
   def replay_conversation(conversation_id, opts \\ [])
@@ -281,6 +307,73 @@ defmodule JidoConversation.Operations do
     }
 
     {:ok, report}
+  end
+
+  @spec record_launch_readiness_snapshot(keyword()) ::
+          {:ok, %{report: launch_readiness_report(), audit_signal: Signal.t()}}
+          | {:error, JidoConversation.Ingest.Pipeline.ingest_error()}
+  def record_launch_readiness_snapshot(opts \\ []) when is_list(opts) do
+    max_queue_depth = non_neg_or_default(Keyword.get(opts, :max_queue_depth), 1_000)
+    max_dispatch_failures = non_neg_or_default(Keyword.get(opts, :max_dispatch_failures), 0)
+
+    subject = Keyword.get(opts, :subject, "launch-readiness")
+    source = Keyword.get(opts, :source, "/operations/launch_readiness")
+    category = Keyword.get(opts, :category, "launch_readiness")
+    audit_id = Keyword.get(opts, :audit_id, "audit-#{System.unique_integer([:positive])}")
+
+    snapshot_id =
+      Keyword.get(opts, :snapshot_id, "snapshot-#{System.unique_integer([:positive])}")
+
+    with {:ok, report} <-
+           launch_readiness(
+             max_queue_depth: max_queue_depth,
+             max_dispatch_failures: max_dispatch_failures
+           ),
+         {:ok, %{signal: audit_signal}} <-
+           Ingest.ingest(%{
+             type: "conv.audit.launch_readiness.snapshot_recorded",
+             source: source,
+             subject: subject,
+             data: %{
+               audit_id: audit_id,
+               snapshot_id: snapshot_id,
+               category: category,
+               status: Atom.to_string(report.status),
+               checked_at_unix_ms: DateTime.to_unix(report.checked_at, :millisecond),
+               issue_counts: issue_counts(report.issues),
+               thresholds: %{
+                 max_queue_depth: max_queue_depth,
+                 max_dispatch_failures: max_dispatch_failures
+               },
+               subscriptions: report.subscriptions,
+               checkpoints: report.checkpoints,
+               dlq: report.dlq
+             },
+             extensions: %{"contract_major" => 1}
+           }) do
+      {:ok, %{report: report, audit_signal: audit_signal}}
+    end
+  end
+
+  @spec launch_readiness_history(keyword()) ::
+          {:ok, [launch_readiness_history_entry()]} | {:error, term()}
+  def launch_readiness_history(opts \\ []) when is_list(opts) do
+    path = Keyword.get(opts, :path, "conv.audit.launch_readiness.snapshot_recorded")
+    start_timestamp = Keyword.get(opts, :start_timestamp, 0)
+    replay_opts = Keyword.get(opts, :replay_opts, [])
+    status_filter = Keyword.get(opts, :status)
+    subject_filter = Keyword.get(opts, :subject)
+    limit = Keyword.get(opts, :limit)
+
+    with {:ok, recorded} <- Ingest.replay(path, start_timestamp, replay_opts) do
+      entries =
+        recorded
+        |> Enum.map(&history_entry/1)
+        |> Enum.filter(&history_match?(&1, status_filter, subject_filter))
+        |> maybe_limit(limit)
+
+      {:ok, entries}
+    end
   end
 
   defp normalize_subscriptions(subscriptions) when is_map(subscriptions), do: subscriptions
@@ -570,6 +663,107 @@ defmodule JidoConversation.Operations do
 
   defp non_neg_or_default(value, _default) when is_integer(value) and value >= 0, do: value
   defp non_neg_or_default(_value, default), do: default
+
+  defp issue_counts(issues) when is_list(issues) do
+    critical = Enum.count(issues, &(&1.severity == :critical))
+    warning = Enum.count(issues, &(&1.severity == :warning))
+
+    %{
+      critical: critical,
+      warning: warning,
+      total: length(issues)
+    }
+  end
+
+  defp history_entry(%RecordedSignal{signal: %Signal{} = signal}) do
+    data = signal.data || %{}
+    checked_at_unix_ms = non_neg_or_nil(data_value(data, :checked_at_unix_ms))
+
+    %{
+      signal_id: signal.id,
+      subject: signal.subject,
+      snapshot_id: as_binary_or_nil(data_value(data, :snapshot_id)),
+      status: parse_readiness_status(data_value(data, :status)),
+      checked_at_unix_ms: checked_at_unix_ms,
+      checked_at: checked_at_from_unix_ms(checked_at_unix_ms),
+      issue_counts: normalize_issue_counts(data_value(data, :issue_counts)),
+      thresholds: normalize_thresholds(data_value(data, :thresholds)),
+      subscriptions: map_or_empty(data_value(data, :subscriptions)),
+      checkpoints: map_or_empty(data_value(data, :checkpoints)),
+      dlq: map_or_empty(data_value(data, :dlq)),
+      signal: signal
+    }
+  end
+
+  defp history_match?(entry, nil, nil), do: entry.status in [:ready, :warning, :not_ready]
+
+  defp history_match?(entry, status_filter, nil) do
+    entry.status == status_filter
+  end
+
+  defp history_match?(entry, nil, subject_filter) do
+    entry.subject == subject_filter and entry.status in [:ready, :warning, :not_ready]
+  end
+
+  defp history_match?(entry, status_filter, subject_filter) do
+    entry.status == status_filter and entry.subject == subject_filter
+  end
+
+  defp normalize_issue_counts(issue_counts) when is_map(issue_counts) do
+    critical = non_neg_or_default(data_value(issue_counts, :critical), 0)
+    warning = non_neg_or_default(data_value(issue_counts, :warning), 0)
+    total = non_neg_or_default(data_value(issue_counts, :total), critical + warning)
+
+    %{critical: critical, warning: warning, total: total}
+  end
+
+  defp normalize_issue_counts(_issue_counts), do: %{critical: 0, warning: 0, total: 0}
+
+  defp normalize_thresholds(thresholds) when is_map(thresholds) do
+    %{
+      max_queue_depth: non_neg_or_default(data_value(thresholds, :max_queue_depth), 1_000),
+      max_dispatch_failures: non_neg_or_default(data_value(thresholds, :max_dispatch_failures), 0)
+    }
+  end
+
+  defp normalize_thresholds(_thresholds), do: %{max_queue_depth: 1_000, max_dispatch_failures: 0}
+
+  defp parse_readiness_status(status) when status in [:ready, :warning, :not_ready], do: status
+  defp parse_readiness_status("ready"), do: :ready
+  defp parse_readiness_status("warning"), do: :warning
+  defp parse_readiness_status("not_ready"), do: :not_ready
+  defp parse_readiness_status(_status), do: nil
+
+  defp checked_at_from_unix_ms(nil), do: nil
+
+  defp checked_at_from_unix_ms(unix_ms) when is_integer(unix_ms) do
+    case DateTime.from_unix(unix_ms, :millisecond) do
+      {:ok, datetime} -> datetime
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp data_value(map, key) when is_map(map) do
+    case Map.fetch(map, key) do
+      {:ok, value} ->
+        value
+
+      :error ->
+        Map.get(map, Atom.to_string(key))
+    end
+  end
+
+  defp data_value(_map, _key), do: nil
+
+  defp map_or_empty(value) when is_map(value), do: value
+  defp map_or_empty(_value), do: %{}
+
+  defp as_binary_or_nil(value) when is_binary(value), do: value
+  defp as_binary_or_nil(_value), do: nil
+
+  defp non_neg_or_nil(value) when is_integer(value) and value >= 0, do: value
+  defp non_neg_or_nil(value) when is_float(value) and value >= 0, do: trunc(value)
+  defp non_neg_or_nil(_value), do: nil
 
   defp subject_for_recorded(%RecordedSignal{signal: %Signal{subject: subject}}), do: subject
   defp subject_for_recorded(_recorded), do: nil

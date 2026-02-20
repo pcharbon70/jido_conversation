@@ -319,6 +319,30 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - Operators can determine launch status from one report (`ready`, `warning`, `not_ready`).
 - Staging launch drills pass with no critical readiness issues.
 
+## Phase 10: Launch-readiness trend storage (2-4 days)
+
+### Objectives
+
+- Persist readiness snapshots for historical operational review.
+
+### Tasks
+
+- Add an operator API to record launch-readiness snapshots as audit events.
+- Add an operator history API to query recorded readiness snapshots.
+- Support filtering and limiting history queries for day-to-day operations.
+- Capture readiness issue counts and applied thresholds in stored snapshots.
+
+### Deliverables
+
+- Snapshot-recording API and history-query API.
+- Audit event schema for readiness snapshot records.
+- Operator documentation for snapshot capture and trend review.
+
+### Exit criteria
+
+- Operators can record snapshots on demand and retrieve trend history.
+- History entries include status, timestamp, issue counts, and thresholds.
+
 ## Cross-phase quality gates
 
 - Determinism: replayed state equals live state for sampled conversations.
@@ -333,10 +357,11 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - Weeks 3-5: Phases 3-5
 - Weeks 6-7: Phases 6-7
 - Weeks 8-9: Phases 8-9
+- Week 10: Phase 10
 
 ## Recommended immediate next backlog items
 
 1. Automate periodic launch-readiness snapshots and alerting on `not_ready` reports.
-2. Add historical readiness trend storage for operational review.
-3. Expand replay determinism checks with sampled production traffic in staging.
-4. Add runbook drills to CI/staging smoke suites.
+2. Expand replay determinism checks with sampled production traffic in staging.
+3. Add runbook drills to CI/staging smoke suites.
+4. Add launch-readiness dashboards on top of recorded snapshot history.
