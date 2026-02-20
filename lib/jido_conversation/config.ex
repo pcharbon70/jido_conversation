@@ -25,6 +25,12 @@ defmodule JidoConversation.Config do
       max_attempts: 5,
       retry_interval: 500
     ],
+    launch_readiness_monitor: [
+      enabled: true,
+      interval_ms: 60_000,
+      max_queue_depth: 1_000,
+      max_dispatch_failures: 0
+    ],
     effect_runtime: [
       llm: [max_attempts: 3, backoff_ms: 100, timeout_ms: 5_000],
       tool: [max_attempts: 3, backoff_ms: 100, timeout_ms: 3_000],
@@ -44,7 +50,9 @@ defmodule JidoConversation.Config do
     [:jido, :dispatch, :exception],
     [:jido_conversation, :runtime, :queue, :depth],
     [:jido_conversation, :runtime, :apply, :stop],
-    [:jido_conversation, :runtime, :abort, :latency]
+    [:jido_conversation, :runtime, :abort, :latency],
+    [:jido_conversation, :launch_readiness, :snapshot],
+    [:jido_conversation, :launch_readiness, :alert]
   ]
 
   @type t :: keyword()
@@ -55,6 +63,9 @@ defmodule JidoConversation.Config do
 
     Keyword.merge(@default_config, configured, fn
       :persistent_subscription, defaults, overrides when is_list(overrides) ->
+        Keyword.merge(defaults, overrides)
+
+      :launch_readiness_monitor, defaults, overrides when is_list(overrides) ->
         Keyword.merge(defaults, overrides)
 
       :effect_runtime, defaults, overrides when is_list(overrides) ->
@@ -81,6 +92,7 @@ defmodule JidoConversation.Config do
     ensure_positive_integer!(cfg[:partition_count], :partition_count)
     ensure_positive_integer!(cfg[:runtime_partitions], :runtime_partitions)
     ensure_binary!(cfg[:subscription_pattern], :subscription_pattern)
+    validate_launch_readiness_monitor!(cfg[:launch_readiness_monitor])
     validate_effect_runtime!(cfg[:effect_runtime])
 
     :ok
@@ -116,6 +128,11 @@ defmodule JidoConversation.Config do
     event_system()
     |> Keyword.fetch!(:effect_runtime)
     |> Keyword.fetch!(class)
+  end
+
+  @spec launch_readiness_monitor() :: keyword()
+  def launch_readiness_monitor do
+    event_system() |> Keyword.fetch!(:launch_readiness_monitor)
   end
 
   def telemetry_events, do: @telemetry_events
@@ -162,6 +179,18 @@ defmodule JidoConversation.Config do
           "expected #{key} to be a positive integer, got: #{inspect(value)}"
   end
 
+  defp ensure_non_neg_integer!(value, _key) when is_integer(value) and value >= 0, do: :ok
+
+  defp ensure_non_neg_integer!(value, key) do
+    raise ArgumentError, "expected #{key} to be a non-negative integer, got: #{inspect(value)}"
+  end
+
+  defp ensure_boolean!(value, _key) when is_boolean(value), do: :ok
+
+  defp ensure_boolean!(value, key) do
+    raise ArgumentError, "expected #{key} to be a boolean, got: #{inspect(value)}"
+  end
+
   defp validate_effect_runtime!(policies) when is_list(policies) do
     Enum.each([:llm, :tool, :timer], fn class ->
       class_policy = Keyword.fetch!(policies, class)
@@ -187,5 +216,31 @@ defmodule JidoConversation.Config do
 
   defp validate_effect_runtime!(other) do
     raise ArgumentError, "expected effect_runtime to be a keyword list, got: #{inspect(other)}"
+  end
+
+  defp validate_launch_readiness_monitor!(monitor_cfg) when is_list(monitor_cfg) do
+    ensure_boolean!(Keyword.fetch!(monitor_cfg, :enabled), :launch_readiness_monitor_enabled)
+
+    ensure_positive_integer!(
+      Keyword.fetch!(monitor_cfg, :interval_ms),
+      :launch_readiness_monitor_interval_ms
+    )
+
+    ensure_non_neg_integer!(
+      Keyword.fetch!(monitor_cfg, :max_queue_depth),
+      :launch_readiness_monitor_max_queue_depth
+    )
+
+    ensure_non_neg_integer!(
+      Keyword.fetch!(monitor_cfg, :max_dispatch_failures),
+      :launch_readiness_monitor_max_dispatch_failures
+    )
+
+    :ok
+  end
+
+  defp validate_launch_readiness_monitor!(other) do
+    raise ArgumentError,
+          "expected launch_readiness_monitor to be a keyword list, got: #{inspect(other)}"
   end
 end

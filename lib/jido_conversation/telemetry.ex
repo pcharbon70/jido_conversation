@@ -24,7 +24,14 @@ defmodule JidoConversation.Telemetry do
           retry_count: non_neg_integer(),
           dlq_count: non_neg_integer(),
           dispatch_failure_count: non_neg_integer(),
-          last_dispatch_failure: map() | nil
+          last_dispatch_failure: map() | nil,
+          launch_readiness: %{
+            checks: non_neg_integer(),
+            alerts: non_neg_integer(),
+            last_status: :ready | :warning | :not_ready | nil,
+            last_checked_at_ms: non_neg_integer() | nil,
+            last_alerted_at_ms: non_neg_integer() | nil
+          }
         }
 
   @type state :: %{
@@ -35,7 +42,12 @@ defmodule JidoConversation.Telemetry do
           retry_count: non_neg_integer(),
           dlq_count: non_neg_integer(),
           dispatch_failure_count: non_neg_integer(),
-          last_dispatch_failure: map() | nil
+          last_dispatch_failure: map() | nil,
+          launch_readiness_checks: non_neg_integer(),
+          launch_readiness_alerts: non_neg_integer(),
+          last_launch_readiness_status: :ready | :warning | :not_ready | nil,
+          last_launch_readiness_checked_at_ms: non_neg_integer() | nil,
+          last_launch_readiness_alerted_at_ms: non_neg_integer() | nil
         }
 
   @typep latency_state :: %{
@@ -115,7 +127,12 @@ defmodule JidoConversation.Telemetry do
       retry_count: 0,
       dlq_count: 0,
       dispatch_failure_count: 0,
-      last_dispatch_failure: nil
+      last_dispatch_failure: nil,
+      launch_readiness_checks: 0,
+      launch_readiness_alerts: 0,
+      last_launch_readiness_status: nil,
+      last_launch_readiness_checked_at_ms: nil,
+      last_launch_readiness_alerted_at_ms: nil
     }
   end
 
@@ -194,11 +211,48 @@ defmodule JidoConversation.Telemetry do
     }
   end
 
+  defp update_state(
+         state,
+         [:jido_conversation, :launch_readiness, :snapshot],
+         measurements,
+         metadata
+       ) do
+    status = normalize_readiness_status(metadata[:status])
+
+    %{
+      state
+      | launch_readiness_checks: normalize_non_neg_int(measurements[:total_checks]),
+        last_launch_readiness_status: status,
+        last_launch_readiness_checked_at_ms: normalize_timestamp_ms(measurements[:timestamp_ms])
+    }
+  end
+
+  defp update_state(
+         state,
+         [:jido_conversation, :launch_readiness, :alert],
+         measurements,
+         _metadata
+       ) do
+    %{
+      state
+      | launch_readiness_alerts: normalize_non_neg_int(measurements[:total_alerts]),
+        last_launch_readiness_alerted_at_ms: normalize_timestamp_ms(measurements[:timestamp_ms])
+    }
+  end
+
   defp update_state(state, _event_name, _measurements, _metadata), do: state
 
   defp normalize_non_neg_int(value) when is_integer(value) and value >= 0, do: value
   defp normalize_non_neg_int(value) when is_float(value) and value >= 0, do: trunc(value)
   defp normalize_non_neg_int(_value), do: 0
+
+  defp normalize_timestamp_ms(value) when is_integer(value) and value >= 0, do: value
+  defp normalize_timestamp_ms(_value), do: nil
+
+  defp normalize_readiness_status(status) when status in [:ready, :warning, :not_ready],
+    do: status
+
+  defp normalize_readiness_status(_status), do: nil
 
   defp update_latency(latency_state, duration_us) do
     duration_us = normalize_non_neg_int(duration_us)
@@ -228,7 +282,14 @@ defmodule JidoConversation.Telemetry do
       retry_count: state.retry_count,
       dlq_count: state.dlq_count,
       dispatch_failure_count: state.dispatch_failure_count,
-      last_dispatch_failure: state.last_dispatch_failure
+      last_dispatch_failure: state.last_dispatch_failure,
+      launch_readiness: %{
+        checks: state.launch_readiness_checks,
+        alerts: state.launch_readiness_alerts,
+        last_status: state.last_launch_readiness_status,
+        last_checked_at_ms: state.last_launch_readiness_checked_at_ms,
+        last_alerted_at_ms: state.last_launch_readiness_alerted_at_ms
+      }
     }
   end
 
