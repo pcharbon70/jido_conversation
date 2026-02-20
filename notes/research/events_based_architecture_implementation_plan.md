@@ -350,7 +350,8 @@ This plan translates the research in `notes/research/events_based_conversation.m
 1. Add stronger contract evolution tests across stream namespaces.
 2. Improve partition scheduler fairness/load tests under burst traffic.
 3. Document host integration patterns for observability and deployment policy.
+4. Add replay-stress suites with larger sampled event traces.
 
 ## Recommended immediate next backlog items
 
-1. Add replay-stress suites with larger sampled event traces.
+- Immediate backlog completed. Prioritize new items based on host-application usage feedback.
