@@ -7,6 +7,8 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 - Phases 0-9 complete:
   - architecture baseline through reliability hardening
   - replay-vs-live determinism parity hardening
+- Post-phase hardening complete:
+  - cross-namespace contract evolution test matrix for v1 compatibility
 
 ## Library scope
 

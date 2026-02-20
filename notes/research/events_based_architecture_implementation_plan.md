@@ -345,9 +345,12 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - Weeks 8-9: Phase 8 + hardening iterations
 - Week 10: Phase 9
 
-## Recommended immediate next backlog items
+## Completed post-phase hardening backlog
 
 1. Add stronger contract evolution tests across stream namespaces.
-2. Improve partition scheduler fairness/load tests under burst traffic.
-3. Document host integration patterns for observability and deployment policy.
-4. Add replay-stress suites with larger sampled event traces.
+
+## Recommended immediate next backlog items
+
+1. Improve partition scheduler fairness/load tests under burst traffic.
+2. Document host integration patterns for observability and deployment policy.
+3. Add replay-stress suites with larger sampled event traces.
