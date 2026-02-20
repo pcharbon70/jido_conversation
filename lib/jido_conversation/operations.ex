@@ -1,13 +1,15 @@
 defmodule JidoConversation.Operations do
   @moduledoc """
-  Operator-facing replay, trace, subscription, and checkpoint tooling.
+  Operator-facing replay, trace, subscription, checkpoint, and readiness tooling.
   """
 
   alias Jido.Signal
   alias Jido.Signal.Bus
   alias Jido.Signal.Bus.RecordedSignal
   alias JidoConversation.Config
+  alias JidoConversation.Health
   alias JidoConversation.Ingest
+  alias JidoConversation.Telemetry
 
   @type subscription_summary :: %{
           subscription_id: String.t(),
@@ -35,6 +37,37 @@ defmodule JidoConversation.Operations do
           signal_id: String.t(),
           signal_type: String.t(),
           subject: String.t() | nil
+        }
+
+  @type readiness_severity :: :critical | :warning
+  @type readiness_status :: :ready | :warning | :not_ready
+
+  @type readiness_issue :: %{
+          check: :health | :telemetry | :subscriptions | :checkpoints | :dlq,
+          severity: readiness_severity(),
+          message: String.t(),
+          details: map()
+        }
+
+  @type launch_readiness_report :: %{
+          status: readiness_status(),
+          checked_at: DateTime.t(),
+          health: Health.status_map(),
+          telemetry: Telemetry.metrics_snapshot(),
+          subscriptions: %{
+            total: non_neg_integer(),
+            persistent: non_neg_integer(),
+            disconnected: non_neg_integer()
+          },
+          checkpoints: %{
+            total: non_neg_integer(),
+            saturated: non_neg_integer()
+          },
+          dlq: %{
+            subscriptions_with_entries: non_neg_integer(),
+            total_entries: non_neg_integer()
+          },
+          issues: [readiness_issue()]
         }
 
   @spec replay_conversation(String.t(), keyword()) ::
@@ -213,6 +246,43 @@ defmodule JidoConversation.Operations do
     end
   end
 
+  @spec launch_readiness(keyword()) :: {:ok, launch_readiness_report()}
+  def launch_readiness(opts \\ []) when is_list(opts) do
+    max_queue_depth = non_neg_or_default(Keyword.get(opts, :max_queue_depth), 1_000)
+    max_dispatch_failures = non_neg_or_default(Keyword.get(opts, :max_dispatch_failures), 0)
+
+    health = Health.status()
+    telemetry = Telemetry.snapshot()
+
+    {subscriptions, subscription_issues} = fetch_subscriptions_for_readiness()
+    {checkpoint_entries, checkpoint_issues} = fetch_checkpoints_for_readiness()
+    {dlq_summary, dlq_issues} = summarize_dlq(subscriptions)
+
+    issues =
+      []
+      |> maybe_add_health_issue(health)
+      |> maybe_add_queue_depth_issue(telemetry, max_queue_depth)
+      |> maybe_add_dispatch_failure_issue(telemetry, max_dispatch_failures)
+      |> Kernel.++(subscription_issues)
+      |> Kernel.++(checkpoint_issues)
+      |> Kernel.++(subscription_state_issues(subscriptions))
+      |> Kernel.++(checkpoint_state_issues(checkpoint_entries))
+      |> Kernel.++(dlq_issues)
+
+    report = %{
+      status: readiness_status(issues),
+      checked_at: DateTime.utc_now(),
+      health: health,
+      telemetry: telemetry,
+      subscriptions: summarize_subscriptions(subscriptions),
+      checkpoints: summarize_checkpoints(checkpoint_entries),
+      dlq: dlq_summary,
+      issues: issues
+    }
+
+    {:ok, report}
+  end
+
   defp normalize_subscriptions(subscriptions) when is_map(subscriptions), do: subscriptions
   defp normalize_subscriptions(_subscriptions), do: %{}
 
@@ -288,6 +358,218 @@ defmodule JidoConversation.Operations do
 
   defp dispatch_adapter({adapter, _opts}) when is_atom(adapter), do: adapter
   defp dispatch_adapter(_dispatch), do: :unknown
+
+  defp fetch_subscriptions_for_readiness do
+    case stream_subscriptions() do
+      {:ok, subscriptions} ->
+        {subscriptions, []}
+
+      {:error, reason} ->
+        issue = %{
+          check: :subscriptions,
+          severity: :critical,
+          message: "Unable to load stream subscriptions",
+          details: %{reason: inspect(reason)}
+        }
+
+        {[], [issue]}
+    end
+  end
+
+  defp fetch_checkpoints_for_readiness do
+    case checkpoints() do
+      {:ok, checkpoint_entries} ->
+        {checkpoint_entries, []}
+
+      {:error, reason} ->
+        issue = %{
+          check: :checkpoints,
+          severity: :critical,
+          message: "Unable to load persistent subscription checkpoints",
+          details: %{reason: inspect(reason)}
+        }
+
+        {[], [issue]}
+    end
+  end
+
+  defp summarize_subscriptions(subscriptions) do
+    %{
+      total: length(subscriptions),
+      persistent: Enum.count(subscriptions, & &1.persistent?),
+      disconnected: Enum.count(subscriptions, & &1.disconnected?)
+    }
+  end
+
+  defp summarize_checkpoints(checkpoint_entries) do
+    %{
+      total: length(checkpoint_entries),
+      saturated: Enum.count(checkpoint_entries, &saturated_checkpoint?/1)
+    }
+  end
+
+  defp summarize_dlq(subscriptions) do
+    {summary, issues} =
+      Enum.reduce(
+        subscriptions,
+        {%{subscriptions_with_entries: 0, total_entries: 0}, []},
+        fn subscription, {acc, acc_issues} ->
+          case dlq_entries(subscription.subscription_id) do
+            {:ok, entries} ->
+              {update_dlq_summary(acc, length(entries)), acc_issues}
+
+            {:error, reason} ->
+              issue = %{
+                check: :dlq,
+                severity: :critical,
+                message: "Unable to load DLQ entries for subscription",
+                details: %{
+                  subscription_id: subscription.subscription_id,
+                  reason: inspect(reason)
+                }
+              }
+
+              {acc, acc_issues ++ [issue]}
+          end
+        end
+      )
+
+    dlq_warning_issues =
+      if summary.total_entries > 0 do
+        [
+          %{
+            check: :dlq,
+            severity: :warning,
+            message: "DLQ entries present",
+            details: summary
+          }
+        ]
+      else
+        []
+      end
+
+    {summary, issues ++ dlq_warning_issues}
+  end
+
+  defp update_dlq_summary(acc, entry_count) when entry_count > 0 do
+    %{
+      subscriptions_with_entries: acc.subscriptions_with_entries + 1,
+      total_entries: acc.total_entries + entry_count
+    }
+  end
+
+  defp update_dlq_summary(acc, _entry_count), do: acc
+
+  defp maybe_add_health_issue(issues, %{status: :ok}), do: issues
+
+  defp maybe_add_health_issue(issues, health) do
+    issues ++
+      [
+        %{
+          check: :health,
+          severity: :critical,
+          message: "Runtime health is degraded",
+          details: health
+        }
+      ]
+  end
+
+  defp maybe_add_queue_depth_issue(issues, telemetry, max_queue_depth) do
+    queue_depth = telemetry.queue_depth.total
+
+    if queue_depth > max_queue_depth do
+      issues ++
+        [
+          %{
+            check: :telemetry,
+            severity: :warning,
+            message: "Queue depth exceeds launch readiness threshold",
+            details: %{queue_depth: queue_depth, max_queue_depth: max_queue_depth}
+          }
+        ]
+    else
+      issues
+    end
+  end
+
+  defp maybe_add_dispatch_failure_issue(issues, telemetry, max_dispatch_failures) do
+    dispatch_failure_count = telemetry.dispatch_failure_count
+
+    if dispatch_failure_count > max_dispatch_failures do
+      issues ++
+        [
+          %{
+            check: :telemetry,
+            severity: :warning,
+            message: "Dispatch failures exceed launch readiness threshold",
+            details: %{
+              dispatch_failure_count: dispatch_failure_count,
+              max_dispatch_failures: max_dispatch_failures
+            }
+          }
+        ]
+    else
+      issues
+    end
+  end
+
+  defp subscription_state_issues(subscriptions) do
+    disconnected = Enum.count(subscriptions, & &1.disconnected?)
+
+    if disconnected > 0 do
+      [
+        %{
+          check: :subscriptions,
+          severity: :warning,
+          message: "Disconnected subscriptions detected",
+          details: %{disconnected: disconnected}
+        }
+      ]
+    else
+      []
+    end
+  end
+
+  defp checkpoint_state_issues(checkpoint_entries) do
+    saturated = Enum.count(checkpoint_entries, &saturated_checkpoint?/1)
+
+    if saturated > 0 do
+      [
+        %{
+          check: :checkpoints,
+          severity: :warning,
+          message: "Persistent subscriptions are at saturation limits",
+          details: %{saturated: saturated}
+        }
+      ]
+    else
+      []
+    end
+  end
+
+  defp saturated_checkpoint?(checkpoint) do
+    reached_or_exceeded?(checkpoint.in_flight_count, checkpoint.max_in_flight) or
+      reached_or_exceeded?(checkpoint.pending_count, checkpoint.max_pending)
+  end
+
+  defp reached_or_exceeded?(_count, nil), do: false
+  defp reached_or_exceeded?(count, limit) when is_integer(limit), do: count >= limit
+
+  defp readiness_status(issues) do
+    cond do
+      Enum.any?(issues, &(&1.severity == :critical)) ->
+        :not_ready
+
+      issues == [] ->
+        :ready
+
+      true ->
+        :warning
+    end
+  end
+
+  defp non_neg_or_default(value, _default) when is_integer(value) and value >= 0, do: value
+  defp non_neg_or_default(_value, default), do: default
 
   defp subject_for_recorded(%RecordedSignal{signal: %Signal{subject: subject}}), do: subject
   defp subject_for_recorded(_recorded), do: nil

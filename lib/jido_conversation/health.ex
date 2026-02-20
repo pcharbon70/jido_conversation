@@ -3,6 +3,7 @@ defmodule JidoConversation.Health do
   Lightweight health snapshot for runtime boot validation and diagnostics.
   """
 
+  alias Jido.Signal.Bus
   alias JidoConversation.Config
 
   @type status_map :: %{
@@ -17,12 +18,17 @@ defmodule JidoConversation.Health do
   def status do
     bus_name = Config.bus_name()
 
-    bus_pid = Process.whereis(bus_name)
+    bus_alive? =
+      case Bus.whereis(bus_name) do
+        {:ok, bus_pid} when is_pid(bus_pid) -> true
+        _other -> false
+      end
+
     runtime_supervisor = Process.whereis(JidoConversation.Runtime.Supervisor)
     coordinator = Process.whereis(JidoConversation.Runtime.Coordinator)
 
     status =
-      if is_pid(bus_pid) and is_pid(runtime_supervisor) and is_pid(coordinator) do
+      if bus_alive? and is_pid(runtime_supervisor) and is_pid(coordinator) do
         :ok
       else
         :degraded
@@ -31,7 +37,7 @@ defmodule JidoConversation.Health do
     %{
       status: status,
       bus_name: bus_name,
-      bus_alive?: is_pid(bus_pid),
+      bus_alive?: bus_alive?,
       runtime_supervisor_alive?: is_pid(runtime_supervisor),
       runtime_coordinator_alive?: is_pid(coordinator)
     }

@@ -291,29 +291,33 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - SLOs hold at target load.
 - System degrades gracefully under overload and recovers predictably.
 
-## Phase 9: Rollout and migration (4-6 days)
+## Phase 9: Production launch readiness (3-5 days)
 
 ### Objectives
 
-- Safely migrate from turn-based runtime to event-based runtime.
+- Prepare a greenfield event-based runtime for production launch.
 
 ### Tasks
 
-- Add feature flags for shadow mode and progressive enablement.
-- Mirror traffic and compare outputs between old/new runtimes.
-- Canary by tenant/channel, then ramp.
-- Prepare incident runbooks and rollback triggers.
-- Define post-rollout verification windows and acceptance checks.
+- Add a launch-readiness operator report that aggregates:
+  - health state
+  - runtime telemetry
+  - subscription/checkpoint pressure
+  - DLQ load
+- Define launch thresholds and go/no-go checks.
+- Prepare incident runbooks for degraded health, queue pressure, and DLQ growth.
+- Run launch-readiness drills in staging and capture baseline snapshots.
 
 ### Deliverables
 
-- Migration checklist.
-- Canary and parity reports.
-- Operational runbooks and rollback plan.
+- Launch-readiness checklist and report format.
+- Operator runbook for launch and initial incident response.
+- Production threshold defaults for queue depth, dispatch failures, and DLQ tolerance.
 
 ### Exit criteria
 
-- Stable production rollout with clear rollback and on-call procedures.
+- Operators can determine launch status from one report (`ready`, `warning`, `not_ready`).
+- Staging launch drills pass with no critical readiness issues.
 
 ## Cross-phase quality gates
 
@@ -321,7 +325,7 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - Contract integrity: invalid events rejected at boundary.
 - Responsiveness: abort and reply latency SLOs met.
 - Reliability: retry/DLQ/checkpoint paths continuously tested.
-- Operability: dashboards and alerts available before wide rollout.
+- Operability: dashboards and alerts available before production launch.
 
 ## Suggested timeline (high level)
 
@@ -332,7 +336,7 @@ This plan translates the research in `notes/research/events_based_conversation.m
 
 ## Recommended immediate next backlog items
 
-1. Add dependencies and config needed to run `mix credo --strict` and `mix dialyzer`.
-2. Create `Signal` contract modules and event taxonomy constants.
-3. Implement the journal-first ingress path before any complex runtime behavior.
-4. Implement partitioned reducer runtime and deterministic replay tests.
+1. Automate periodic launch-readiness snapshots and alerting on `not_ready` reports.
+2. Add historical readiness trend storage for operational review.
+3. Expand replay determinism checks with sampled production traffic in staging.
+4. Add runbook drills to CI/staging smoke suites.
