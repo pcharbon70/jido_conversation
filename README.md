@@ -66,3 +66,4 @@ The hook runs:
 - Implementation plan: `notes/research/events_based_architecture_implementation_plan.md`
 - Host integration patterns: `docs/host_integration_patterns.md`
 - Replay stress suites: `docs/replay_stress_suites.md`
+- Host testing handoff: `docs/host_testing_handoff_checklist.md`
