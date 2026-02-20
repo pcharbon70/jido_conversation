@@ -44,6 +44,14 @@ mix test
 mix quality
 ```
 
+## Example app
+
+Run the standalone terminal chat example from the repo root:
+
+```bash
+mix terminal_chat
+```
+
 ## Git hooks
 
 This repository uses a tracked hook script in `.githooks/pre-commit`.
