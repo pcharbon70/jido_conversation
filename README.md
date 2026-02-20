@@ -11,6 +11,7 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
   - cross-namespace contract evolution test matrix for v1 compatibility
   - scheduler fairness/load burst test coverage
   - host integration patterns for observability and deployment policy
+  - replay-stress suites with larger sampled traces
 
 ## Library scope
 
@@ -64,3 +65,4 @@ The hook runs:
 - Research: `notes/research/events_based_conversation.md`
 - Implementation plan: `notes/research/events_based_architecture_implementation_plan.md`
 - Host integration patterns: `docs/host_integration_patterns.md`
+- Replay stress suites: `docs/replay_stress_suites.md`
