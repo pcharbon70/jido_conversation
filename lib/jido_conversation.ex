@@ -135,6 +135,15 @@ defmodule JidoConversation do
   end
 
   @doc """
+  Builds a production launch-readiness report from health, telemetry, and stream state.
+  """
+  @spec launch_readiness(keyword()) ::
+          {:ok, JidoConversation.Operations.launch_readiness_report()}
+  def launch_readiness(opts \\ []) do
+    Operations.launch_readiness(opts)
+  end
+
+  @doc """
   Lists in-flight signals for a persistent subscription.
   """
   @spec subscription_in_flight(String.t()) ::
