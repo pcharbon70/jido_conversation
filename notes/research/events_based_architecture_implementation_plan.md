@@ -348,9 +348,9 @@ This plan translates the research in `notes/research/events_based_conversation.m
 ## Completed post-phase hardening backlog
 
 1. Add stronger contract evolution tests across stream namespaces.
+2. Improve partition scheduler fairness/load tests under burst traffic.
 
 ## Recommended immediate next backlog items
 
-1. Improve partition scheduler fairness/load tests under burst traffic.
-2. Document host integration patterns for observability and deployment policy.
-3. Add replay-stress suites with larger sampled event traces.
+1. Document host integration patterns for observability and deployment policy.
+2. Add replay-stress suites with larger sampled event traces.

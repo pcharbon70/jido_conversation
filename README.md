@@ -9,6 +9,7 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
   - replay-vs-live determinism parity hardening
 - Post-phase hardening complete:
   - cross-namespace contract evolution test matrix for v1 compatibility
+  - scheduler fairness/load burst test coverage
 
 ## Library scope
 

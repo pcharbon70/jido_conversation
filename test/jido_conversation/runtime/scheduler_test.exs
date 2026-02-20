@@ -67,6 +67,96 @@ defmodule JidoConversation.Runtime.SchedulerTest do
     assert selected.priority == 1
   end
 
+  test "burst traffic applies ready lower-priority events at bounded intervals" do
+    fairness_threshold = 5
+    high_count = 40
+    lower_count = 4
+
+    high_entries =
+      for seq <- 0..(high_count - 1) do
+        signal =
+          signal!(
+            "burst-h-#{seq}",
+            "conv.in.control.abort_requested",
+            %{message_id: "mh-#{seq}", ingress: "control"}
+          )
+
+        Scheduler.make_entry(signal, seq)
+      end
+
+    lower_entries =
+      for offset <- 0..(lower_count - 1) do
+        seq = high_count + offset
+
+        signal =
+          signal!(
+            "burst-l-#{offset}",
+            "conv.in.message.received",
+            %{message_id: "ml-#{offset}", ingress: "test"}
+          )
+
+        Scheduler.make_entry(signal, seq)
+      end
+
+    scheduled =
+      high_entries
+      |> Kernel.++(lower_entries)
+      |> drain_schedule(Scheduler.initial_state(fairness_threshold: fairness_threshold))
+
+    lower_positions =
+      scheduled
+      |> Enum.with_index(1)
+      |> Enum.filter(fn {entry, _index} -> entry.priority == 1 end)
+      |> Enum.map(fn {_entry, index} -> index end)
+
+    expected_positions =
+      Enum.map(1..lower_count, fn occurrence ->
+        occurrence * (fairness_threshold + 1)
+      end)
+
+    assert length(scheduled) == high_count + lower_count
+    assert lower_positions == expected_positions
+  end
+
+  test "burst queue does not let lower-priority events wait behind full high-priority backlog" do
+    fairness_threshold = 5
+    high_count = 240
+
+    high_entries =
+      for seq <- 0..(high_count - 1) do
+        signal =
+          signal!(
+            "load-h-#{seq}",
+            "conv.in.control.abort_requested",
+            %{message_id: "mh-#{seq}", ingress: "control"}
+          )
+
+        Scheduler.make_entry(signal, seq)
+      end
+
+    lower_entry =
+      signal!(
+        "load-l-1",
+        "conv.in.message.received",
+        %{message_id: "ml-1", ingress: "test"}
+      )
+      |> Scheduler.make_entry(high_count)
+
+    scheduled =
+      high_entries
+      |> Kernel.++([lower_entry])
+      |> drain_schedule(Scheduler.initial_state(fairness_threshold: fairness_threshold))
+
+    lower_position =
+      scheduled
+      |> Enum.with_index(1)
+      |> Enum.find_value(fn {entry, index} ->
+        if entry.signal.id == "load-l-1", do: index
+      end)
+
+    assert lower_position == fairness_threshold + 1
+  end
+
   defp signal!(id, type, data, opts \\ []) do
     source = Keyword.get(opts, :source, "/tests/scheduler")
     subject = Keyword.get(opts, :subject, "conversation-scheduler")
@@ -78,5 +168,21 @@ defmodule JidoConversation.Runtime.SchedulerTest do
       subject: subject,
       extensions: extensions
     )
+  end
+
+  defp drain_schedule(entries, scheduler_state, applied_signal_ids \\ MapSet.new(), acc \\ [])
+
+  defp drain_schedule([], _scheduler_state, _applied_signal_ids, acc), do: Enum.reverse(acc)
+
+  defp drain_schedule(entries, scheduler_state, applied_signal_ids, acc) do
+    case Scheduler.schedule(entries, scheduler_state, applied_signal_ids) do
+      :none ->
+        Enum.reverse(acc)
+
+      {:ok, selected, remaining, next_scheduler_state} ->
+        next_applied_ids = MapSet.put(applied_signal_ids, selected.signal.id)
+
+        drain_schedule(remaining, next_scheduler_state, next_applied_ids, [selected | acc])
+    end
   end
 end
