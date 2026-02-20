@@ -8,14 +8,6 @@ defmodule JidoConversation.Operations do
   alias Jido.Signal.Bus.RecordedSignal
   alias JidoConversation.Config
   alias JidoConversation.Ingest
-  alias JidoConversation.Rollout.Controller
-  alias JidoConversation.Rollout.Manager
-  alias JidoConversation.Rollout.Parity
-  alias JidoConversation.Rollout.Reporter
-  alias JidoConversation.Rollout.Runbook
-  alias JidoConversation.Rollout.Settings
-  alias JidoConversation.Rollout.Verification
-  alias JidoConversation.Rollout.Window
 
   @type subscription_summary :: %{
           subscription_id: String.t(),
@@ -44,15 +36,6 @@ defmodule JidoConversation.Operations do
           signal_type: String.t(),
           subject: String.t() | nil
         }
-
-  @type rollout_snapshot :: JidoConversation.Rollout.Reporter.snapshot()
-  @type rollout_verification_report :: JidoConversation.Rollout.Verification.report()
-  @type rollout_recommendation :: JidoConversation.Rollout.Controller.recommendation()
-  @type rollout_manager_snapshot :: JidoConversation.Rollout.Manager.snapshot()
-  @type rollout_evaluation_result :: JidoConversation.Rollout.Manager.evaluation_result()
-  @type rollout_runbook_assessment :: JidoConversation.Rollout.Runbook.assessment()
-  @type rollout_window_assessment :: JidoConversation.Rollout.Window.assessment()
-  @type rollout_settings_snapshot :: JidoConversation.Rollout.Settings.snapshot()
 
   @spec replay_conversation(String.t(), keyword()) ::
           {:ok, [RecordedSignal.t()]} | {:error, term()}
@@ -184,99 +167,6 @@ defmodule JidoConversation.Operations do
   @spec clear_dlq(String.t()) :: :ok | {:error, term()}
   def clear_dlq(subscription_id) when is_binary(subscription_id) do
     Bus.clear_dlq(Config.bus_name(), subscription_id)
-  end
-
-  @spec rollout_snapshot() :: rollout_snapshot()
-  def rollout_snapshot do
-    Reporter.snapshot()
-  end
-
-  @spec rollout_reset() :: :ok
-  def rollout_reset do
-    Reporter.reset()
-  end
-
-  @spec rollout_parity_compare(String.t(), keyword()) ::
-          {:ok, Parity.parity_report()} | {:error, term()}
-  def rollout_parity_compare(conversation_id, opts \\ [])
-      when is_binary(conversation_id) and is_list(opts) do
-    Parity.compare_conversation(conversation_id, opts)
-  end
-
-  @spec rollout_verify(keyword()) :: rollout_verification_report()
-  def rollout_verify(opts \\ []) when is_list(opts) do
-    snapshot = rollout_snapshot()
-    Verification.evaluate(snapshot, opts)
-  end
-
-  @spec rollout_recommend(keyword()) :: %{
-          verification: rollout_verification_report(),
-          recommendation: rollout_recommendation()
-        }
-  def rollout_recommend(opts \\ []) when is_list(opts) do
-    verification_opts = Keyword.get(opts, :verification_opts, [])
-    controller_opts = Keyword.get(opts, :controller_opts, [])
-
-    verification = rollout_verify(verification_opts)
-    recommendation = Controller.recommend(verification, controller_opts)
-
-    %{verification: verification, recommendation: recommendation}
-  end
-
-  @spec rollout_manager_snapshot() :: rollout_manager_snapshot()
-  def rollout_manager_snapshot do
-    Manager.snapshot()
-  end
-
-  @spec rollout_manager_reset() :: :ok
-  def rollout_manager_reset do
-    Manager.reset()
-  end
-
-  @spec rollout_evaluate(keyword()) :: rollout_evaluation_result()
-  def rollout_evaluate(opts \\ []) when is_list(opts) do
-    Manager.evaluate(opts)
-  end
-
-  @spec rollout_runbook_assess(keyword()) :: rollout_runbook_assessment()
-  def rollout_runbook_assess(opts \\ []) when is_list(opts) do
-    Runbook.assess(opts)
-  end
-
-  @spec rollout_window_assess(keyword()) :: rollout_window_assessment()
-  def rollout_window_assess(opts \\ []) when is_list(opts) do
-    Window.assess(opts)
-  end
-
-  @spec rollout_settings_snapshot() :: rollout_settings_snapshot()
-  def rollout_settings_snapshot do
-    Settings.snapshot()
-  end
-
-  @spec rollout_set_minimal_mode(boolean(), keyword()) ::
-          {:ok, rollout_settings_snapshot()} | {:error, Settings.update_error()}
-  def rollout_set_minimal_mode(enabled, opts \\ [])
-      when is_boolean(enabled) and is_list(opts) do
-    Settings.set_minimal_mode(enabled, opts)
-  end
-
-  @spec rollout_set_mode(Settings.mode()) ::
-          {:ok, rollout_settings_snapshot()} | {:error, Settings.update_error()}
-  def rollout_set_mode(mode) when mode in [:event_based, :shadow, :disabled] do
-    Settings.set_mode(mode)
-  end
-
-  @spec rollout_set_stage(Settings.stage()) ::
-          {:ok, rollout_settings_snapshot()} | {:error, Settings.update_error()}
-  def rollout_set_stage(stage) when stage in [:shadow, :canary, :ramp, :full] do
-    Settings.set_stage(stage)
-  end
-
-  @spec rollout_configure(keyword(), keyword()) ::
-          {:ok, rollout_settings_snapshot()} | {:error, Settings.update_error()}
-  def rollout_configure(rollout_overrides, opts \\ [])
-      when is_list(rollout_overrides) and is_list(opts) do
-    Settings.configure(rollout_overrides, opts)
   end
 
   @spec stream_subscriptions() :: {:ok, [subscription_summary()]} | {:error, term()}

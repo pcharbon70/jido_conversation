@@ -10,8 +10,6 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
   alias Jido.Signal
   alias Jido.Signal.Bus
   alias JidoConversation.Config
-  alias JidoConversation.Rollout
-  alias JidoConversation.Rollout.Reporter
   alias JidoConversation.Runtime.Coordinator
   alias JidoConversation.Signal.Contract
 
@@ -58,31 +56,12 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
   defp process_signal(signal) do
     case Contract.normalize(signal) do
       {:ok, normalized} ->
-        dispatch_normalized_signal(normalized)
+        Coordinator.enqueue(normalized)
 
       {:error, reason} ->
         Logger.warning("dropping contract-invalid signal: #{inspect(reason)}")
     end
   end
-
-  defp dispatch_normalized_signal(normalized) do
-    if Config.rollout_minimal_mode?() do
-      Coordinator.enqueue(normalized)
-    else
-      decision = Rollout.decide(normalized)
-      Reporter.record_decision(decision)
-
-      if decision.parity_sampled? do
-        Reporter.record_parity_sample(normalized, decision)
-      end
-
-      dispatch_rollout_action(decision.action, normalized)
-    end
-  end
-
-  defp dispatch_rollout_action(:enqueue_runtime, normalized), do: Coordinator.enqueue(normalized)
-  defp dispatch_rollout_action(:parity_only, _normalized), do: :ok
-  defp dispatch_rollout_action(:drop, _normalized), do: :ok
 
   defp ack_signal(nil, _signal), do: :ok
 
