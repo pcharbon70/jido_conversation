@@ -10,6 +10,7 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 - Post-phase hardening complete:
   - cross-namespace contract evolution test matrix for v1 compatibility
   - scheduler fairness/load burst test coverage
+  - host integration patterns for observability and deployment policy
 
 ## Library scope
 
@@ -62,3 +63,4 @@ The hook runs:
 
 - Research: `notes/research/events_based_conversation.md`
 - Implementation plan: `notes/research/events_based_architecture_implementation_plan.md`
+- Host integration patterns: `docs/host_integration_patterns.md`
