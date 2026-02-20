@@ -291,7 +291,28 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - SLOs hold at target load.
 - System degrades gracefully under overload and recovers predictably.
 
-## Phase 9+: Host-application operations (out of library scope)
+## Phase 9: Determinism replay parity hardening (2-4 days)
+
+### Objectives
+
+- Strengthen guarantees that replayed streams reproduce live runtime behavior.
+
+### Tasks
+
+- Add sampled replay-vs-live parity tests for reducer state.
+- Add replay-vs-live parity tests for timeline and LLM context projections.
+- Validate parity under causal + priority scheduling interactions.
+
+### Deliverables
+
+- Determinism parity test suite covering state and projections.
+- Documentation of replay parity hardening approach.
+
+### Exit criteria
+
+- Replayed sampled conversations produce the same reducer/projection outcomes as live processing.
+
+## Phase 10+: Host-application operations (out of library scope)
 
 ### Objectives
 
@@ -322,10 +343,11 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - Weeks 3-5: Phases 3-5
 - Weeks 6-7: Phases 6-7
 - Weeks 8-9: Phase 8 + hardening iterations
+- Week 10: Phase 9
 
 ## Recommended immediate next backlog items
 
-1. Expand replay determinism checks with sampled production-like traffic in staging.
-2. Add stronger contract evolution tests across stream namespaces.
-3. Improve partition scheduler fairness/load tests under burst traffic.
-4. Document host integration patterns for observability and deployment policy.
+1. Add stronger contract evolution tests across stream namespaces.
+2. Improve partition scheduler fairness/load tests under burst traffic.
+3. Document host integration patterns for observability and deployment policy.
+4. Add replay-stress suites with larger sampled event traces.
