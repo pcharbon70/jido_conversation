@@ -201,7 +201,7 @@ defmodule TerminalChat.Session do
             {:ok, %{content: content, model: model}} ->
               {:ok, {:search, tool_text, content, model}}
 
-            {:error, :missing_openai_api_key} ->
+            {:error, :missing_anthropic_api_key} ->
               fallback = "Search results:\n#{tool_text}"
               {:ok, {:search, tool_text, fallback, "none"}}
 
@@ -225,11 +225,11 @@ defmodule TerminalChat.Session do
     |> append_message(:assistant, "#{assistant_text}\n\n(model: #{model})")
   end
 
-  defp apply_task_result(state, {:error, :missing_openai_api_key}) do
+  defp apply_task_result(state, {:error, :missing_anthropic_api_key}) do
     append_message(
       state,
       :tool,
-      "OPENAI_API_KEY is not set. Set it before sending chat prompts."
+      "ANTHROPIC_API_KEY is not set. Set it before sending chat prompts."
     )
   end
 

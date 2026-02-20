@@ -1,11 +1,14 @@
 defmodule TerminalChat.LLMClient do
   @moduledoc """
-  Minimal OpenAI-compatible chat client.
+  Minimal Anthropic Messages API client.
   """
 
-  @endpoint "https://api.openai.com/v1/chat/completions"
-  @default_model "gpt-4o-mini"
+  @endpoint "https://api.anthropic.com/v1/messages"
+  @anthropic_version "2023-06-01"
+  @default_model "claude-opus-4-1-20250805"
   @max_history_messages 20
+  @default_max_tokens 1_024
+  @system_prompt "You are a concise assistant in a terminal chat. Answer directly and clearly."
 
   @type chat_message :: %{role: atom(), content: String.t()}
 
@@ -39,25 +42,31 @@ defmodule TerminalChat.LLMClient do
   end
 
   defp fetch_api_key do
-    case System.get_env("OPENAI_API_KEY") do
+    case System.get_env("ANTHROPIC_API_KEY") || System.get_env("ANTROPIC_API_KEY") do
       value when is_binary(value) and value != "" -> {:ok, value}
-      _ -> {:error, :missing_openai_api_key}
+      _ -> {:error, :missing_anthropic_api_key}
     end
   end
 
   defp do_request(api_key, messages) do
-    model = System.get_env("OPENAI_MODEL") || @default_model
+    model = System.get_env("ANTHROPIC_MODEL") || @default_model
 
     payload = %{
       model: model,
+      system: @system_prompt,
       messages: messages,
+      max_tokens: @default_max_tokens,
       temperature: 0.2
     }
 
     request_opts = [
       url: @endpoint,
       json: payload,
-      headers: [{"authorization", "Bearer #{api_key}"}],
+      headers: [
+        {"x-api-key", api_key},
+        {"anthropic-version", @anthropic_version},
+        {"content-type", "application/json"}
+      ],
       connect_options: [timeout: 10_000],
       receive_timeout: 60_000,
       retry: false
@@ -80,17 +89,13 @@ defmodule TerminalChat.LLMClient do
 
   defp validate_status(status, body) do
     message =
-      get_in(body, ["error", "message"]) ||
-        "request failed with status #{status}"
+      get_in(body, ["error", "message"]) || "request failed with status #{status}"
 
     {:error, {:http_error, status, message}}
   end
 
-  defp extract_content(%{"choices" => [choice | _]}) when is_map(choice) do
-    choice
-    |> Map.get("message", %{})
-    |> Map.get("content")
-    |> normalize_content()
+  defp extract_content(%{"content" => content_blocks}) when is_list(content_blocks) do
+    normalize_content(content_blocks)
   end
 
   defp extract_content(body), do: {:error, {:unexpected_response, body}}
@@ -108,7 +113,7 @@ defmodule TerminalChat.LLMClient do
   defp normalize_content(content) when is_list(content) do
     text =
       content
-      |> Enum.map(&part_to_text/1)
+      |> Enum.map(&content_block_to_text/1)
       |> Enum.reject(&(&1 in [nil, ""]))
       |> Enum.join("\n")
       |> String.trim()
@@ -122,32 +127,27 @@ defmodule TerminalChat.LLMClient do
 
   defp normalize_content(_content), do: {:error, :empty_content}
 
-  defp part_to_text(%{"text" => text}) when is_binary(text), do: text
-  defp part_to_text(%{"type" => "text", "text" => text}) when is_binary(text), do: text
-  defp part_to_text(text) when is_binary(text), do: text
-  defp part_to_text(_), do: nil
+  defp content_block_to_text(%{"type" => "text", "text" => text}) when is_binary(text), do: text
+  defp content_block_to_text(%{"text" => text}) when is_binary(text), do: text
+  defp content_block_to_text(text) when is_binary(text), do: text
+  defp content_block_to_text(_), do: nil
 
   defp build_messages(history) do
-    system_prompt = %{
-      role: "system",
-      content: "You are a concise assistant in a terminal chat. Answer directly and clearly."
-    }
-
     history
     |> Enum.take(-@max_history_messages)
-    |> Enum.map(&to_openai_message/1)
-    |> then(&[system_prompt | &1])
+    |> Enum.map(&to_anthropic_message/1)
   end
 
-  defp to_openai_message(%{role: :user, content: content}), do: %{role: "user", content: content}
+  defp to_anthropic_message(%{role: :user, content: content}),
+    do: %{role: "user", content: content}
 
-  defp to_openai_message(%{role: :assistant, content: content}),
+  defp to_anthropic_message(%{role: :assistant, content: content}),
     do: %{role: "assistant", content: content}
 
-  defp to_openai_message(%{role: :system, content: content}),
-    do: %{role: "system", content: content}
+  defp to_anthropic_message(%{role: :system, content: content}),
+    do: %{role: "user", content: "[system]\n#{content}"}
 
-  defp to_openai_message(%{role: :tool, content: content}) do
+  defp to_anthropic_message(%{role: :tool, content: content}) do
     %{
       role: "user",
       content: "Tool output:\n#{content}"
