@@ -261,4 +261,48 @@ defmodule JidoConversation do
   def rollout_window_assess(opts \\ []) do
     Operations.rollout_window_assess(opts)
   end
+
+  @doc """
+  Returns current rollout runtime settings.
+  """
+  @spec rollout_settings_snapshot() :: JidoConversation.Operations.rollout_settings_snapshot()
+  def rollout_settings_snapshot do
+    Operations.rollout_settings_snapshot()
+  end
+
+  @doc """
+  Enables or disables minimal mode for rollout controls.
+  """
+  @spec rollout_set_minimal_mode(boolean(), keyword()) ::
+          {:ok, JidoConversation.Operations.rollout_settings_snapshot()} | {:error, term()}
+  def rollout_set_minimal_mode(enabled, opts \\ []) do
+    Operations.rollout_set_minimal_mode(enabled, opts)
+  end
+
+  @doc """
+  Updates rollout mode (`:event_based | :shadow | :disabled`).
+  """
+  @spec rollout_set_mode(JidoConversation.Rollout.Settings.mode()) ::
+          {:ok, JidoConversation.Operations.rollout_settings_snapshot()} | {:error, term()}
+  def rollout_set_mode(mode) do
+    Operations.rollout_set_mode(mode)
+  end
+
+  @doc """
+  Updates rollout stage (`:shadow | :canary | :ramp | :full`).
+  """
+  @spec rollout_set_stage(JidoConversation.Rollout.Settings.stage()) ::
+          {:ok, JidoConversation.Operations.rollout_settings_snapshot()} | {:error, term()}
+  def rollout_set_stage(stage) do
+    Operations.rollout_set_stage(stage)
+  end
+
+  @doc """
+  Applies partial rollout configuration overrides with validation.
+  """
+  @spec rollout_configure(keyword(), keyword()) ::
+          {:ok, JidoConversation.Operations.rollout_settings_snapshot()} | {:error, term()}
+  def rollout_configure(rollout_overrides, opts \\ []) do
+    Operations.rollout_configure(rollout_overrides, opts)
+  end
 end

@@ -13,6 +13,7 @@ defmodule JidoConversation.Operations do
   alias JidoConversation.Rollout.Parity
   alias JidoConversation.Rollout.Reporter
   alias JidoConversation.Rollout.Runbook
+  alias JidoConversation.Rollout.Settings
   alias JidoConversation.Rollout.Verification
   alias JidoConversation.Rollout.Window
 
@@ -51,6 +52,7 @@ defmodule JidoConversation.Operations do
   @type rollout_evaluation_result :: JidoConversation.Rollout.Manager.evaluation_result()
   @type rollout_runbook_assessment :: JidoConversation.Rollout.Runbook.assessment()
   @type rollout_window_assessment :: JidoConversation.Rollout.Window.assessment()
+  @type rollout_settings_snapshot :: JidoConversation.Rollout.Settings.snapshot()
 
   @spec replay_conversation(String.t(), keyword()) ::
           {:ok, [RecordedSignal.t()]} | {:error, term()}
@@ -244,6 +246,37 @@ defmodule JidoConversation.Operations do
   @spec rollout_window_assess(keyword()) :: rollout_window_assessment()
   def rollout_window_assess(opts \\ []) when is_list(opts) do
     Window.assess(opts)
+  end
+
+  @spec rollout_settings_snapshot() :: rollout_settings_snapshot()
+  def rollout_settings_snapshot do
+    Settings.snapshot()
+  end
+
+  @spec rollout_set_minimal_mode(boolean(), keyword()) ::
+          {:ok, rollout_settings_snapshot()} | {:error, Settings.update_error()}
+  def rollout_set_minimal_mode(enabled, opts \\ [])
+      when is_boolean(enabled) and is_list(opts) do
+    Settings.set_minimal_mode(enabled, opts)
+  end
+
+  @spec rollout_set_mode(Settings.mode()) ::
+          {:ok, rollout_settings_snapshot()} | {:error, Settings.update_error()}
+  def rollout_set_mode(mode) when mode in [:event_based, :shadow, :disabled] do
+    Settings.set_mode(mode)
+  end
+
+  @spec rollout_set_stage(Settings.stage()) ::
+          {:ok, rollout_settings_snapshot()} | {:error, Settings.update_error()}
+  def rollout_set_stage(stage) when stage in [:shadow, :canary, :ramp, :full] do
+    Settings.set_stage(stage)
+  end
+
+  @spec rollout_configure(keyword(), keyword()) ::
+          {:ok, rollout_settings_snapshot()} | {:error, Settings.update_error()}
+  def rollout_configure(rollout_overrides, opts \\ [])
+      when is_list(rollout_overrides) and is_list(opts) do
+    Settings.configure(rollout_overrides, opts)
   end
 
   @spec stream_subscriptions() :: {:ok, [subscription_summary()]} | {:error, term()}

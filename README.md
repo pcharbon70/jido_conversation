@@ -4,9 +4,9 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 
 ## Current status
 
-- Phases 0-15 complete:
+- Phases 0-16 complete:
   - architecture baseline through reliability hardening
-  - rollout migration, verification, controller, manager, runbook, window checks, and minimal mode
+  - rollout migration, verification, controller, manager, runbook, window checks, minimal mode, and settings controls
 
 ## Minimal mode
 
@@ -18,6 +18,13 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 config :jido_conversation, JidoConversation.EventSystem,
   rollout: [minimal_mode: false]
 ```
+
+- Runtime rollout settings can also be updated via APIs:
+  - `JidoConversation.rollout_settings_snapshot/0`
+  - `JidoConversation.rollout_set_minimal_mode/2`
+  - `JidoConversation.rollout_set_mode/1`
+  - `JidoConversation.rollout_set_stage/1`
+  - `JidoConversation.rollout_configure/2`
 
 ## Local setup
 
