@@ -291,33 +291,22 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - SLOs hold at target load.
 - System degrades gracefully under overload and recovers predictably.
 
-## Phase 9: Production launch readiness (3-5 days)
+## Phase 9+: Host-application operations (out of library scope)
 
 ### Objectives
 
-- Prepare a greenfield event-based runtime for production launch.
+- Keep deployment policy, rollout/runbook logic, and launch-governance concerns in
+  host applications rather than this shared library.
 
 ### Tasks
 
-- Add a launch-readiness operator report that aggregates:
-  - health state
-  - runtime telemetry
-  - subscription/checkpoint pressure
-  - DLQ load
-- Define launch thresholds and go/no-go checks.
-- Prepare incident runbooks for degraded health, queue pressure, and DLQ growth.
-- Run launch-readiness drills in staging and capture baseline snapshots.
-
-### Deliverables
-
-- Launch-readiness checklist and report format.
-- Operator runbook for launch and initial incident response.
-- Production threshold defaults for queue depth, dispatch failures, and DLQ tolerance.
+- Provide stable runtime primitives and telemetry hooks that host apps can consume.
+- Document extension points for host-level observability and operations tooling.
 
 ### Exit criteria
 
-- Operators can determine launch status from one report (`ready`, `warning`, `not_ready`).
-- Staging launch drills pass with no critical readiness issues.
+- Library remains focused on runtime behavior, contracts, and projections.
+- Host applications own deployment/readiness policy decisions.
 
 ## Cross-phase quality gates
 
@@ -325,18 +314,18 @@ This plan translates the research in `notes/research/events_based_conversation.m
 - Contract integrity: invalid events rejected at boundary.
 - Responsiveness: abort and reply latency SLOs met.
 - Reliability: retry/DLQ/checkpoint paths continuously tested.
-- Operability: dashboards and alerts available before production launch.
+- Operability: telemetry hooks available for host-level dashboards and alerts.
 
 ## Suggested timeline (high level)
 
 - Weeks 1-2: Phases 0-2
 - Weeks 3-5: Phases 3-5
 - Weeks 6-7: Phases 6-7
-- Weeks 8-9: Phases 8-9
+- Weeks 8-9: Phase 8 + hardening iterations
 
 ## Recommended immediate next backlog items
 
-1. Automate periodic launch-readiness snapshots and alerting on `not_ready` reports.
-2. Add historical readiness trend storage for operational review.
-3. Expand replay determinism checks with sampled production traffic in staging.
-4. Add runbook drills to CI/staging smoke suites.
+1. Expand replay determinism checks with sampled production-like traffic in staging.
+2. Add stronger contract evolution tests across stream namespaces.
+3. Improve partition scheduler fairness/load tests under burst traffic.
+4. Document host integration patterns for observability and deployment policy.
