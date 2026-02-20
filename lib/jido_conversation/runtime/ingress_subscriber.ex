@@ -58,28 +58,31 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
   defp process_signal(signal) do
     case Contract.normalize(signal) do
       {:ok, normalized} ->
-        decision = Rollout.decide(normalized)
-        Reporter.record_decision(decision)
-
-        if decision.parity_sampled? do
-          Reporter.record_parity_sample(normalized, decision)
-        end
-
-        case decision.action do
-          :enqueue_runtime ->
-            Coordinator.enqueue(normalized)
-
-          :parity_only ->
-            :ok
-
-          :drop ->
-            :ok
-        end
+        dispatch_normalized_signal(normalized)
 
       {:error, reason} ->
         Logger.warning("dropping contract-invalid signal: #{inspect(reason)}")
     end
   end
+
+  defp dispatch_normalized_signal(normalized) do
+    if Config.rollout_minimal_mode?() do
+      Coordinator.enqueue(normalized)
+    else
+      decision = Rollout.decide(normalized)
+      Reporter.record_decision(decision)
+
+      if decision.parity_sampled? do
+        Reporter.record_parity_sample(normalized, decision)
+      end
+
+      dispatch_rollout_action(decision.action, normalized)
+    end
+  end
+
+  defp dispatch_rollout_action(:enqueue_runtime, normalized), do: Coordinator.enqueue(normalized)
+  defp dispatch_rollout_action(:parity_only, _normalized), do: :ok
+  defp dispatch_rollout_action(:drop, _normalized), do: :ok
 
   defp ack_signal(nil, _signal), do: :ok
 

@@ -23,6 +23,7 @@ config :jido_conversation, JidoConversation.EventSystem,
   ],
   rollout: [
     mode: :event_based,
+    minimal_mode: true,
     stage: :canary,
     canary: [
       enabled: false,

@@ -15,6 +15,9 @@ config :jido_conversation, JidoConversation.EventSystem,
     llm: [max_attempts: 2, backoff_ms: 10, timeout_ms: 60],
     tool: [max_attempts: 2, backoff_ms: 10, timeout_ms: 60],
     timer: [max_attempts: 2, backoff_ms: 10, timeout_ms: 40]
+  ],
+  rollout: [
+    minimal_mode: false
   ]
 
 config :jido_signal,
