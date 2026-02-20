@@ -67,3 +67,4 @@ The hook runs:
 - Host integration patterns: `docs/host_integration_patterns.md`
 - Replay stress suites: `docs/replay_stress_suites.md`
 - User guides: `docs/user/README.md`
+- Developer guides: `docs/developer/README.md`
