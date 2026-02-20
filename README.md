@@ -4,9 +4,20 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 
 ## Current status
 
-- Phases 0-14 complete:
+- Phases 0-15 complete:
   - architecture baseline through reliability hardening
-  - rollout migration, verification, controller, manager, runbook, and window checks
+  - rollout migration, verification, controller, manager, runbook, window checks, and minimal mode
+
+## Minimal mode
+
+- Greenfield default uses `rollout.minimal_mode: true`.
+- In minimal mode, ingress bypasses rollout gates and enqueues runtime directly.
+- Advanced rollout controls remain available and can be re-enabled by setting:
+
+```elixir
+config :jido_conversation, JidoConversation.EventSystem,
+  rollout: [minimal_mode: false]
+```
 
 ## Local setup
 

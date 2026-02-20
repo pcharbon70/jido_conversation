@@ -211,7 +211,8 @@ defmodule JidoConversation.RolloutTest do
 
   defp set_rollout!(rollout_cfg) when is_list(rollout_cfg) do
     current = Application.get_env(:jido_conversation, JidoConversation.EventSystem, [])
-    updated = Keyword.put(current, :rollout, rollout_cfg)
+    rollout = current |> Keyword.get(:rollout, []) |> Keyword.merge(rollout_cfg)
+    updated = Keyword.put(current, :rollout, rollout)
     Application.put_env(:jido_conversation, JidoConversation.EventSystem, updated)
     Config.validate!()
   end

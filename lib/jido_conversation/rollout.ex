@@ -22,59 +22,16 @@ defmodule JidoConversation.Rollout do
 
   @spec decide(Signal.t()) :: decision()
   def decide(%Signal{} = signal) do
-    mode = Config.rollout_mode()
-    canary_match? = canary_match?(signal, Config.rollout_canary())
-    parity_sampled? = parity_sampled?(signal, Config.rollout_parity())
-
     base = signal_scope(signal)
 
-    case mode do
-      :disabled ->
-        Map.merge(base, %{
-          mode: mode,
-          action: :drop,
-          reason: :rollout_disabled,
-          canary_match?: false,
-          parity_sampled?: false
-        })
+    if Config.rollout_minimal_mode?() do
+      minimal_decision(base)
+    else
+      mode = Config.rollout_mode()
+      canary_match? = canary_match?(signal, Config.rollout_canary())
+      parity_sampled? = parity_sampled?(signal, Config.rollout_parity())
 
-      :event_based ->
-        if canary_match? do
-          Map.merge(base, %{
-            mode: mode,
-            action: :enqueue_runtime,
-            reason: :enabled,
-            canary_match?: true,
-            parity_sampled?: parity_sampled?
-          })
-        else
-          Map.merge(base, %{
-            mode: mode,
-            action: :drop,
-            reason: :canary_filtered,
-            canary_match?: false,
-            parity_sampled?: false
-          })
-        end
-
-      :shadow ->
-        if canary_match? do
-          Map.merge(base, %{
-            mode: mode,
-            action: :parity_only,
-            reason: :shadow_mode,
-            canary_match?: true,
-            parity_sampled?: parity_sampled?
-          })
-        else
-          Map.merge(base, %{
-            mode: mode,
-            action: :drop,
-            reason: :canary_filtered,
-            canary_match?: false,
-            parity_sampled?: false
-          })
-        end
+      decide_with_rollout_mode(base, mode, canary_match?, parity_sampled?)
     end
   end
 
@@ -145,4 +102,64 @@ defmodule JidoConversation.Rollout do
 
   defp present_value?(value) when is_binary(value), do: String.trim(value) != ""
   defp present_value?(value), do: not is_nil(value)
+
+  defp minimal_decision(base) do
+    Map.merge(base, %{
+      mode: :event_based,
+      action: :enqueue_runtime,
+      reason: :minimal_mode_enabled,
+      canary_match?: true,
+      parity_sampled?: false
+    })
+  end
+
+  defp decide_with_rollout_mode(base, :disabled, _canary_match?, _parity_sampled?) do
+    Map.merge(base, %{
+      mode: :disabled,
+      action: :drop,
+      reason: :rollout_disabled,
+      canary_match?: false,
+      parity_sampled?: false
+    })
+  end
+
+  defp decide_with_rollout_mode(base, :event_based, true, parity_sampled?) do
+    Map.merge(base, %{
+      mode: :event_based,
+      action: :enqueue_runtime,
+      reason: :enabled,
+      canary_match?: true,
+      parity_sampled?: parity_sampled?
+    })
+  end
+
+  defp decide_with_rollout_mode(base, :event_based, false, _parity_sampled?) do
+    Map.merge(base, %{
+      mode: :event_based,
+      action: :drop,
+      reason: :canary_filtered,
+      canary_match?: false,
+      parity_sampled?: false
+    })
+  end
+
+  defp decide_with_rollout_mode(base, :shadow, true, parity_sampled?) do
+    Map.merge(base, %{
+      mode: :shadow,
+      action: :parity_only,
+      reason: :shadow_mode,
+      canary_match?: true,
+      parity_sampled?: parity_sampled?
+    })
+  end
+
+  defp decide_with_rollout_mode(base, :shadow, false, _parity_sampled?) do
+    Map.merge(base, %{
+      mode: :shadow,
+      action: :drop,
+      reason: :canary_filtered,
+      canary_match?: false,
+      parity_sampled?: false
+    })
+  end
 end

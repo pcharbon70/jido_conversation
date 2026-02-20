@@ -32,6 +32,7 @@ defmodule JidoConversation.Config do
     ],
     rollout: [
       mode: :event_based,
+      minimal_mode: true,
       stage: :canary,
       canary: [
         enabled: false,
@@ -192,6 +193,11 @@ defmodule JidoConversation.Config do
     rollout() |> Keyword.fetch!(:mode)
   end
 
+  @spec rollout_minimal_mode?() :: boolean()
+  def rollout_minimal_mode? do
+    rollout() |> Keyword.fetch!(:minimal_mode)
+  end
+
   @spec rollout_canary() :: keyword()
   def rollout_canary do
     rollout() |> Keyword.fetch!(:canary)
@@ -300,11 +306,17 @@ defmodule JidoConversation.Config do
 
   defp validate_rollout!(rollout) when is_list(rollout) do
     mode = Keyword.fetch!(rollout, :mode)
+    minimal_mode = Keyword.fetch!(rollout, :minimal_mode)
     stage = Keyword.fetch!(rollout, :stage)
 
     if mode not in [:event_based, :shadow, :disabled] do
       raise ArgumentError,
             "expected rollout.mode to be :event_based, :shadow, or :disabled, got: #{inspect(mode)}"
+    end
+
+    if not is_boolean(minimal_mode) do
+      raise ArgumentError,
+            "expected rollout.minimal_mode to be a boolean, got: #{inspect(minimal_mode)}"
     end
 
     if stage not in [:shadow, :canary, :ramp, :full] do
