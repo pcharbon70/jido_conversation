@@ -14,10 +14,10 @@ conversation architecture.
 | Partition overload | Queue depth and lag alerts | Apply backpressure limits and degrade low-priority stream handling | Increase partitions/capacity and tune scheduling fairness |
 | Duplicate delivery (at-least-once) | Duplicate id metric/idempotency check | Drop duplicate or no-op apply based on idempotency keys | Verify dedupe logic and checkpoint behavior |
 | DLQ growth spike | DLQ size and rate alerts | Pause non-critical ingest and prioritize re-drive diagnostics | Triage root causes and execute controlled re-drive |
-| Replay parity mismatch | Replay parity check failure | Block rollout gate, flag conversation for forensic trace | Investigate scheduler determinism/state mutation bug |
+| Replay parity mismatch | Replay parity check failure | Block deployment gate, flag conversation for forensic trace | Investigate scheduler determinism/state mutation bug |
 
 ## Notes
 
 - Every automatic response must emit observable telemetry and an audit event where relevant.
-- Re-drive tooling is mandatory before production scale rollout.
+- Re-drive tooling is mandatory before production scale deployment.
 - Failure-mode simulations must be part of staging validation in phase 8.
