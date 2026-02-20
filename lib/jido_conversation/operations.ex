@@ -14,6 +14,7 @@ defmodule JidoConversation.Operations do
   alias JidoConversation.Rollout.Reporter
   alias JidoConversation.Rollout.Runbook
   alias JidoConversation.Rollout.Verification
+  alias JidoConversation.Rollout.Window
 
   @type subscription_summary :: %{
           subscription_id: String.t(),
@@ -49,6 +50,7 @@ defmodule JidoConversation.Operations do
   @type rollout_manager_snapshot :: JidoConversation.Rollout.Manager.snapshot()
   @type rollout_evaluation_result :: JidoConversation.Rollout.Manager.evaluation_result()
   @type rollout_runbook_assessment :: JidoConversation.Rollout.Runbook.assessment()
+  @type rollout_window_assessment :: JidoConversation.Rollout.Window.assessment()
 
   @spec replay_conversation(String.t(), keyword()) ::
           {:ok, [RecordedSignal.t()]} | {:error, term()}
@@ -237,6 +239,11 @@ defmodule JidoConversation.Operations do
   @spec rollout_runbook_assess(keyword()) :: rollout_runbook_assessment()
   def rollout_runbook_assess(opts \\ []) when is_list(opts) do
     Runbook.assess(opts)
+  end
+
+  @spec rollout_window_assess(keyword()) :: rollout_window_assessment()
+  def rollout_window_assess(opts \\ []) when is_list(opts) do
+    Window.assess(opts)
   end
 
   @spec stream_subscriptions() :: {:ok, [subscription_summary()]} | {:error, term()}

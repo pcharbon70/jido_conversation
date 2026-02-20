@@ -50,6 +50,12 @@ config :jido_conversation, JidoConversation.EventSystem,
     manager: [
       auto_apply: false,
       max_history: 100
+    ],
+    window: [
+      window_minutes: 60,
+      min_assessments: 5,
+      required_accept_count: 4,
+      max_rollback_count: 0
     ]
   ]
 

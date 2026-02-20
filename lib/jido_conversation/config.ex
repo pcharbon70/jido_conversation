@@ -59,6 +59,12 @@ defmodule JidoConversation.Config do
       manager: [
         auto_apply: false,
         max_history: 100
+      ],
+      window: [
+        window_minutes: 60,
+        min_assessments: 5,
+        required_accept_count: 4,
+        max_rollback_count: 0
       ]
     ]
   ]
@@ -115,6 +121,9 @@ defmodule JidoConversation.Config do
 
           :manager, manager_defaults, manager_overrides when is_list(manager_overrides) ->
             Keyword.merge(manager_defaults, manager_overrides)
+
+          :window, window_defaults, window_overrides when is_list(window_overrides) ->
+            Keyword.merge(window_defaults, window_overrides)
 
           _rollout_key, _rollout_defaults, rollout_override ->
             rollout_override
@@ -213,6 +222,11 @@ defmodule JidoConversation.Config do
     rollout() |> Keyword.fetch!(:manager)
   end
 
+  @spec rollout_window() :: keyword()
+  def rollout_window do
+    rollout() |> Keyword.fetch!(:window)
+  end
+
   def telemetry_events, do: @telemetry_events
 
   @spec bus_options() :: keyword()
@@ -303,6 +317,7 @@ defmodule JidoConversation.Config do
     validate_rollout_verification!(Keyword.fetch!(rollout, :verification))
     validate_rollout_controller!(Keyword.fetch!(rollout, :controller))
     validate_rollout_manager!(Keyword.fetch!(rollout, :manager))
+    validate_rollout_window!(Keyword.fetch!(rollout, :window))
     :ok
   end
 
@@ -415,6 +430,24 @@ defmodule JidoConversation.Config do
           "expected rollout.manager to be a keyword list, got: #{inspect(other)}"
   end
 
+  defp validate_rollout_window!(window) when is_list(window) do
+    window_minutes = Keyword.fetch!(window, :window_minutes)
+    min_assessments = Keyword.fetch!(window, :min_assessments)
+    required_accept_count = Keyword.fetch!(window, :required_accept_count)
+    max_rollback_count = Keyword.fetch!(window, :max_rollback_count)
+
+    ensure_positive_integer!(window_minutes, :"rollout.window.window_minutes")
+    ensure_positive_integer!(min_assessments, :"rollout.window.min_assessments")
+    ensure_positive_integer!(required_accept_count, :"rollout.window.required_accept_count")
+    ensure_non_negative_integer!(max_rollback_count, :"rollout.window.max_rollback_count")
+    :ok
+  end
+
+  defp validate_rollout_window!(other) do
+    raise ArgumentError,
+          "expected rollout.window to be a keyword list, got: #{inspect(other)}"
+  end
+
   defp validate_binary_list!(values, _key) when is_list(values) do
     case Enum.all?(values, &is_binary/1) do
       true -> :ok
@@ -432,5 +465,12 @@ defmodule JidoConversation.Config do
   defp ensure_probability!(value, key) do
     raise ArgumentError,
           "expected #{key} to be a probability between 0 and 1, got: #{inspect(value)}"
+  end
+
+  defp ensure_non_negative_integer!(value, _key) when is_integer(value) and value >= 0, do: :ok
+
+  defp ensure_non_negative_integer!(value, key) do
+    raise ArgumentError,
+          "expected #{key} to be a non-negative integer, got: #{inspect(value)}"
   end
 end
