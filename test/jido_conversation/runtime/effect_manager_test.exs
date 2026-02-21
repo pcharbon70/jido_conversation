@@ -105,6 +105,117 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     def cancel(_execution_ref, _opts), do: :ok
   end
 
+  defmodule LLMNonRetryableBackendStub do
+    @behaviour JidoConversation.LLM.Backend
+
+    alias JidoConversation.LLM.Error
+    alias JidoConversation.LLM.Request
+
+    @impl true
+    def capabilities do
+      %{
+        streaming?: true,
+        cancellation?: false,
+        provider_selection?: true,
+        model_selection?: true
+      }
+    end
+
+    @impl true
+    def start(%Request{} = request, opts) do
+      send(Keyword.get(opts, :test_pid, self()), {:llm_non_retryable_start, request})
+
+      {:error,
+       Error.new!(category: :config, message: "non-retryable config error", retryable?: false)}
+    end
+
+    @impl true
+    def stream(%Request{} = request, _emit, opts) do
+      send(Keyword.get(opts, :test_pid, self()), {:llm_non_retryable_stream, request})
+
+      {:error,
+       Error.new!(category: :config, message: "non-retryable config error", retryable?: false)}
+    end
+
+    @impl true
+    def cancel(_execution_ref, _opts), do: :ok
+  end
+
+  defmodule LLMCancellableBackendStub do
+    @behaviour JidoConversation.LLM.Backend
+
+    alias JidoConversation.LLM.Error
+    alias JidoConversation.LLM.Event
+    alias JidoConversation.LLM.Request
+    alias JidoConversation.LLM.Result
+
+    @impl true
+    def capabilities do
+      %{
+        streaming?: true,
+        cancellation?: true,
+        provider_selection?: true,
+        model_selection?: true
+      }
+    end
+
+    @impl true
+    def start(%Request{} = request, opts) do
+      send(Keyword.get(opts, :test_pid, self()), {:llm_cancellable_start, request})
+
+      {:ok,
+       Result.new!(%{
+         request_id: request.request_id,
+         conversation_id: request.conversation_id,
+         backend: request.backend,
+         status: :completed,
+         text: "completed"
+       })}
+    end
+
+    @impl true
+    def stream(%Request{} = request, emit, opts) do
+      test_pid = Keyword.get(opts, :test_pid, self())
+      execution_ref = self()
+      send(test_pid, {:llm_cancellable_stream, request, execution_ref})
+
+      _ =
+        emit.(
+          Event.new!(%{
+            request_id: request.request_id,
+            conversation_id: request.conversation_id,
+            backend: request.backend,
+            lifecycle: :started,
+            provider: "stub-provider",
+            model: "stub-model",
+            metadata: %{execution_ref: execution_ref}
+          })
+        )
+
+      receive do
+        :cancel ->
+          {:error, Error.new!(category: :canceled, message: "canceled", retryable?: false)}
+      after
+        5_000 ->
+          {:ok,
+           Result.new!(%{
+             request_id: request.request_id,
+             conversation_id: request.conversation_id,
+             backend: request.backend,
+             status: :completed,
+             text: "unexpected completion"
+           })}
+      end
+    end
+
+    @impl true
+    def cancel(execution_ref, opts) do
+      send(Keyword.get(opts, :test_pid, self()), {:llm_cancellable_cancel_called, execution_ref})
+      send(execution_ref, :cancel)
+      :ok
+    end
+  end
+
   setup do
     previous = Application.get_env(@app, @key)
 
@@ -286,6 +397,107 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
              lifecycle_for(event) == "completed" and
                get_in(data_field(event, :result, %{}), [:text]) == "hello world"
            end)
+  end
+
+  test "non-retryable llm backend errors do not retry even when max_attempts is greater than one" do
+    put_runtime_llm_backend!(LLMNonRetryableBackendStub, self())
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "trigger non-retryable failure"},
+          policy: %{max_attempts: 3, backoff_ms: 5, timeout_ms: 1_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_non_retryable_stream, %Request{}}
+
+    assert {:ok, recorded} =
+             eventually(fn ->
+               case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+                 {:ok, events} ->
+                   events_for_effect = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+                   lifecycles = Enum.map(events_for_effect, &lifecycle_for/1) |> MapSet.new()
+
+                   if MapSet.subset?(MapSet.new(["started", "failed"]), lifecycles) do
+                     {:ok, {:ok, events_for_effect}}
+                   else
+                     :retry
+                   end
+
+                 other ->
+                   {:ok, other}
+               end
+             end)
+
+    assert Enum.count(recorded, &(lifecycle_for(&1) == "failed")) == 1
+    assert Enum.count(recorded, &(lifecycle_for(&1) == "started")) == 1
+
+    refute Enum.any?(recorded, fn event ->
+             lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
+           end)
+
+    assert Enum.any?(recorded, fn event ->
+             lifecycle_for(event) == "failed" and data_field(event, :retryable?, true) == false
+           end)
+  end
+
+  test "cancel_conversation triggers llm backend cancel when execution_ref is available" do
+    put_runtime_llm_backend!(LLMCancellableBackendStub, self())
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "please run"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 5_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_cancellable_stream, %Request{}, _execution_ref}
+    Process.sleep(50)
+
+    :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", nil)
+    assert_receive {:llm_cancellable_cancel_called, _execution_ref}
+
+    assert {:ok, recorded} =
+             eventually(fn ->
+               case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+                 {:ok, events} ->
+                   events_for_effect = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+                   lifecycles = Enum.map(events_for_effect, &lifecycle_for/1)
+
+                   if "canceled" in lifecycles do
+                     {:ok, {:ok, events_for_effect}}
+                   else
+                     :retry
+                   end
+
+                 other ->
+                   {:ok, other}
+               end
+             end)
+
+    assert Enum.any?(recorded, &(lifecycle_for(&1) == "canceled"))
+
+    refute Enum.any?(recorded, &(lifecycle_for(&1) == "completed"))
   end
 
   test "invalid cause_id falls back to uncoupled lifecycle ingestion" do

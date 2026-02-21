@@ -30,7 +30,7 @@ that can execute through:
 | Phase 3 | `completed` | `JidoAI` adapter implementation | Adapter + tests |
 | Phase 4 | `completed` | `JidoHarness` adapter implementation | Adapter + tests |
 | Phase 5 | `completed` | Runtime effect integration | `EffectWorker` LLM path |
-| Phase 6 | `planned` | Cancellation/retry semantics | Cancellation handles + policy tests |
+| Phase 6 | `completed` | Cancellation/retry semantics | Cancellation handles + policy tests |
 | Phase 7 | `planned` | Event/projection parity hardening | Output mapping consistency |
 | Phase 8 | `planned` | Observability and diagnostics | Telemetry + health snapshot |
 | Phase 9 | `planned` | Reliability and replay parity matrix | Stress/parity/failure suites |
@@ -302,6 +302,23 @@ that can execute through:
 ### Exit criteria
 
 - Cancel requests deterministically stop active LLM work and emit canceled lifecycle.
+
+### Completion notes
+
+- Added backend cancellation context tracking in runtime worker state:
+  - worker now captures backend/module/options/execution reference per attempt
+  - streaming metadata events can contribute execution refs used for cancellation
+- Added backend-aware cancellation execution in `Runtime.EffectWorker`:
+  - cancel path now calls backend `cancel/2` when execution reference is available
+  - cancellation lifecycle payload records backend cancellation outcome metadata
+- Tightened retry policy to apply only to retryable failures:
+  - non-retryable `LLM.Error` failures no longer requeue attempts
+- Added and expanded runtime integration tests:
+  - non-retryable backend errors are not retried
+  - canceling an active conversation triggers backend cancel and avoids completed output
+- Extended adapter metadata for cancellation handles:
+  - `JidoAI` streaming started event includes execution reference metadata
+  - `Harness` stream and terminal events include session/execution reference metadata
 
 ## Phase 7: Output and projection parity hardening
 

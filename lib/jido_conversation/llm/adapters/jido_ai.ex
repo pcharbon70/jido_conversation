@@ -63,7 +63,6 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
          {:ok, request_opts} <- build_request_opts(request),
          llm_context = llm_client_context(opts),
          llm_client_module = llm_client_module(opts),
-         :ok <- emit_started_event(request, emit_event, model_spec),
          {:ok, stream_response} <-
            invoke_llm_client(llm_client_module, :stream_text, [
              llm_context,
@@ -71,6 +70,7 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
              messages,
              request_opts
            ]),
+         :ok <- emit_started_event(request, emit_event, model_spec, stream_response),
          {:ok, response} <-
            invoke_llm_client(llm_client_module, :process_stream, [
              llm_context,
@@ -94,16 +94,50 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
   end
 
   @impl true
-  def cancel(_execution_ref, _opts) do
-    {:error,
-     Error.new!(
-       category: :config,
-       message: "jido_ai adapter does not support explicit cancellation in this phase"
-     )}
+  def cancel(execution_ref, opts) when is_list(opts) do
+    llm_client_module = llm_client_module(opts)
+
+    with {:ok, cancel_ref} <- normalize_execution_ref(execution_ref),
+         :ok <- ensure_function(llm_client_module, :cancel, 1),
+         {:ok, response} <- invoke_plain(llm_client_module, :cancel, [cancel_ref]) do
+      normalize_cancel_response(response)
+    else
+      {:error, %Error{} = error} ->
+        {:error, error}
+
+      {:error, reason} ->
+        {:error, normalize_error(reason)}
+    end
   end
 
   defp cancellation_supported? do
     function_exported?(@default_llm_client_module, :cancel, 1)
+  end
+
+  defp normalize_execution_ref(nil) do
+    {:error,
+     Error.new!(
+       category: :config,
+       message: "missing execution_ref for jido_ai cancellation"
+     )}
+  end
+
+  defp normalize_execution_ref(execution_ref), do: {:ok, execution_ref}
+
+  defp normalize_cancel_response(:ok), do: :ok
+  defp normalize_cancel_response({:ok, _value}), do: :ok
+
+  defp normalize_cancel_response({:error, reason}) do
+    {:error, normalize_error(reason)}
+  end
+
+  defp normalize_cancel_response(other) do
+    {:error,
+     Error.new!(
+       category: :provider,
+       message: "jido_ai cancellation returned an invalid response",
+       details: %{response: other}
+     )}
   end
 
   defp stream_processing_opts(request, emit_event, model_spec) do
@@ -117,7 +151,7 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
     ]
   end
 
-  defp emit_started_event(request, emit_event, model_spec) do
+  defp emit_started_event(request, emit_event, model_spec, execution_ref) do
     emit_event_safe(
       emit_event,
       Event.new!(%{
@@ -129,7 +163,8 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
         provider: resolved_provider(request, model_spec),
         metadata: %{
           stream?: request.stream?,
-          timeout_ms: request.timeout_ms
+          timeout_ms: request.timeout_ms,
+          execution_ref: execution_ref
         }
       })
     )
