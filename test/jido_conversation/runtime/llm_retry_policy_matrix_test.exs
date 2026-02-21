@@ -28,17 +28,13 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
           {:error, %{status: 422, message: "unprocessable_entity"}}
 
         :retryable_then_success ->
-          if attempt == 1 do
-            {:error, %{status: 503, message: "service_unavailable"}}
-          else
-            {:ok,
-             %{
-               model: model,
-               finish_reason: :stop,
-               message: %{content: "jido_ai recovered"},
-               usage: %{input_tokens: 2, output_tokens: 3}
-             }}
-          end
+          scenario_recovery_result(attempt, model, :provider, "jido_ai recovered")
+
+        :timeout_then_success ->
+          scenario_recovery_result(attempt, model, :timeout, "jido_ai timeout recovered")
+
+        :transport_then_success ->
+          scenario_recovery_result(attempt, model, :transport, "jido_ai transport recovered")
       end
     end
 
@@ -47,6 +43,28 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
         next = value + 1
         {next, next}
       end)
+    end
+
+    defp scenario_recovery_result(1, _model, :provider, _content) do
+      {:error, %{status: 503, message: "service_unavailable"}}
+    end
+
+    defp scenario_recovery_result(1, _model, :timeout, _content) do
+      {:error, %{reason: :timeout, message: "request_timeout"}}
+    end
+
+    defp scenario_recovery_result(1, _model, :transport, _content) do
+      {:error, %{reason: :econnrefused, message: "network_down"}}
+    end
+
+    defp scenario_recovery_result(_attempt, model, _kind, content) do
+      {:ok,
+       %{
+         model: model,
+         finish_reason: :stop,
+         message: %{content: content},
+         usage: %{input_tokens: 2, output_tokens: 3}
+       }}
     end
   end
 
@@ -65,21 +83,13 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
           {:error, %{status: 422, message: "invalid_request"}}
 
         :retryable_then_success ->
-          if attempt == 1 do
-            {:error, %{status: 503, message: "upstream_unavailable"}}
-          else
-            {:ok,
-             [
-               %{
-                 type: :session_completed,
-                 provider: provider,
-                 payload: %{
-                   "output_text" => "harness recovered",
-                   "usage" => %{"input_tokens" => 1, "output_tokens" => 2}
-                 }
-               }
-             ]}
-          end
+          scenario_recovery_result(attempt, provider, :provider, "harness recovered")
+
+        :timeout_then_success ->
+          scenario_recovery_result(attempt, provider, :timeout, "harness timeout recovered")
+
+        :transport_then_success ->
+          scenario_recovery_result(attempt, provider, :transport, "harness transport recovered")
       end
     end
 
@@ -94,6 +104,32 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
         next = value + 1
         {next, next}
       end)
+    end
+
+    defp scenario_recovery_result(1, _provider, :provider, _text) do
+      {:error, %{status: 503, message: "upstream_unavailable"}}
+    end
+
+    defp scenario_recovery_result(1, _provider, :timeout, _text) do
+      {:error, %{reason: :timeout, message: "request_timeout"}}
+    end
+
+    defp scenario_recovery_result(1, _provider, :transport, _text) do
+      {:error, %{reason: :econnrefused, message: "network_down"}}
+    end
+
+    defp scenario_recovery_result(_attempt, provider, _kind, text) do
+      {:ok,
+       [
+         %{
+           type: :session_completed,
+           provider: provider,
+           payload: %{
+             "output_text" => text,
+             "usage" => %{"input_tokens" => 1, "output_tokens" => 2}
+           }
+         }
+       ]}
     end
   end
 
@@ -414,6 +450,38 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
              llm_retry_count(baseline.retry_by_category, "provider") + 1
   end
 
+  test "jido_ai timeout failures retry and increment timeout retry telemetry category" do
+    assert_retry_category_recovery_jido_ai(
+      :timeout_then_success,
+      "timeout",
+      "jido_ai timeout recovered"
+    )
+  end
+
+  test "jido_ai transport failures retry and increment transport retry telemetry category" do
+    assert_retry_category_recovery_jido_ai(
+      :transport_then_success,
+      "transport",
+      "jido_ai transport recovered"
+    )
+  end
+
+  test "harness timeout failures retry and increment timeout retry telemetry category" do
+    assert_retry_category_recovery_harness(
+      :timeout_then_success,
+      "timeout",
+      "harness timeout recovered"
+    )
+  end
+
+  test "harness transport failures retry and increment transport retry telemetry category" do
+    assert_retry_category_recovery_harness(
+      :transport_then_success,
+      "transport",
+      "harness transport recovered"
+    )
+  end
+
   defp put_runtime_backend!(:jido_ai, llm_client_context) when is_map(llm_client_context) do
     Application.put_env(@app, @key,
       llm: [
@@ -482,8 +550,143 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
   end
 
   defp llm_client_context(scenario, counter)
-       when scenario in [:non_retryable_422, :retryable_then_success] and is_pid(counter) do
+       when scenario in [
+              :non_retryable_422,
+              :retryable_then_success,
+              :timeout_then_success,
+              :transport_then_success
+            ] and is_pid(counter) do
     %{scenario: scenario, counter: counter, test_pid: self()}
+  end
+
+  defp assert_retry_category_recovery_jido_ai(scenario, expected_category, expected_text)
+       when is_atom(scenario) and is_binary(expected_category) and is_binary(expected_text) do
+    counter = start_counter!()
+    put_runtime_backend!(:jido_ai, llm_client_context(scenario, counter))
+    baseline = reset_llm_baseline!()
+    conversation_id = unique_id("conversation-jido-ai-#{scenario}")
+    effect_id = unique_id("effect-jido-ai-#{scenario}")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    start_retry_category_effect!(effect_id, conversation_id)
+
+    assert_receive {:jido_ai_generate_text, ^scenario, 1, _model}
+    assert_receive {:jido_ai_generate_text, ^scenario, 2, _model}
+
+    events = await_completed_llm_effect_events(effect_id, replay_start)
+    assert_retrying_progress_and_completed_text!(events, expected_text)
+    assert Agent.get(counter, & &1) == 2
+
+    assert_retry_category_telemetry_increment!(baseline, expected_category)
+  end
+
+  defp assert_retry_category_recovery_harness(scenario, expected_category, expected_text)
+       when is_atom(scenario) and is_binary(expected_category) and is_binary(expected_text) do
+    counter = start_counter!()
+    put_runtime_backend!(:harness, %{})
+    baseline = reset_llm_baseline!()
+    conversation_id = unique_id("conversation-harness-#{scenario}")
+    effect_id = unique_id("effect-harness-#{scenario}")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    start_retry_category_effect!(
+      effect_id,
+      conversation_id,
+      %{request_options: %{scenario: scenario, counter: counter, test_pid: self()}}
+    )
+
+    assert_receive {:harness_run, ^scenario, 1, :codex}
+    assert_receive {:harness_run, ^scenario, 2, :codex}
+
+    events = await_completed_llm_effect_events(effect_id, replay_start)
+    assert_retrying_progress_and_completed_text!(events, expected_text)
+    assert Agent.get(counter, & &1) == 2
+
+    assert_retry_category_telemetry_increment!(baseline, expected_category)
+  end
+
+  defp reset_llm_baseline! do
+    :ok = Telemetry.reset()
+    Telemetry.snapshot().llm
+  end
+
+  defp start_retry_category_effect!(effect_id, conversation_id, input_overrides \\ %{})
+       when is_binary(effect_id) and is_binary(conversation_id) and is_map(input_overrides) do
+    input =
+      %{
+        content: "retry category path"
+      }
+      |> Map.merge(input_overrides)
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: input,
+          policy: %{max_attempts: 3, backoff_ms: 5, timeout_ms: 800}
+        },
+        nil
+      )
+  end
+
+  defp await_completed_llm_effect_events(effect_id, replay_start) do
+    eventually(fn -> completed_llm_effect_events(effect_id, replay_start) end)
+  end
+
+  defp completed_llm_effect_events(effect_id, replay_start) do
+    case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+      {:ok, records} ->
+        matches = Enum.filter(records, &(effect_id_for(&1) == effect_id))
+
+        if completed_lifecycle_set?(matches) do
+          {:ok, matches}
+        else
+          :retry
+        end
+
+      _other ->
+        :retry
+    end
+  end
+
+  defp completed_lifecycle_set?(matches) when is_list(matches) do
+    lifecycles = Enum.map(matches, &lifecycle_for/1) |> MapSet.new()
+    MapSet.subset?(MapSet.new(["started", "progress", "completed"]), lifecycles)
+  end
+
+  defp assert_retrying_progress_and_completed_text!(events, expected_text)
+       when is_list(events) and is_binary(expected_text) do
+    assert Enum.any?(events, fn event ->
+             lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
+           end)
+
+    assert Enum.any?(events, fn event ->
+             lifecycle_for(event) == "completed" and
+               get_in(data_field(event, :result, %{}), [:text]) == expected_text
+           end)
+  end
+
+  defp assert_retry_category_telemetry_increment!(baseline, expected_category)
+       when is_map(baseline) and is_binary(expected_category) do
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+        completed = llm.lifecycle_counts.completed
+        retries = llm_retry_count(llm.retry_by_category, expected_category)
+
+        if completed >= baseline.lifecycle_counts.completed + 1 and
+             retries >= llm_retry_count(baseline.retry_by_category, expected_category) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert llm_retry_count(snapshot.retry_by_category, expected_category) >=
+             llm_retry_count(baseline.retry_by_category, expected_category) + 1
   end
 
   defp start_counter! do
