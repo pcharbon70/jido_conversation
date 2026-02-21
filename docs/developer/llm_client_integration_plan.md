@@ -40,6 +40,7 @@ that can execute through:
 | Phase 13 | `completed` | Stream-path retry policy matrix | End-to-end stream adapter retry classification |
 | Phase 14 | `completed` | Retry telemetry parity matrix | Retry counters and backend lifecycle telemetry parity |
 | Phase 15 | `completed` | Stream retry telemetry parity matrix | Stream retry counters and lifecycle telemetry parity |
+| Phase 16 | `completed` | Cancel telemetry parity matrix | Cancel result and lifecycle telemetry parity across backends |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -672,6 +673,43 @@ that can execute through:
   - no `provider` retry increment on non-retryable stream `422` failures
   - `provider` retry increments on retryable stream `503` failures
   - stream lifecycle counter progression for failed/completed outcomes
+
+## Phase 16: Cancel telemetry parity matrix
+
+### Objectives
+
+- Validate cancellation telemetry parity across both built-in backends.
+- Ensure cancellation outcome classes are reflected consistently in telemetry.
+
+### Tasks
+
+- Add runtime cancellation matrix tests for both `jido_ai` and `harness`
+  backend paths.
+- Verify telemetry classification for:
+  - backend cancellation success (`ok`)
+  - cancellation not attempted due to missing execution reference
+    (`not_available`)
+  - backend cancellation error (`failed`)
+- Verify canceled lifecycle emission and no completed lifecycle emission in all
+  cancel outcomes.
+
+### Deliverables
+
+- Runtime cancel telemetry matrix test suite.
+
+### Exit criteria
+
+- Cancellation telemetry and lifecycle behavior are deterministic and backend
+  parity is maintained.
+
+### Completion notes
+
+- Added end-to-end cancel telemetry parity coverage:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+- Matrix verifies:
+  - `ok`, `not_available`, and `failed` cancel result classes across backends
+  - canceled lifecycle emitted without completed lifecycle on cancel paths
+  - cancel telemetry counters and latency snapshots increment per cancellation
 
 ## Cross-phase quality gates
 
