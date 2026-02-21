@@ -27,7 +27,7 @@ that can execute through:
 | Phase 0 | `completed` | Architecture contract and ADR | ADR + docs only |
 | Phase 1 | `completed` | LLM domain model + backend behaviour | New `JidoConversation.LLM` modules |
 | Phase 2 | `completed` | Config and backend resolution | Config wiring + validation |
-| Phase 3 | `planned` | `JidoAI` adapter implementation | Adapter + tests |
+| Phase 3 | `completed` | `JidoAI` adapter implementation | Adapter + tests |
 | Phase 4 | `planned` | `JidoHarness` adapter implementation | Adapter + tests |
 | Phase 5 | `planned` | Runtime effect integration | `EffectWorker` LLM path |
 | Phase 6 | `planned` | Cancellation/retry semantics | Cancellation handles + policy tests |
@@ -192,6 +192,18 @@ that can execute through:
 ### Exit criteria
 
 - Adapter emits canonical normalized events and final result metadata.
+
+### Completion notes
+
+- Added adapter implementation:
+  - `lib/jido_conversation/llm/adapters/jido_ai.ex`
+- Adapter includes:
+  - dynamic `Jido.AI` / `Jido.AI.LLMClient` invocation (optional dependency-safe)
+  - model/provider resolution with alias + `provider:model` support
+  - normalized streaming lifecycle events (`started`, `delta`, `thinking`, `completed`, `failed`)
+  - normalized result/usage/metadata mapping and error categorization
+- Added adapter contract tests:
+  - `test/jido_conversation/llm/adapters/jido_ai_test.exs`
 
 ## Phase 4: JidoHarness backend adapter
 
