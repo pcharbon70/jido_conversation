@@ -44,6 +44,7 @@ that can execute through:
 | Phase 17 | `completed` | Timeout/transport retry category telemetry parity | Retry category counters for timeout and transport classes |
 | Phase 18 | `completed` | Stream timeout/transport retry telemetry parity | Stream retry category counters for timeout and transport classes |
 | Phase 19 | `completed` | Auth non-retryable runtime parity | Non-stream auth classification and retry telemetry invariants |
+| Phase 20 | `completed` | Stream auth non-retryable runtime parity | Stream auth classification and retry telemetry invariants |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -828,6 +829,47 @@ that can execute through:
   - no retry attempts on `401/403` auth failures
   - failed lifecycle payload category/retryable invariants (`auth`, `false`)
   - no `auth` retry counter increments in telemetry snapshot
+
+## Phase 20: Stream auth non-retryable runtime parity
+
+### Objectives
+
+- Validate runtime auth classification parity across stream execution paths for
+  built-in adapters.
+- Ensure stream auth failures remain non-retryable and do not increment retry
+  category counters.
+
+### Tasks
+
+- Extend runtime stream retry matrix coverage with auth failure scenarios for:
+  - `jido_ai` backend stream path (`401`)
+  - `harness` backend stream path (`403`)
+- Verify auth stream failures do not retry and terminate with failed lifecycle.
+- Verify failed lifecycle payload includes:
+  - `error_category: "auth"`
+  - `retryable?: false`
+- Verify telemetry `llm.retry_by_category["auth"]` remains unchanged for
+  non-retryable stream auth failures.
+
+### Deliverables
+
+- Runtime stream retry matrix tests covering auth non-retryable classification
+  and telemetry invariants.
+
+### Exit criteria
+
+- Auth stream runtime failures are classified deterministically and never
+  retried across both built-in adapters.
+
+### Completion notes
+
+- Extended stream retry policy matrix with auth non-retryable coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+- Added explicit assertions for:
+  - no retry attempts on stream `401/403` auth failures
+  - stream failed lifecycle payload category/retryable invariants
+    (`auth`, `false`)
+  - no `auth` retry counter increments in telemetry snapshot for stream paths
 
 ## Cross-phase quality gates
 
