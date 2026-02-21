@@ -29,6 +29,31 @@ defmodule JidoConversation.Config do
       llm: [max_attempts: 3, backoff_ms: 100, timeout_ms: 5_000],
       tool: [max_attempts: 3, backoff_ms: 100, timeout_ms: 3_000],
       timer: [max_attempts: 2, backoff_ms: 50, timeout_ms: 1_000]
+    ],
+    llm: [
+      default_backend: :jido_ai,
+      default_stream?: true,
+      default_timeout_ms: 30_000,
+      default_provider: nil,
+      default_model: nil,
+      backends: [
+        jido_ai: [
+          module: nil,
+          stream?: true,
+          timeout_ms: nil,
+          provider: nil,
+          model: nil,
+          options: []
+        ],
+        harness: [
+          module: nil,
+          stream?: true,
+          timeout_ms: nil,
+          provider: nil,
+          model: nil,
+          options: []
+        ]
+      ]
     ]
   ]
 
@@ -66,6 +91,9 @@ defmodule JidoConversation.Config do
             class_overrides
         end)
 
+      :llm, defaults, overrides when is_list(overrides) ->
+        merge_llm_config(defaults, overrides)
+
       _key, _defaults, overrides ->
         overrides
     end)
@@ -82,6 +110,7 @@ defmodule JidoConversation.Config do
     ensure_positive_integer!(cfg[:runtime_partitions], :runtime_partitions)
     ensure_binary!(cfg[:subscription_pattern], :subscription_pattern)
     validate_effect_runtime!(cfg[:effect_runtime])
+    validate_llm!(cfg[:llm])
 
     :ok
   end
@@ -116,6 +145,28 @@ defmodule JidoConversation.Config do
     event_system()
     |> Keyword.fetch!(:effect_runtime)
     |> Keyword.fetch!(class)
+  end
+
+  @spec llm() :: keyword()
+  def llm do
+    event_system() |> Keyword.fetch!(:llm)
+  end
+
+  @spec llm_default_backend() :: atom()
+  def llm_default_backend do
+    llm() |> Keyword.fetch!(:default_backend)
+  end
+
+  @spec llm_backend_config(atom()) :: keyword()
+  def llm_backend_config(backend) when is_atom(backend) do
+    llm()
+    |> Keyword.fetch!(:backends)
+    |> Keyword.get(backend, [])
+  end
+
+  @spec llm_backend_module(atom()) :: module() | nil
+  def llm_backend_module(backend) when is_atom(backend) do
+    llm_backend_config(backend) |> Keyword.get(:module)
   end
 
   def telemetry_events, do: @telemetry_events
@@ -187,5 +238,144 @@ defmodule JidoConversation.Config do
 
   defp validate_effect_runtime!(other) do
     raise ArgumentError, "expected effect_runtime to be a keyword list, got: #{inspect(other)}"
+  end
+
+  defp validate_llm!(llm_cfg) when is_list(llm_cfg) do
+    ensure_atom!(Keyword.fetch!(llm_cfg, :default_backend), :"llm.default_backend")
+    ensure_boolean!(Keyword.fetch!(llm_cfg, :default_stream?), :"llm.default_stream?")
+
+    ensure_optional_positive_integer!(
+      Keyword.fetch!(llm_cfg, :default_timeout_ms),
+      :"llm.default_timeout_ms"
+    )
+
+    ensure_optional_identifier!(
+      Keyword.fetch!(llm_cfg, :default_provider),
+      :"llm.default_provider"
+    )
+
+    ensure_optional_identifier!(Keyword.fetch!(llm_cfg, :default_model), :"llm.default_model")
+    validate_llm_backends!(llm_cfg)
+
+    :ok
+  end
+
+  defp validate_llm!(other) do
+    raise ArgumentError, "expected llm config to be a keyword list, got: #{inspect(other)}"
+  end
+
+  defp validate_llm_backends!(llm_cfg) do
+    backends = Keyword.fetch!(llm_cfg, :backends)
+    ensure_keyword_list!(backends, :"llm.backends")
+
+    Enum.each(backends, fn {backend, backend_cfg} ->
+      ensure_atom!(backend, :"llm.backends.<backend>")
+      validate_llm_backend!(backend, backend_cfg)
+    end)
+
+    default_backend = Keyword.fetch!(llm_cfg, :default_backend)
+
+    if Keyword.has_key?(backends, default_backend) do
+      :ok
+    else
+      raise ArgumentError,
+            "expected llm.default_backend #{inspect(default_backend)} to exist in llm.backends"
+    end
+  end
+
+  defp validate_llm_backend!(backend, backend_cfg) when is_list(backend_cfg) do
+    ensure_optional_module!(Keyword.get(backend_cfg, :module), :"llm.backends.#{backend}.module")
+
+    ensure_optional_boolean!(
+      Keyword.get(backend_cfg, :stream?),
+      :"llm.backends.#{backend}.stream?"
+    )
+
+    ensure_optional_positive_integer!(
+      Keyword.get(backend_cfg, :timeout_ms),
+      :"llm.backends.#{backend}.timeout_ms"
+    )
+
+    ensure_optional_identifier!(
+      Keyword.get(backend_cfg, :provider),
+      :"llm.backends.#{backend}.provider"
+    )
+
+    ensure_optional_identifier!(
+      Keyword.get(backend_cfg, :model),
+      :"llm.backends.#{backend}.model"
+    )
+
+    ensure_keyword_list!(
+      Keyword.get(backend_cfg, :options, []),
+      :"llm.backends.#{backend}.options"
+    )
+  end
+
+  defp validate_llm_backend!(backend, backend_cfg) do
+    raise ArgumentError,
+          "expected llm.backends.#{backend} to be a keyword list, got: #{inspect(backend_cfg)}"
+  end
+
+  defp merge_llm_config(defaults, overrides) do
+    Keyword.merge(defaults, overrides, fn
+      :backends, backend_defaults, backend_overrides when is_list(backend_overrides) ->
+        Keyword.merge(backend_defaults, backend_overrides, fn
+          _backend, defaults, overrides when is_list(overrides) ->
+            Keyword.merge(defaults, overrides)
+
+          _backend, _defaults, overrides ->
+            overrides
+        end)
+
+      _key, _defaults, overrides ->
+        overrides
+    end)
+  end
+
+  defp ensure_boolean!(value, _key) when is_boolean(value), do: :ok
+
+  defp ensure_boolean!(value, key) do
+    raise ArgumentError, "expected #{key} to be a boolean, got: #{inspect(value)}"
+  end
+
+  defp ensure_optional_boolean!(nil, _key), do: :ok
+  defp ensure_optional_boolean!(value, key), do: ensure_boolean!(value, key)
+
+  defp ensure_optional_positive_integer!(nil, _key), do: :ok
+  defp ensure_optional_positive_integer!(value, key), do: ensure_positive_integer!(value, key)
+
+  defp ensure_keyword_list!(value, key) when is_list(value) do
+    if Keyword.keyword?(value) do
+      :ok
+    else
+      raise ArgumentError, "expected #{key} to be a keyword list, got: #{inspect(value)}"
+    end
+  end
+
+  defp ensure_keyword_list!(value, key) do
+    raise ArgumentError, "expected #{key} to be a keyword list, got: #{inspect(value)}"
+  end
+
+  defp ensure_optional_module!(nil, _key), do: :ok
+  defp ensure_optional_module!(value, _key) when is_atom(value), do: :ok
+
+  defp ensure_optional_module!(value, key) do
+    raise ArgumentError, "expected #{key} to be a module atom or nil, got: #{inspect(value)}"
+  end
+
+  defp ensure_optional_identifier!(nil, _key), do: :ok
+  defp ensure_optional_identifier!(value, _key) when is_atom(value), do: :ok
+
+  defp ensure_optional_identifier!(value, key) when is_binary(value) do
+    if String.trim(value) == "" do
+      raise ArgumentError, "expected #{key} to be a non-empty identifier"
+    else
+      :ok
+    end
+  end
+
+  defp ensure_optional_identifier!(value, key) do
+    raise ArgumentError, "expected #{key} to be nil, atom, or binary, got: #{inspect(value)}"
   end
 end
