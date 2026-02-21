@@ -2,14 +2,125 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
   use ExUnit.Case, async: false
 
   alias JidoConversation.Ingest
+  alias JidoConversation.LLM.Event
+  alias JidoConversation.LLM.Request
+  alias JidoConversation.LLM.Result
   alias JidoConversation.Runtime.Coordinator
   alias JidoConversation.Runtime.EffectManager
   alias JidoConversation.Runtime.IngressSubscriber
 
+  @app :jido_conversation
+  @key JidoConversation.EventSystem
+
+  defmodule LLMBackendStub do
+    @behaviour JidoConversation.LLM.Backend
+
+    alias JidoConversation.LLM.Event
+    alias JidoConversation.LLM.Request
+    alias JidoConversation.LLM.Result
+
+    @impl true
+    def capabilities do
+      %{
+        streaming?: true,
+        cancellation?: false,
+        provider_selection?: true,
+        model_selection?: true
+      }
+    end
+
+    @impl true
+    def start(%Request{} = request, opts) do
+      send(Keyword.get(opts, :test_pid, self()), {:llm_backend_start, request, opts})
+
+      {:ok,
+       Result.new!(%{
+         request_id: request.request_id,
+         conversation_id: request.conversation_id,
+         backend: request.backend,
+         status: :completed,
+         text: "hello world",
+         provider: request.provider || "stub-provider",
+         model: request.model || "stub-model",
+         usage: %{input_tokens: 3, output_tokens: 2}
+       })}
+    end
+
+    @impl true
+    def stream(%Request{} = request, emit, opts) when is_function(emit, 1) do
+      send(Keyword.get(opts, :test_pid, self()), {:llm_backend_stream, request, opts})
+
+      _ =
+        emit.(
+          Event.new!(%{
+            request_id: request.request_id,
+            conversation_id: request.conversation_id,
+            backend: request.backend,
+            lifecycle: :started,
+            provider: request.provider || "stub-provider",
+            model: request.model || "stub-model"
+          })
+        )
+
+      _ =
+        emit.(
+          Event.new!(%{
+            request_id: request.request_id,
+            conversation_id: request.conversation_id,
+            backend: request.backend,
+            lifecycle: :delta,
+            delta: "hello ",
+            provider: request.provider || "stub-provider",
+            model: request.model || "stub-model"
+          })
+        )
+
+      _ =
+        emit.(
+          Event.new!(%{
+            request_id: request.request_id,
+            conversation_id: request.conversation_id,
+            backend: request.backend,
+            lifecycle: :delta,
+            delta: "world",
+            provider: request.provider || "stub-provider",
+            model: request.model || "stub-model"
+          })
+        )
+
+      {:ok,
+       Result.new!(%{
+         request_id: request.request_id,
+         conversation_id: request.conversation_id,
+         backend: request.backend,
+         status: :completed,
+         text: "hello world",
+         provider: request.provider || "stub-provider",
+         model: request.model || "stub-model",
+         usage: %{input_tokens: 3, output_tokens: 2}
+       })}
+    end
+
+    @impl true
+    def cancel(_execution_ref, _opts), do: :ok
+  end
+
   setup do
+    previous = Application.get_env(@app, @key)
+
     wait_for_ingress_subscriber!()
     wait_for_runtime_idle!()
-    on_exit(fn -> wait_for_runtime_idle!() end)
+
+    on_exit(fn ->
+      if is_nil(previous) do
+        Application.delete_env(@app, @key)
+      else
+        Application.put_env(@app, @key, previous)
+      end
+
+      wait_for_runtime_idle!()
+    end)
+
     :ok
   end
 
@@ -72,9 +183,9 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
         %{
           effect_id: effect_id,
           conversation_id: conversation_id,
-          class: :llm,
-          kind: "generation",
-          input: %{prompt: "hello"},
+          class: :tool,
+          kind: "execution",
+          input: %{tool_name: "slow_tool"},
           simulate: %{latency_ms: 80},
           policy: %{max_attempts: 2, backoff_ms: 5, timeout_ms: 10}
         },
@@ -83,7 +194,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert {:ok, recorded} =
              eventually(fn ->
-               case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+               case Ingest.replay("conv.effect.tool.execution.**", replay_start) do
                  {:ok, events} ->
                    lifecycles = effect_lifecycles(events, effect_id)
 
@@ -110,6 +221,71 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
         :retry
       end
     end)
+  end
+
+  test "llm effects execute through the configured backend and emit stream progress + completed lifecycle" do
+    put_runtime_llm_backend!(LLMBackendStub, self())
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "hello from test", role: "user"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 1_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_backend_stream, %Request{} = request, _opts}
+    assert request.conversation_id == conversation_id
+    assert request.messages == [%{role: :user, content: "hello from test"}]
+
+    assert {:ok, recorded} =
+             eventually(fn ->
+               case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+                 {:ok, events} ->
+                   events_for_effect =
+                     Enum.filter(events, fn event ->
+                       effect_id_for(event) == effect_id
+                     end)
+
+                   lifecycles =
+                     events_for_effect
+                     |> Enum.map(&lifecycle_for/1)
+                     |> MapSet.new()
+
+                   if MapSet.subset?(MapSet.new(["started", "progress", "completed"]), lifecycles) do
+                     {:ok, {:ok, events_for_effect}}
+                   else
+                     :retry
+                   end
+
+                 other ->
+                   {:ok, other}
+               end
+             end)
+
+    assert Enum.any?(recorded, fn event ->
+             lifecycle_for(event) == "progress" and
+               data_field(event, :token_delta, nil) == "hello"
+           end)
+
+    assert Enum.any?(recorded, fn event ->
+             lifecycle_for(event) == "progress" and
+               data_field(event, :token_delta, nil) == "world"
+           end)
+
+    assert Enum.any?(recorded, fn event ->
+             lifecycle_for(event) == "completed" and
+               get_in(data_field(event, :result, %{}), [:text]) == "hello world"
+           end)
   end
 
   test "invalid cause_id falls back to uncoupled lifecycle ingestion" do
@@ -244,7 +420,14 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
   defp data_field(event, key, default) do
     data = event.signal.data || %{}
-    Map.get(data, key) || Map.get(data, to_string(key)) || default
+
+    case Map.fetch(data, key) do
+      {:ok, value} ->
+        value
+
+      :error ->
+        Map.get(data, to_string(key), default)
+    end
   end
 
   defp to_integer(value) when is_integer(value), do: value
@@ -260,6 +443,29 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
   defp unique_id(prefix) do
     "#{prefix}-#{System.unique_integer([:positive, :monotonic])}"
+  end
+
+  defp put_runtime_llm_backend!(module, test_pid) when is_atom(module) and is_pid(test_pid) do
+    Application.put_env(@app, @key,
+      llm: [
+        default_backend: :jido_ai,
+        default_stream?: true,
+        default_timeout_ms: 1_000,
+        default_provider: "stub-provider",
+        default_model: "stub-model",
+        backends: [
+          jido_ai: [
+            module: module,
+            stream?: true,
+            timeout_ms: 1_000,
+            provider: "stub-provider",
+            model: "stub-model",
+            options: [test_pid: test_pid]
+          ],
+          harness: [module: nil, stream?: true, options: []]
+        ]
+      ]
+    )
   end
 
   defp wait_for_ingress_subscriber! do

@@ -29,7 +29,7 @@ that can execute through:
 | Phase 2 | `completed` | Config and backend resolution | Config wiring + validation |
 | Phase 3 | `completed` | `JidoAI` adapter implementation | Adapter + tests |
 | Phase 4 | `completed` | `JidoHarness` adapter implementation | Adapter + tests |
-| Phase 5 | `planned` | Runtime effect integration | `EffectWorker` LLM path |
+| Phase 5 | `completed` | Runtime effect integration | `EffectWorker` LLM path |
 | Phase 6 | `planned` | Cancellation/retry semantics | Cancellation handles + policy tests |
 | Phase 7 | `planned` | Event/projection parity hardening | Output mapping consistency |
 | Phase 8 | `planned` | Observability and diagnostics | Telemetry + health snapshot |
@@ -262,6 +262,22 @@ that can execute through:
 ### Exit criteria
 
 - Runtime executes real LLM effects through selected backend.
+
+### Completion notes
+
+- Integrated real LLM execution into runtime effect worker:
+  - `lib/jido_conversation/runtime/effect_worker.ex`
+- Runtime now:
+  - resolves backend/module/provider/model/stream settings via `LLM.Resolver`
+  - builds normalized `LLM.Request` values from effect input payloads
+  - executes adapter `start/2` or `stream/3` based on resolved stream mode
+  - maps streaming delta/thinking events to `conv.effect.llm.generation.progress`
+  - emits normalized completion/failure payloads for reducer/output projections
+- Kept tool/timer execution path and effect-manager orchestration unchanged.
+- Added runtime integration coverage for real LLM backend execution through effect manager:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+- Updated assistant-delta extraction to avoid treating generic progress statuses as content:
+  - `lib/jido_conversation/runtime/reducer.ex`
 
 ## Phase 6: Cancellation, retries, and timeout semantics
 
