@@ -15,6 +15,8 @@ an application.
    - Timeline/LLM context options and replay/query usage
 5. [Operations and Host Integration](./operations_and_host_integration.md)
    - Health/telemetry usage and host responsibilities
+6. [LLM Backend Configuration](./llm_backend_configuration.md)
+   - Backend selection, provider/model routing, and override precedence
 
 ## Related docs
 

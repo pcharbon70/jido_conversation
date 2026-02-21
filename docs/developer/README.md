@@ -17,6 +17,10 @@ design decisions, and extension patterns.
    - Test layers, quality gates, and determinism expectations
 6. [Unified LLM Client Integration Plan](./llm_client_integration_plan.md)
    - Phased implementation and tracking plan for JidoAI/Harness backend support
+7. [LLM Backend Adapter Contract](./llm_backend_adapter_contract.md)
+   - Adapter callbacks, lifecycle normalization, and cancellation semantics
+8. [LLM Runtime Migration Notes](./llm_migration_notes.md)
+   - Host migration guidance from simulated effects to real backend execution
 
 ## Related references
 
