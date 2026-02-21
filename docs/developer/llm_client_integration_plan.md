@@ -26,7 +26,7 @@ that can execute through:
 | --- | --- | --- | --- |
 | Phase 0 | `completed` | Architecture contract and ADR | ADR + docs only |
 | Phase 1 | `completed` | LLM domain model + backend behaviour | New `JidoConversation.LLM` modules |
-| Phase 2 | `planned` | Config and backend resolution | Config wiring + validation |
+| Phase 2 | `completed` | Config and backend resolution | Config wiring + validation |
 | Phase 3 | `planned` | `JidoAI` adapter implementation | Adapter + tests |
 | Phase 4 | `planned` | `JidoHarness` adapter implementation | Adapter + tests |
 | Phase 5 | `planned` | Runtime effect integration | `EffectWorker` LLM path |
@@ -151,6 +151,22 @@ that can execute through:
 ### Exit criteria
 
 - Backend selection is deterministic and test-covered.
+
+### Completion notes
+
+- Extended config schema and validation in:
+  - `lib/jido_conversation/config.ex`
+- Added LLM config accessors:
+  - `llm/0`
+  - `llm_default_backend/0`
+  - `llm_backend_config/1`
+  - `llm_backend_module/1`
+- Added deterministic resolution helper with explicit precedence and module availability checks:
+  - `lib/jido_conversation/llm/resolver.ex`
+- Added tests for config defaults/merging/validation:
+  - `test/jido_conversation/config_test.exs`
+- Added tests for backend/model/provider resolution precedence and missing-module errors:
+  - `test/jido_conversation/llm/resolver_test.exs`
 
 ## Phase 3: JidoAI backend adapter
 
