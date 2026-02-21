@@ -28,7 +28,7 @@ that can execute through:
 | Phase 1 | `completed` | LLM domain model + backend behaviour | New `JidoConversation.LLM` modules |
 | Phase 2 | `completed` | Config and backend resolution | Config wiring + validation |
 | Phase 3 | `completed` | `JidoAI` adapter implementation | Adapter + tests |
-| Phase 4 | `planned` | `JidoHarness` adapter implementation | Adapter + tests |
+| Phase 4 | `completed` | `JidoHarness` adapter implementation | Adapter + tests |
 | Phase 5 | `planned` | Runtime effect integration | `EffectWorker` LLM path |
 | Phase 6 | `planned` | Cancellation/retry semantics | Cancellation handles + policy tests |
 | Phase 7 | `planned` | Event/projection parity hardening | Output mapping consistency |
@@ -227,6 +227,19 @@ that can execute through:
 ### Exit criteria
 
 - Harness backend produces the same normalized lifecycle model used by runtime.
+
+### Completion notes
+
+- Added adapter implementation:
+  - `lib/jido_conversation/llm/adapters/harness.ex`
+- Adapter includes:
+  - dynamic `Jido.Harness` invocation (optional dependency-safe)
+  - `run/2` and `run/3` integration with prompt + options mapping
+  - normalized streaming lifecycle events (`started`, `delta`, `thinking`, `completed`, `failed`, `canceled`)
+  - best-effort fallback extraction for provider event variance (`assistant`, `result`, `output_text` shapes)
+  - explicit cancellation support through `Jido.Harness.cancel/2`
+- Added adapter contract tests:
+  - `test/jido_conversation/llm/adapters/harness_test.exs`
 
 ## Phase 5: Runtime effect integration
 
