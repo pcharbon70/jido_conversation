@@ -27,6 +27,9 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
         :non_retryable_422 ->
           {:error, %{status: 422, message: "unprocessable_entity"}}
 
+        :auth_401 ->
+          {:error, %{status: 401, message: "unauthorized"}}
+
         :retryable_then_success ->
           scenario_recovery_result(attempt, model, :provider, "jido_ai recovered")
 
@@ -81,6 +84,9 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
       case scenario do
         :non_retryable_422 ->
           {:error, %{status: 422, message: "invalid_request"}}
+
+        :auth_403 ->
+          {:error, %{status: 403, message: "forbidden"}}
 
         :retryable_then_success ->
           scenario_recovery_result(attempt, provider, :provider, "harness recovered")
@@ -294,6 +300,26 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
              llm_retry_count(baseline.retry_by_category, "provider") + 1
   end
 
+  test "jido_ai auth failures are non-retryable and emit auth category at runtime" do
+    counter = start_counter!()
+    put_runtime_backend!(:jido_ai, llm_client_context(:auth_401, counter))
+    baseline = reset_llm_baseline!()
+    conversation_id = unique_id("conversation-jido-ai-auth-non-retryable")
+    effect_id = unique_id("effect-jido-ai-auth-non-retryable")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    start_retry_category_effect!(effect_id, conversation_id)
+
+    assert_receive {:jido_ai_generate_text, :auth_401, 1, _model}
+    refute_receive {:jido_ai_generate_text, :auth_401, 2, _model}, 200
+
+    events = await_failed_llm_effect_events(effect_id, replay_start)
+    assert_non_retryable_failed_path!(events, "auth")
+    assert Agent.get(counter, & &1) == 1
+
+    assert_non_retryable_category_telemetry_unchanged!(baseline, "auth")
+  end
+
   test "harness 4xx provider errors are non-retryable at runtime" do
     counter = start_counter!()
     put_runtime_backend!(:harness, %{})
@@ -450,6 +476,30 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
              llm_retry_count(baseline.retry_by_category, "provider") + 1
   end
 
+  test "harness auth failures are non-retryable and emit auth category at runtime" do
+    counter = start_counter!()
+    put_runtime_backend!(:harness, %{})
+    baseline = reset_llm_baseline!()
+    conversation_id = unique_id("conversation-harness-auth-non-retryable")
+    effect_id = unique_id("effect-harness-auth-non-retryable")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    start_retry_category_effect!(
+      effect_id,
+      conversation_id,
+      %{request_options: %{scenario: :auth_403, counter: counter, test_pid: self()}}
+    )
+
+    assert_receive {:harness_run, :auth_403, 1, :codex}
+    refute_receive {:harness_run, :auth_403, 2, :codex}, 200
+
+    events = await_failed_llm_effect_events(effect_id, replay_start)
+    assert_non_retryable_failed_path!(events, "auth")
+    assert Agent.get(counter, & &1) == 1
+
+    assert_non_retryable_category_telemetry_unchanged!(baseline, "auth")
+  end
+
   test "jido_ai timeout failures retry and increment timeout retry telemetry category" do
     assert_retry_category_recovery_jido_ai(
       :timeout_then_success,
@@ -552,6 +602,7 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
   defp llm_client_context(scenario, counter)
        when scenario in [
               :non_retryable_422,
+              :auth_401,
               :retryable_then_success,
               :timeout_then_success,
               :transport_then_success
@@ -636,6 +687,10 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     eventually(fn -> completed_llm_effect_events(effect_id, replay_start) end)
   end
 
+  defp await_failed_llm_effect_events(effect_id, replay_start) do
+    eventually(fn -> failed_llm_effect_events(effect_id, replay_start) end)
+  end
+
   defp completed_llm_effect_events(effect_id, replay_start) do
     case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
       {:ok, records} ->
@@ -652,9 +707,30 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     end
   end
 
+  defp failed_llm_effect_events(effect_id, replay_start) do
+    case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+      {:ok, records} ->
+        matches = Enum.filter(records, &(effect_id_for(&1) == effect_id))
+
+        if failed_lifecycle_set?(matches) do
+          {:ok, matches}
+        else
+          :retry
+        end
+
+      _other ->
+        :retry
+    end
+  end
+
   defp completed_lifecycle_set?(matches) when is_list(matches) do
     lifecycles = Enum.map(matches, &lifecycle_for/1) |> MapSet.new()
     MapSet.subset?(MapSet.new(["started", "progress", "completed"]), lifecycles)
+  end
+
+  defp failed_lifecycle_set?(matches) when is_list(matches) do
+    lifecycles = Enum.map(matches, &lifecycle_for/1) |> MapSet.new()
+    MapSet.subset?(MapSet.new(["started", "failed"]), lifecycles)
   end
 
   defp assert_retrying_progress_and_completed_text!(events, expected_text)
@@ -667,6 +743,37 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
              lifecycle_for(event) == "completed" and
                get_in(data_field(event, :result, %{}), [:text]) == expected_text
            end)
+  end
+
+  defp assert_non_retryable_failed_path!(events, expected_category)
+       when is_list(events) and is_binary(expected_category) do
+    assert Enum.count(events, &(lifecycle_for(&1) == "started")) == 1
+    assert Enum.count(events, &(lifecycle_for(&1) == "failed")) == 1
+
+    refute Enum.any?(events, fn event ->
+             lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
+           end)
+
+    failed_event = Enum.find(events, &(lifecycle_for(&1) == "failed"))
+    assert data_field(failed_event, :error_category, nil) == expected_category
+    assert data_field(failed_event, :retryable?, true) == false
+  end
+
+  defp assert_non_retryable_category_telemetry_unchanged!(baseline, expected_category)
+       when is_map(baseline) and is_binary(expected_category) do
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.failed >= baseline.lifecycle_counts.failed + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert llm_retry_count(snapshot.retry_by_category, expected_category) ==
+             llm_retry_count(baseline.retry_by_category, expected_category)
   end
 
   defp assert_retry_category_telemetry_increment!(baseline, expected_category)
@@ -712,7 +819,8 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
   defp lifecycle_for(record), do: data_field(record, :lifecycle, "")
   defp effect_id_for(record), do: data_field(record, :effect_id, nil)
 
-  defp llm_retry_count(retry_by_category, key) when is_map(retry_by_category) and is_binary(key) do
+  defp llm_retry_count(retry_by_category, key)
+       when is_map(retry_by_category) and is_binary(key) do
     Map.get(retry_by_category, key, 0)
   end
 
