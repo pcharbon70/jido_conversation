@@ -31,7 +31,7 @@ that can execute through:
 | Phase 4 | `completed` | `JidoHarness` adapter implementation | Adapter + tests |
 | Phase 5 | `completed` | Runtime effect integration | `EffectWorker` LLM path |
 | Phase 6 | `completed` | Cancellation/retry semantics | Cancellation handles + policy tests |
-| Phase 7 | `planned` | Event/projection parity hardening | Output mapping consistency |
+| Phase 7 | `completed` | Event/projection parity hardening | Output mapping consistency |
 | Phase 8 | `planned` | Observability and diagnostics | Telemetry + health snapshot |
 | Phase 9 | `planned` | Reliability and replay parity matrix | Stress/parity/failure suites |
 | Phase 10 | `planned` | Documentation and migration | User/developer docs |
@@ -339,6 +339,29 @@ that can execute through:
 ### Exit criteria
 
 - Timeline and LLM context projections stay consistent regardless of backend.
+
+### Completion notes
+
+- Standardized reducer output payload mapping for `conv.effect.llm.generation.*`:
+  - assistant delta/completed outputs now include normalized lifecycle metadata
+    (status, provider, model, backend, sequence/attempt where available)
+  - reducer now preserves and forwards normalized `usage` and selected metadata
+    fields from backend result payloads
+- Hardened tool status output coherence:
+  - tool lifecycle projection payload now includes explicit `status` in addition
+    to `message`
+  - tool identifier fields (`tool_name`, `tool_call_id`) are propagated when
+    present
+  - LLM lifecycle events can emit `conv.out.tool.status` when backend payloads
+    include tool call/status signals
+- Hardened timeline projection metadata parity:
+  - timeline assistant and tool entries retain standardized metadata keys across
+    backends, including usage and metadata maps when present
+- Added/expanded parity-focused tests:
+  - reducer tests for backend-shaped payload normalization and tool status
+    coherence
+  - timeline projection metadata preservation tests
+  - harness adapter stream normalization regression coverage
 
 ## Phase 8: Observability and diagnostics
 

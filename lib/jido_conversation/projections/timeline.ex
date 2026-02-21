@@ -67,10 +67,18 @@ defmodule JidoConversation.Projections.Timeline do
       output_id: get_field(signal.data, :output_id),
       channel: get_field(signal.data, :channel),
       content: to_string(get_field(signal.data, :delta) || ""),
-      metadata: %{
-        effect_id: get_field(signal.data, :effect_id),
-        lifecycle: get_field(signal.data, :lifecycle)
-      }
+      metadata:
+        output_metadata(signal.data, [
+          :effect_id,
+          :lifecycle,
+          :status,
+          :attempt,
+          :sequence,
+          :backend,
+          :provider,
+          :model,
+          :finish_reason
+        ])
     }
   end
 
@@ -83,10 +91,18 @@ defmodule JidoConversation.Projections.Timeline do
       output_id: get_field(signal.data, :output_id),
       channel: get_field(signal.data, :channel),
       content: to_string(get_field(signal.data, :content) || ""),
-      metadata: %{
-        effect_id: get_field(signal.data, :effect_id),
-        lifecycle: get_field(signal.data, :lifecycle)
-      }
+      metadata:
+        output_metadata(signal.data, [
+          :effect_id,
+          :lifecycle,
+          :status,
+          :attempt,
+          :sequence,
+          :backend,
+          :provider,
+          :model,
+          :finish_reason
+        ])
     }
   end
 
@@ -100,14 +116,36 @@ defmodule JidoConversation.Projections.Timeline do
       channel: get_field(signal.data, :channel),
       content:
         to_string(get_field(signal.data, :message) || get_field(signal.data, :status) || ""),
-      metadata: %{
-        effect_id: get_field(signal.data, :effect_id),
-        lifecycle: get_field(signal.data, :lifecycle)
-      }
+      metadata:
+        output_metadata(signal.data, [
+          :effect_id,
+          :lifecycle,
+          :status,
+          :backend,
+          :provider,
+          :model,
+          :tool_name,
+          :tool_call_id,
+          :tool_event
+        ])
     }
   end
 
   defp entry_for_signal(_signal), do: nil
+
+  defp output_metadata(data, keys) when is_map(data) and is_list(keys) do
+    keys
+    |> Enum.reduce(%{}, fn key, acc ->
+      case get_field(data, key) do
+        nil -> acc
+        value -> Map.put(acc, key, value)
+      end
+    end)
+    |> maybe_put_non_empty_map(:usage, normalize_map(get_field(data, :usage)))
+    |> maybe_put_non_empty_map(:metadata, normalize_map(get_field(data, :metadata)))
+  end
+
+  defp output_metadata(_data, _keys), do: %{}
 
   defp get_field(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, to_string(key))
@@ -122,4 +160,15 @@ defmodule JidoConversation.Projections.Timeline do
       _ -> true
     end)
   end
+
+  defp maybe_put_non_empty_map(map, key, value) when is_map(value) do
+    if map_size(value) == 0 do
+      map
+    else
+      Map.put(map, key, value)
+    end
+  end
+
+  defp normalize_map(value) when is_map(value), do: value
+  defp normalize_map(_value), do: %{}
 end
