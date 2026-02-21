@@ -188,15 +188,15 @@ defmodule TerminalChat.UI.Root do
   end
 
   defp startup_status do
-    if openai_key_present?() do
+    if anthropic_key_present?() do
       "Ready."
     else
-      "Ready. OPENAI_API_KEY not set; chat uses fallback errors."
+      "Ready. ANTHROPIC_API_KEY not set; chat uses fallback errors."
     end
   end
 
-  defp openai_key_present? do
-    case System.get_env("OPENAI_API_KEY") do
+  defp anthropic_key_present? do
+    case System.get_env("ANTHROPIC_API_KEY") || System.get_env("ANTROPIC_API_KEY") do
       value when is_binary(value) and value != "" -> true
       _ -> false
     end
