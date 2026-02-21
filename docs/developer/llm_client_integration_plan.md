@@ -33,7 +33,7 @@ that can execute through:
 | Phase 6 | `completed` | Cancellation/retry semantics | Cancellation handles + policy tests |
 | Phase 7 | `completed` | Event/projection parity hardening | Output mapping consistency |
 | Phase 8 | `completed` | Observability and diagnostics | Telemetry + health snapshot |
-| Phase 9 | `planned` | Reliability and replay parity matrix | Stress/parity/failure suites |
+| Phase 9 | `completed` | Reliability and replay parity matrix | Stress/parity/failure suites |
 | Phase 10 | `planned` | Documentation and migration | User/developer docs |
 
 ## Phase 0: Architecture and contract baseline
@@ -438,6 +438,21 @@ that can execute through:
 ### Exit criteria
 
 - Replay/live parity remains stable with unified client in place.
+
+### Completion notes
+
+- Added runtime backend matrix coverage for both backend paths:
+  - `jido_ai`-style streaming happy path
+  - `harness`-style streaming happy path with provider variance
+- Added timeout/cancel race coverage for LLM effects:
+  - validates a single terminal lifecycle outcome under timeout/cancel contention
+  - confirms completed lifecycle is never emitted in race termination paths
+- Added replay/live parity checks for sampled traces generated through both
+  backend paths:
+  - verifies `Projections.timeline/2` parity against replay reconstruction
+  - verifies `Projections.llm_context/2` parity against replay reconstruction
+- Extended determinism/reliability suite with:
+  - `test/jido_conversation/runtime/llm_reliability_matrix_test.exs`
 
 ## Phase 10: Documentation and migration
 
