@@ -143,6 +143,46 @@ defmodule JidoConversation.LLM.Adapters.JidoAITest do
     assert error.retryable? == false
   end
 
+  test "start/2 marks non-retryable provider status errors correctly" do
+    request = request_fixture()
+
+    llm_context = %{
+      test_pid: self(),
+      generate_result: {:error, %{status: 422, message: "invalid request"}}
+    }
+
+    assert {:error, %Error{} = error} =
+             JidoAI.start(
+               request,
+               llm_client_module: TestLLMClient,
+               jido_ai_module: TestJidoAI,
+               llm_client_context: llm_context
+             )
+
+    assert error.category == :provider
+    assert error.retryable? == false
+  end
+
+  test "start/2 marks transient provider status errors as retryable" do
+    request = request_fixture()
+
+    llm_context = %{
+      test_pid: self(),
+      generate_result: {:error, %{"status" => "503", "message" => "upstream unavailable"}}
+    }
+
+    assert {:error, %Error{} = error} =
+             JidoAI.start(
+               request,
+               llm_client_module: TestLLMClient,
+               jido_ai_module: TestJidoAI,
+               llm_client_context: llm_context
+             )
+
+    assert error.category == :provider
+    assert error.retryable? == true
+  end
+
   test "stream/3 emits started delta thinking completed lifecycle events" do
     request = request_fixture(%{model: "anthropic:claude-sonnet-4"})
 

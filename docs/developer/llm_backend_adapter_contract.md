@@ -69,6 +69,20 @@ Stream callbacks must emit `JidoConversation.LLM.Event` lifecycles:
 - failure -> `conv.effect.llm.generation.failed`
 - cancel -> `conv.effect.llm.generation.canceled`
 
+Canonical chunk representation:
+
+- reasoning/thinking chunks use lifecycle `:thinking` with chunk text in
+  `LLM.Event.content`
+- response text chunks use lifecycle `:delta` with chunk text in
+  `LLM.Event.delta`
+
+Minimum attribution metadata:
+
+- adapters should include `backend`, `provider`, and `model` whenever known
+- `:started` and terminal events should always include known attribution fields
+- `:delta`/`:thinking` events should include attribution when available without
+  adding backend-native coupling
+
 ## Error taxonomy
 
 Adapters should normalize provider-native failures to `JidoConversation.LLM.Error`
@@ -83,6 +97,13 @@ categories:
 - `:unknown`
 
 Set `retryable?` accurately because runtime retry policy depends on it.
+
+Built-in adapter HTTP retryability policy:
+
+- `401`, `403` -> category `:auth`, `retryable?: false`
+- `408` -> category `:timeout`, `retryable?: true`
+- `409`, `425`, `429`, and `5xx` -> category `:provider`, `retryable?: true`
+- other `4xx` -> category `:provider`, `retryable?: false`
 
 ## Cancellation contract
 
