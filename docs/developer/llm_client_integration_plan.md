@@ -25,7 +25,7 @@ that can execute through:
 | Phase | Status | Description | Target PR Slice |
 | --- | --- | --- | --- |
 | Phase 0 | `completed` | Architecture contract and ADR | ADR + docs only |
-| Phase 1 | `planned` | LLM domain model + backend behaviour | New `JidoConversation.LLM` modules |
+| Phase 1 | `completed` | LLM domain model + backend behaviour | New `JidoConversation.LLM` modules |
 | Phase 2 | `planned` | Config and backend resolution | Config wiring + validation |
 | Phase 3 | `planned` | `JidoAI` adapter implementation | Adapter + tests |
 | Phase 4 | `planned` | `JidoHarness` adapter implementation | Adapter + tests |
@@ -106,6 +106,22 @@ that can execute through:
 ### Exit criteria
 
 - Both adapters can target one stable internal behaviour contract.
+
+### Completion notes
+
+- Added domain modules:
+  - `lib/jido_conversation/llm/request.ex`
+  - `lib/jido_conversation/llm/result.ex`
+  - `lib/jido_conversation/llm/event.ex`
+  - `lib/jido_conversation/llm/error.ex`
+  - `lib/jido_conversation/llm/backend.ex`
+- Added unit tests for normalization/validation and backend behaviour contract:
+  - `test/jido_conversation/llm/request_test.exs`
+  - `test/jido_conversation/llm/result_test.exs`
+  - `test/jido_conversation/llm/event_test.exs`
+  - `test/jido_conversation/llm/error_test.exs`
+  - `test/jido_conversation/llm/backend_test.exs`
+- Fixed boolean-field normalization for string/atom-key lookups to preserve explicit `false`.
 
 ## Phase 2: Configuration and backend resolution
 
