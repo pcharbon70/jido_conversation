@@ -32,7 +32,7 @@ that can execute through:
 | Phase 5 | `completed` | Runtime effect integration | `EffectWorker` LLM path |
 | Phase 6 | `completed` | Cancellation/retry semantics | Cancellation handles + policy tests |
 | Phase 7 | `completed` | Event/projection parity hardening | Output mapping consistency |
-| Phase 8 | `planned` | Observability and diagnostics | Telemetry + health snapshot |
+| Phase 8 | `completed` | Observability and diagnostics | Telemetry + health snapshot |
 | Phase 9 | `planned` | Reliability and replay parity matrix | Stress/parity/failure suites |
 | Phase 10 | `planned` | Documentation and migration | User/developer docs |
 
@@ -390,6 +390,32 @@ that can execute through:
 ### Exit criteria
 
 - Host app can diagnose LLM backend health and failure classes quickly.
+
+### Completion notes
+
+- Added LLM runtime telemetry events emitted by effect workers:
+  - `[:jido_conversation, :runtime, :llm, :lifecycle]`
+  - `[:jido_conversation, :runtime, :llm, :cancel]`
+  - `[:jido_conversation, :runtime, :llm, :retry]`
+- Added metadata dimensions on LLM runtime telemetry:
+  - backend
+  - provider
+  - model
+  - cancel result
+  - retry category
+- Extended `JidoConversation.Telemetry` aggregation state and snapshot with
+  LLM-specific metrics:
+  - lifecycle counts (overall and grouped by backend)
+  - stream duration summary
+  - stream chunk totals (delta/thinking/total)
+  - cancel latency summary
+  - retry category counters
+  - cancellation result counters
+- Added tests for telemetry aggregation and runtime integration:
+  - expanded telemetry snapshot tests for LLM lifecycle/retry/cancel metrics
+  - runtime effect-manager test validating LLM execution updates telemetry
+- Updated host-facing operations docs to include new LLM telemetry fields and
+  event families.
 
 ## Phase 9: Reliability and replay parity matrix
 

@@ -69,7 +69,10 @@ defmodule JidoConversation.Config do
     [:jido, :dispatch, :exception],
     [:jido_conversation, :runtime, :queue, :depth],
     [:jido_conversation, :runtime, :apply, :stop],
-    [:jido_conversation, :runtime, :abort, :latency]
+    [:jido_conversation, :runtime, :abort, :latency],
+    [:jido_conversation, :runtime, :llm, :lifecycle],
+    [:jido_conversation, :runtime, :llm, :cancel],
+    [:jido_conversation, :runtime, :llm, :retry]
   ]
 
   @type t :: keyword()

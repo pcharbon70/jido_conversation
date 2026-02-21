@@ -26,6 +26,11 @@ It includes:
 - queue depth (`total`, `by_partition`)
 - apply latency summary (`count`, `avg_ms`, `min_ms`, `max_ms`)
 - abort latency summary (`count`, `avg_ms`, `min_ms`, `max_ms`)
+- llm lifecycle counters (`started`, `progress`, `completed`, `failed`, `canceled`)
+- llm lifecycle counters grouped by backend
+- llm stream duration summary and stream chunk totals (`delta`, `thinking`, `total`)
+- llm cancellation latency summary
+- llm retry categories and cancellation result counters
 - retry, DLQ, and dispatch failure counters
 - last dispatch failure metadata
 
