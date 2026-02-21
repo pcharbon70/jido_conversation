@@ -15,6 +15,8 @@ design decisions, and extension patterns.
    - Safe patterns for adding events, adapters, effects, and projections
 5. [Testing Strategy](./testing_strategy.md)
    - Test layers, quality gates, and determinism expectations
+6. [Unified LLM Client Integration Plan](./llm_client_integration_plan.md)
+   - Phased implementation and tracking plan for JidoAI/Harness backend support
 
 ## Related references
 
