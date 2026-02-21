@@ -42,6 +42,7 @@ that can execute through:
 | Phase 15 | `completed` | Stream retry telemetry parity matrix | Stream retry counters and lifecycle telemetry parity |
 | Phase 16 | `completed` | Cancel telemetry parity matrix | Cancel result and lifecycle telemetry parity across backends |
 | Phase 17 | `completed` | Timeout/transport retry category telemetry parity | Retry category counters for timeout and transport classes |
+| Phase 18 | `completed` | Stream timeout/transport retry telemetry parity | Stream retry category counters for timeout and transport classes |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -748,6 +749,44 @@ that can execute through:
 - Added explicit assertions for:
   - timeout retry category increments and completion for both backends
   - transport retry category increments and completion for both backends
+
+## Phase 18: Stream timeout/transport retry telemetry parity
+
+### Objectives
+
+- Validate timeout and transport retry category telemetry parity across stream
+  execution paths for built-in adapters.
+- Ensure stream retry categorization remains consistent with non-stream runtime
+  behavior.
+
+### Tasks
+
+- Extend runtime stream retry matrix coverage with timeout/transport recovery
+  scenarios for:
+  - `jido_ai` backend stream path
+  - `harness` backend stream path
+- Verify timeout/transport stream scenarios retry and complete successfully.
+- Verify telemetry `llm.retry_by_category` increments for:
+  - `timeout`
+  - `transport`
+
+### Deliverables
+
+- Runtime stream retry matrix tests covering timeout/transport retry category
+  telemetry.
+
+### Exit criteria
+
+- Stream timeout/transport retries emit deterministic category telemetry
+  increments across both built-in adapters.
+
+### Completion notes
+
+- Extended stream retry policy matrix with timeout/transport category coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+- Added explicit assertions for:
+  - stream timeout retry category increments and completion for both backends
+  - stream transport retry category increments and completion for both backends
 
 ## Cross-phase quality gates
 
