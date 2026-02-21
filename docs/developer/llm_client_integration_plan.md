@@ -43,6 +43,7 @@ that can execute through:
 | Phase 16 | `completed` | Cancel telemetry parity matrix | Cancel result and lifecycle telemetry parity across backends |
 | Phase 17 | `completed` | Timeout/transport retry category telemetry parity | Retry category counters for timeout and transport classes |
 | Phase 18 | `completed` | Stream timeout/transport retry telemetry parity | Stream retry category counters for timeout and transport classes |
+| Phase 19 | `completed` | Auth non-retryable runtime parity | Non-stream auth classification and retry telemetry invariants |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -787,6 +788,46 @@ that can execute through:
 - Added explicit assertions for:
   - stream timeout retry category increments and completion for both backends
   - stream transport retry category increments and completion for both backends
+
+## Phase 19: Auth non-retryable runtime parity
+
+### Objectives
+
+- Validate runtime auth classification parity across non-stream execution paths
+  for built-in adapters.
+- Ensure auth failures remain non-retryable and do not increment retry category
+  counters.
+
+### Tasks
+
+- Extend runtime retry matrix coverage with auth failure scenarios for:
+  - `jido_ai` backend path (`401`)
+  - `harness` backend path (`403`)
+- Verify these auth failures do not retry and terminate with failed lifecycle.
+- Verify failed lifecycle payload includes:
+  - `error_category: "auth"`
+  - `retryable?: false`
+- Verify telemetry `llm.retry_by_category["auth"]` remains unchanged for
+  non-retryable auth failures.
+
+### Deliverables
+
+- Runtime retry matrix tests covering auth non-retryable classification and
+  telemetry invariants.
+
+### Exit criteria
+
+- Auth runtime failures are classified deterministically and never retried
+  across both built-in adapters in non-stream mode.
+
+### Completion notes
+
+- Extended runtime retry policy matrix with auth non-retryable coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+- Added explicit assertions for:
+  - no retry attempts on `401/403` auth failures
+  - failed lifecycle payload category/retryable invariants (`auth`, `false`)
+  - no `auth` retry counter increments in telemetry snapshot
 
 ## Cross-phase quality gates
 
