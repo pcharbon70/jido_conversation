@@ -11,12 +11,12 @@ defmodule JidoConversation.LLM.Adapters.HarnessTest do
     def run(provider, prompt, opts)
         when is_atom(provider) and is_binary(prompt) and is_list(opts) do
       send(self(), {:run_with_provider, provider, prompt, opts})
-      {:ok, Keyword.get(opts, :test_stream, [])}
+      Keyword.get(opts, :test_result, {:ok, Keyword.get(opts, :test_stream, [])})
     end
 
     def run(prompt, opts) when is_binary(prompt) and is_list(opts) do
       send(self(), {:run_default, prompt, opts})
-      {:ok, Keyword.get(opts, :test_stream, [])}
+      Keyword.get(opts, :test_result, {:ok, Keyword.get(opts, :test_stream, [])})
     end
 
     def cancel(provider, session_id) when is_atom(provider) and is_binary(session_id) do
@@ -157,6 +157,44 @@ defmodule JidoConversation.LLM.Adapters.HarnessTest do
       |> Enum.reverse()
 
     assert Enum.map(events, & &1.lifecycle) == [:started, :failed]
+  end
+
+  test "start/2 marks non-retryable provider status errors correctly" do
+    request =
+      request_fixture(%{
+        options: %{
+          test_result: {:error, %{status: 422, message: "invalid request"}}
+        }
+      })
+
+    assert {:error, %Error{} = error} =
+             Harness.start(
+               request,
+               harness_module: TestHarness,
+               harness_provider: :codex
+             )
+
+    assert error.category == :provider
+    assert error.retryable? == false
+  end
+
+  test "start/2 marks transient provider status errors as retryable" do
+    request =
+      request_fixture(%{
+        options: %{
+          test_result: {:error, %{"status" => "503", "message" => "upstream unavailable"}}
+        }
+      })
+
+    assert {:error, %Error{} = error} =
+             Harness.start(
+               request,
+               harness_module: TestHarness,
+               harness_provider: :codex
+             )
+
+    assert error.category == :provider
+    assert error.retryable? == true
   end
 
   test "stream/3 normalizes non-empty delta chunks emitted by harness events" do

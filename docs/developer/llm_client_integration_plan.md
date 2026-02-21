@@ -35,6 +35,7 @@ that can execute through:
 | Phase 8 | `completed` | Observability and diagnostics | Telemetry + health snapshot |
 | Phase 9 | `completed` | Reliability and replay parity matrix | Stress/parity/failure suites |
 | Phase 10 | `completed` | Documentation and migration | User/developer docs |
+| Phase 11 | `completed` | Open-decision closure and retry policy hardening | Retry map + contract clarifications |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -492,6 +493,42 @@ that can execute through:
   - `docs/developer/README.md`
   - `docs/user/getting_started.md`
 
+## Phase 11: Open-decision closure and retry policy hardening
+
+### Objectives
+
+- Resolve the remaining explicit open decisions in the LLM integration plan.
+- Tighten retryability classification to avoid retrying non-retryable provider
+  request errors.
+
+### Tasks
+
+- Codify explicit HTTP retryability mapping for built-in adapters.
+- Add adapter tests covering retryable and non-retryable provider status paths.
+- Clarify canonical reasoning/delta representation and attribution metadata
+  expectations in developer adapter contract docs.
+
+### Deliverables
+
+- Adapter normalization updates and regression tests.
+- Updated developer contract documentation for decision outcomes.
+
+### Exit criteria
+
+- Adapter retryability behavior is deterministic for common HTTP error classes.
+- Previously open architecture decisions are explicitly documented.
+
+### Completion notes
+
+- Updated adapter error normalization retryability for HTTP status classes:
+  - `lib/jido_conversation/llm/adapters/jido_ai.ex`
+  - `lib/jido_conversation/llm/adapters/harness.ex`
+- Added regression tests for non-retryable vs retryable provider statuses:
+  - `test/jido_conversation/llm/adapters/jido_ai_test.exs`
+  - `test/jido_conversation/llm/adapters/harness_test.exs`
+- Updated developer contract guide with resolved decision details:
+  - `docs/developer/llm_backend_adapter_contract.md`
+
 ## Cross-phase quality gates
 
 - Reducer purity preserved (no blocking side effects in reducer path).
@@ -513,9 +550,18 @@ that can execute through:
 6. Phase 7 + Phase 8 (output parity + telemetry)
 7. Phase 9 + Phase 10 (hardening + docs)
 
-## Open decisions to track explicitly
+## Open decisions (resolved)
 
-- Stream-first vs non-stream-first default for each backend.
-- Canonical representation for provider-specific reasoning/thinking chunks.
-- Minimum metadata required for model/provider attribution in `conv.effect.*`.
-- Retryability classification map per backend error shape.
+- Stream defaults:
+  - resolved as stream-first (`stream?: true`) for built-in backends by default
+    through config (`llm.default_stream?` and backend-specific overrides)
+- Reasoning/thinking representation:
+  - resolved as normalized lifecycle `:thinking` with chunk payload in
+    `LLM.Event.content`
+- Model/provider attribution minimums:
+  - resolved as backend/provider/model fields included whenever known, with
+    started/terminal lifecycle events expected to carry known attribution
+- Retryability classification map:
+  - resolved for built-in adapters with explicit HTTP status mapping:
+    `401/403` non-retryable auth, `408` retryable timeout, `409/425/429/5xx`
+    retryable provider, other `4xx` non-retryable provider

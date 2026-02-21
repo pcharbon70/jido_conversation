@@ -709,24 +709,46 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
   defp normalize_error(%Error{} = error), do: error
   defp normalize_error({:error, reason}), do: normalize_error(reason)
 
-  defp normalize_error(%{status: status} = reason) when status in [401, 403] do
-    Error.from_reason(reason, :auth, message: extract_error_message(reason))
+  defp normalize_error(%RuntimeError{} = error) do
+    Error.from_reason(error, :unknown, message: Exception.message(error))
   end
 
-  defp normalize_error(%{status: status} = reason) when status == 408 do
-    Error.from_reason(reason, :timeout, message: extract_error_message(reason))
+  defp normalize_error(%ArgumentError{} = error) do
+    Error.from_reason(error, :config, message: Exception.message(error))
   end
 
-  defp normalize_error(%{status: status} = reason) when is_integer(status) and status >= 400 do
-    Error.from_reason(reason, :provider, message: extract_error_message(reason))
-  end
+  defp normalize_error(%{} = error) do
+    status = normalize_status_code(get_field(error, :status))
+    reason = get_field(error, :reason)
 
-  defp normalize_error(%{reason: reason} = error) when reason in @timeout_reasons do
-    Error.from_reason(error, :timeout, message: extract_error_message(error))
-  end
+    cond do
+      status in [401, 403] ->
+        Error.from_reason(error, :auth,
+          message: extract_error_message(error),
+          retryable?: false
+        )
 
-  defp normalize_error(%{reason: reason} = error) when reason in @network_reasons do
-    Error.from_reason(error, :transport, message: extract_error_message(error))
+      status == 408 ->
+        Error.from_reason(error, :timeout,
+          message: extract_error_message(error),
+          retryable?: true
+        )
+
+      is_integer(status) and status >= 400 ->
+        Error.from_reason(error, :provider,
+          message: extract_error_message(error),
+          retryable?: retryable_provider_status?(status)
+        )
+
+      reason in @timeout_reasons ->
+        Error.from_reason(error, :timeout, message: extract_error_message(error))
+
+      reason in @network_reasons ->
+        Error.from_reason(error, :transport, message: extract_error_message(error))
+
+      true ->
+        Error.from_reason(error, :unknown, message: extract_error_message(error))
+    end
   end
 
   defp normalize_error(reason) when reason in @timeout_reasons do
@@ -737,17 +759,27 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
     Error.from_reason(reason, :transport, message: extract_error_message(reason))
   end
 
-  defp normalize_error(%RuntimeError{} = error) do
-    Error.from_reason(error, :unknown, message: Exception.message(error))
-  end
-
-  defp normalize_error(%ArgumentError{} = error) do
-    Error.from_reason(error, :config, message: Exception.message(error))
-  end
-
   defp normalize_error(error) do
     Error.from_reason(error, :unknown, message: extract_error_message(error))
   end
+
+  defp normalize_status_code(status) when is_integer(status), do: status
+
+  defp normalize_status_code(status) when is_binary(status) do
+    case Integer.parse(String.trim(status)) do
+      {parsed, ""} -> parsed
+      _ -> nil
+    end
+  end
+
+  defp normalize_status_code(_), do: nil
+
+  # Retry only transient provider statuses.
+  defp retryable_provider_status?(status)
+       when status in [409, 425, 429] or (status >= 500 and status < 600),
+       do: true
+
+  defp retryable_provider_status?(_status), do: false
 
   defp extract_error_message(%{message: message}) when is_binary(message), do: message
   defp extract_error_message({kind, reason}), do: "#{inspect(kind)}: #{inspect(reason)}"
