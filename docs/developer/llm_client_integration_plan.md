@@ -41,6 +41,7 @@ that can execute through:
 | Phase 14 | `completed` | Retry telemetry parity matrix | Retry counters and backend lifecycle telemetry parity |
 | Phase 15 | `completed` | Stream retry telemetry parity matrix | Stream retry counters and lifecycle telemetry parity |
 | Phase 16 | `completed` | Cancel telemetry parity matrix | Cancel result and lifecycle telemetry parity across backends |
+| Phase 17 | `completed` | Timeout/transport retry category telemetry parity | Retry category counters for timeout and transport classes |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -710,6 +711,43 @@ that can execute through:
   - `ok`, `not_available`, and `failed` cancel result classes across backends
   - canceled lifecycle emitted without completed lifecycle on cancel paths
   - cancel telemetry counters and latency snapshots increment per cancellation
+
+## Phase 17: Timeout/transport retry category telemetry parity
+
+### Objectives
+
+- Validate retry category telemetry parity for timeout and transport failure
+  classes across built-in adapters.
+- Ensure runtime retry telemetry reflects adapter-normalized categories beyond
+  provider-status-based retries.
+
+### Tasks
+
+- Extend runtime retry matrix coverage to include timeout and transport recovery
+  scenarios for:
+  - `jido_ai` backend path
+  - `harness` backend path
+- Verify these paths retry and complete successfully.
+- Verify telemetry `llm.retry_by_category` increments for:
+  - `timeout`
+  - `transport`
+
+### Deliverables
+
+- Runtime retry matrix tests covering timeout/transport telemetry categories.
+
+### Exit criteria
+
+- Timeout/transport retry categories are emitted and counted deterministically
+  across both built-in adapters.
+
+### Completion notes
+
+- Extended runtime retry policy matrix with timeout/transport category coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+- Added explicit assertions for:
+  - timeout retry category increments and completion for both backends
+  - transport retry category increments and completion for both backends
 
 ## Cross-phase quality gates
 
