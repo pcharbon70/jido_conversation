@@ -39,6 +39,8 @@ defmodule JidoConversation.Runtime.EffectWorker do
           backoff_ms: pos_integer(),
           timeout_ms: pos_integer(),
           simulate: map(),
+          worker_pid: pid(),
+          llm_cancel_context: map() | nil,
           task: Task.t() | nil,
           timeout_ref: reference() | nil
         }
@@ -68,6 +70,8 @@ defmodule JidoConversation.Runtime.EffectWorker do
       backoff_ms: policy_value(opts, :backoff_ms),
       timeout_ms: policy_value(opts, :timeout_ms),
       simulate: normalize_map(Keyword.get(opts, :simulate, %{})),
+      worker_pid: self(),
+      llm_cancel_context: nil,
       task: nil,
       timeout_ref: nil
     }
@@ -78,12 +82,17 @@ defmodule JidoConversation.Runtime.EffectWorker do
 
   @impl true
   def handle_cast({:cancel, reason, cancel_cause_id}, state) do
+    {state, backend_cancel_data} = maybe_cancel_backend(state)
     state = clear_in_flight(state)
 
     emit_lifecycle(
       state,
       "canceled",
-      %{attempt: state.attempt, reason: reason},
+      %{
+        attempt: state.attempt,
+        reason: reason
+      }
+      |> Map.merge(backend_cancel_data),
       cancel_cause_id || state.cause_id
     )
 
@@ -94,7 +103,7 @@ defmodule JidoConversation.Runtime.EffectWorker do
   @impl true
   def handle_info(:run_attempt, state) do
     attempt = state.attempt + 1
-    state = %{state | attempt: attempt}
+    state = %{state | attempt: attempt, llm_cancel_context: nil}
 
     if attempt == 1 do
       emit_lifecycle(state, "started", %{attempt: attempt})
@@ -108,6 +117,26 @@ defmodule JidoConversation.Runtime.EffectWorker do
       Process.send_after(self(), {:attempt_timeout, task.ref, attempt}, state.timeout_ms)
 
     {:noreply, %{state | task: task, timeout_ref: timeout_ref}}
+  end
+
+  @impl true
+  def handle_info(
+        {:llm_cancel_context, attempt, module, backend_opts, execution_ref},
+        %{attempt: attempt, task: %Task{}} = state
+      )
+      when is_atom(module) and is_list(backend_opts) do
+    next_context =
+      merge_llm_cancel_context(
+        state.llm_cancel_context,
+        %{
+          attempt: attempt,
+          module: module,
+          backend_opts: backend_opts,
+          execution_ref: execution_ref
+        }
+      )
+
+    {:noreply, %{state | llm_cancel_context: next_context}}
   end
 
   @impl true
@@ -160,7 +189,7 @@ defmodule JidoConversation.Runtime.EffectWorker do
   defp retry_or_fail(state, reason) do
     state = clear_in_flight(state)
 
-    if state.attempt < state.max_attempts do
+    if state.attempt < state.max_attempts and retryable_reason?(reason) do
       backoff = backoff_for_attempt(state.backoff_ms, state.attempt)
 
       emit_lifecycle(state, "progress", %{
@@ -204,6 +233,68 @@ defmodule JidoConversation.Runtime.EffectWorker do
   defp retryable_reason?(%LLMError{} = error), do: error.retryable?
   defp retryable_reason?(_reason), do: true
 
+  defp maybe_cancel_backend(%{class: :llm} = state) do
+    case state.llm_cancel_context do
+      %{module: module, backend_opts: backend_opts, execution_ref: execution_ref}
+      when is_atom(module) and is_list(backend_opts) and not is_nil(execution_ref) ->
+        cancel_data =
+          case ensure_backend_function(module, :cancel, 2) do
+            :ok ->
+              normalize_cancel_result(
+                invoke_backend(module, :cancel, [execution_ref, backend_opts])
+              )
+
+            {:error, %LLMError{} = error} ->
+              cancel_error_data(error)
+          end
+
+        {state, cancel_data}
+
+      _ ->
+        {state, %{backend_cancel: "not_available"}}
+    end
+  end
+
+  defp maybe_cancel_backend(state), do: {state, %{}}
+
+  defp normalize_cancel_result({:ok, :ok}), do: %{backend_cancel: "ok"}
+  defp normalize_cancel_result({:ok, {:ok, _value}}), do: %{backend_cancel: "ok"}
+
+  defp normalize_cancel_result({:ok, {:error, %LLMError{} = error}}), do: cancel_error_data(error)
+
+  defp normalize_cancel_result({:ok, {:error, reason}}) do
+    %{
+      backend_cancel: "failed",
+      backend_cancel_reason: inspect(reason)
+    }
+  end
+
+  defp normalize_cancel_result({:ok, other}) do
+    %{
+      backend_cancel: "failed",
+      backend_cancel_reason: "invalid_response",
+      backend_cancel_details: inspect(other)
+    }
+  end
+
+  defp normalize_cancel_result({:error, %LLMError{} = error}), do: cancel_error_data(error)
+
+  defp cancel_error_data(%LLMError{} = error) do
+    %{
+      backend_cancel: "failed",
+      backend_cancel_reason: error.message,
+      backend_cancel_category: Atom.to_string(error.category),
+      backend_cancel_retryable?: error.retryable?
+    }
+  end
+
+  defp merge_llm_cancel_context(nil, context), do: context
+
+  defp merge_llm_cancel_context(existing, context) when is_map(existing) and is_map(context) do
+    execution_ref = context.execution_ref || Map.get(existing, :execution_ref)
+    Map.merge(existing, context) |> Map.put(:execution_ref, execution_ref)
+  end
+
   defp notify_finished(state) do
     send(state.manager, {:effect_finished, state.effect_id})
   end
@@ -221,7 +312,7 @@ defmodule JidoConversation.Runtime.EffectWorker do
       Process.demonitor(state.task.ref, [:flush])
     end
 
-    %{state | task: nil, timeout_ref: nil}
+    %{state | task: nil, timeout_ref: nil, llm_cancel_context: nil}
   end
 
   defp execute_attempt(state, attempt) do
@@ -248,9 +339,6 @@ defmodule JidoConversation.Runtime.EffectWorker do
     else
       {:error, %LLMError{} = error} ->
         {:error, error}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
@@ -312,10 +400,12 @@ defmodule JidoConversation.Runtime.EffectWorker do
   defp execute_llm_backend(state, execution, request, attempt) do
     backend_opts = backend_options(execution.options)
     module = execution.module
+    _ = notify_llm_cancel_context(state, attempt, module, backend_opts, nil)
 
     if request.stream? do
       emit = fn
         %LLMEvent{} = event ->
+          _ = maybe_capture_stream_execution_ref(state, attempt, module, backend_opts, event)
           emit_llm_stream_progress(state, attempt, event)
 
         _other ->
@@ -324,13 +414,24 @@ defmodule JidoConversation.Runtime.EffectWorker do
 
       with :ok <- ensure_backend_function(module, :stream, 3),
            {:ok, response} <- invoke_backend(module, :stream, [request, emit, backend_opts]) do
-        normalize_backend_response(response)
+        capture_backend_response(state, attempt, module, backend_opts, response)
       end
     else
       with :ok <- ensure_backend_function(module, :start, 2),
            {:ok, response} <- invoke_backend(module, :start, [request, backend_opts]) do
-        normalize_backend_response(response)
+        capture_backend_response(state, attempt, module, backend_opts, response)
       end
+    end
+  end
+
+  defp capture_backend_response(state, attempt, module, backend_opts, response) do
+    case normalize_backend_response(response) do
+      {:ok, _result, execution_ref} = ok ->
+        _ = notify_llm_cancel_context(state, attempt, module, backend_opts, execution_ref)
+        ok
+
+      other ->
+        other
     end
   end
 
@@ -469,6 +570,52 @@ defmodule JidoConversation.Runtime.EffectWorker do
   end
 
   defp emit_llm_stream_progress(_state, _attempt, _event), do: :ok
+
+  defp maybe_capture_stream_execution_ref(
+         state,
+         attempt,
+         module,
+         backend_opts,
+         %LLMEvent{} = event
+       ) do
+    case execution_ref_from_event(event) do
+      nil ->
+        :ok
+
+      execution_ref ->
+        notify_llm_cancel_context(state, attempt, module, backend_opts, execution_ref)
+    end
+  end
+
+  defp execution_ref_from_event(%LLMEvent{} = event) do
+    metadata = normalize_map(event.metadata)
+    explicit_ref = get_field(metadata, :execution_ref)
+
+    if is_nil(explicit_ref) do
+      session_id = normalize_binary(get_field(metadata, :session_id))
+
+      provider =
+        first_non_nil([
+          normalize_identifier(event.provider),
+          normalize_identifier(get_field(metadata, :provider))
+        ])
+
+      if is_binary(session_id) and is_binary(provider) do
+        %{provider: provider, session_id: session_id}
+      end
+    else
+      explicit_ref
+    end
+  end
+
+  defp notify_llm_cancel_context(state, attempt, module, backend_opts, execution_ref) do
+    send(
+      state.worker_pid,
+      {:llm_cancel_context, attempt, module, backend_opts, execution_ref}
+    )
+
+    :ok
+  end
 
   defp llm_result_payload(%LLMResult{} = result, execution, execution_ref) do
     base =

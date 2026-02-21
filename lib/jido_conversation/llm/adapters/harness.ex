@@ -220,7 +220,7 @@ defmodule JidoConversation.LLM.Adapters.Harness do
     event
     |> extract_delta_chunks()
     |> Enum.reduce(state, fn text, acc ->
-      _ = emit_delta_event(request, emit_event, acc.provider, text)
+      _ = emit_delta_event(request, emit_event, acc.provider, acc.session_id, text)
       Map.update!(acc, :text_chunks, &[text | &1])
     end)
   end
@@ -229,7 +229,7 @@ defmodule JidoConversation.LLM.Adapters.Harness do
     event
     |> extract_thinking_chunks()
     |> Enum.reduce(state, fn text, acc ->
-      _ = emit_thinking_event(request, emit_event, acc.provider, text)
+      _ = emit_thinking_event(request, emit_event, acc.provider, acc.session_id, text)
       Map.update!(acc, :thinking_chunks, &[text | &1])
     end)
   end
@@ -289,9 +289,9 @@ defmodule JidoConversation.LLM.Adapters.Harness do
     )
   end
 
-  defp emit_delta_event(_request, nil, _provider, _text), do: :ok
+  defp emit_delta_event(_request, nil, _provider, _session_id, _text), do: :ok
 
-  defp emit_delta_event(request, emit_event, provider, text) do
+  defp emit_delta_event(request, emit_event, provider, session_id, text) do
     emit_event_safe(
       emit_event,
       Event.new!(%{
@@ -301,14 +301,14 @@ defmodule JidoConversation.LLM.Adapters.Harness do
         lifecycle: :delta,
         provider: provider,
         delta: text,
-        metadata: %{}
+        metadata: execution_metadata(provider, session_id)
       })
     )
   end
 
-  defp emit_thinking_event(_request, nil, _provider, _text), do: :ok
+  defp emit_thinking_event(_request, nil, _provider, _session_id, _text), do: :ok
 
-  defp emit_thinking_event(request, emit_event, provider, text) do
+  defp emit_thinking_event(request, emit_event, provider, session_id, text) do
     emit_event_safe(
       emit_event,
       Event.new!(%{
@@ -318,7 +318,7 @@ defmodule JidoConversation.LLM.Adapters.Harness do
         lifecycle: :thinking,
         provider: provider,
         content: text,
-        metadata: %{}
+        metadata: execution_metadata(provider, session_id)
       })
     )
   end
@@ -337,6 +337,7 @@ defmodule JidoConversation.LLM.Adapters.Harness do
         usage: result.usage,
         metadata: %{
           session_id: state.session_id,
+          execution_ref: execution_ref(state.provider, state.session_id),
           event_count: state.event_count,
           status: :completed
         }
@@ -357,6 +358,7 @@ defmodule JidoConversation.LLM.Adapters.Harness do
         usage: result.usage,
         metadata: %{
           session_id: state.session_id,
+          execution_ref: execution_ref(state.provider, state.session_id),
           event_count: state.event_count,
           status: :canceled
         }
@@ -378,6 +380,20 @@ defmodule JidoConversation.LLM.Adapters.Harness do
       })
     )
   end
+
+  defp execution_metadata(provider, session_id) do
+    %{
+      session_id: session_id,
+      execution_ref: execution_ref(provider, session_id)
+    }
+    |> compact_map()
+  end
+
+  defp execution_ref(provider, session_id) when is_binary(session_id) and session_id != "" do
+    %{provider: provider, session_id: session_id}
+  end
+
+  defp execution_ref(_provider, _session_id), do: nil
 
   defp emit_event_safe(emit_event, %Event{} = event) do
     _ = emit_event.(event)
