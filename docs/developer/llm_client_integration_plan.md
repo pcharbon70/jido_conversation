@@ -36,6 +36,7 @@ that can execute through:
 | Phase 9 | `completed` | Reliability and replay parity matrix | Stress/parity/failure suites |
 | Phase 10 | `completed` | Documentation and migration | User/developer docs |
 | Phase 11 | `completed` | Open-decision closure and retry policy hardening | Retry map + contract clarifications |
+| Phase 12 | `completed` | Runtime retry policy matrix | End-to-end adapter retry classification |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -528,6 +529,41 @@ that can execute through:
   - `test/jido_conversation/llm/adapters/harness_test.exs`
 - Updated developer contract guide with resolved decision details:
   - `docs/developer/llm_backend_adapter_contract.md`
+
+## Phase 12: Runtime retry policy matrix
+
+### Objectives
+
+- Validate retry classification behavior through the live runtime path rather
+  than adapter unit tests only.
+- Prove retry/no-retry outcomes for both built-in adapters under representative
+  HTTP error classes.
+
+### Tasks
+
+- Add runtime matrix tests that exercise `EffectManager` with built-in adapters:
+  - `JidoConversation.LLM.Adapters.JidoAI`
+  - `JidoConversation.LLM.Adapters.Harness`
+- Verify `422` provider failures do not retry.
+- Verify `503` provider failures retry and complete within max attempts.
+- Verify lifecycle stream reflects retry state consistently.
+
+### Deliverables
+
+- Runtime retry policy matrix test suite.
+
+### Exit criteria
+
+- Runtime behavior matches documented retryability policy for both adapters.
+
+### Completion notes
+
+- Added end-to-end retry policy matrix coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+- Matrix verifies:
+  - non-retryable provider `422` paths emit single-attempt failure (no retry)
+  - retryable provider `503` paths emit retry lifecycle and eventual completion
+  - behavior parity across `jido_ai` and `harness` backends
 
 ## Cross-phase quality gates
 
