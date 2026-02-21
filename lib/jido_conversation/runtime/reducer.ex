@@ -279,8 +279,7 @@ defmodule JidoConversation.Runtime.Reducer do
         get_field(signal.data, :token_delta),
         get_field(signal.data, :delta),
         get_nested_field(signal.data, :result, :delta),
-        get_nested_field(signal.data, :result, :text),
-        get_field(signal.data, :status)
+        get_nested_field(signal.data, :result, :text)
       ])
 
     if is_binary(delta) and String.trim(delta) != "" do

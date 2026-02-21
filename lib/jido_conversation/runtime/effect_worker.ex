@@ -7,7 +7,24 @@ defmodule JidoConversation.Runtime.EffectWorker do
 
   require Logger
 
+  alias JidoConversation.Config
   alias JidoConversation.Ingest
+  alias JidoConversation.LLM.Error, as: LLMError
+  alias JidoConversation.LLM.Event, as: LLMEvent
+  alias JidoConversation.LLM.Request, as: LLMRequest
+  alias JidoConversation.LLM.Resolver, as: LLMResolver
+  alias JidoConversation.LLM.Result, as: LLMResult
+
+  @backend_option_string_keys %{
+    "llm_client" => :llm_client,
+    "llm_client_module" => :llm_client_module,
+    "llm_client_context" => :llm_client_context,
+    "jido_ai_module" => :jido_ai_module,
+    "harness_module" => :harness_module,
+    "harness_provider" => :harness_provider,
+    "provider" => :provider,
+    "session_id" => :session_id
+  }
 
   @type state :: %{
           effect_id: String.t(),
@@ -97,7 +114,10 @@ defmodule JidoConversation.Runtime.EffectWorker do
   def handle_info({task_ref, {:ok, result}}, %{task: %Task{ref: task_ref}} = state) do
     state = clear_in_flight(state)
 
-    emit_lifecycle(state, "progress", %{attempt: state.attempt, status: "result_received"})
+    if state.class != :llm do
+      emit_lifecycle(state, "progress", %{attempt: state.attempt, status: "result_received"})
+    end
+
     emit_lifecycle(state, "completed", %{attempt: state.attempt, result: result})
 
     notify_finished(state)
@@ -147,17 +167,42 @@ defmodule JidoConversation.Runtime.EffectWorker do
         attempt: state.attempt,
         status: "retrying",
         backoff_ms: backoff,
-        reason: inspect(reason)
+        reason: failure_reason(reason),
+        retryable?: retryable_reason?(reason)
       })
 
       Process.send_after(self(), :run_attempt, backoff)
       {:retry, state}
     else
-      emit_lifecycle(state, "failed", %{attempt: state.attempt, reason: inspect(reason)})
+      emit_lifecycle(state, "failed", failure_payload(reason, state.attempt))
       notify_finished(state)
       {:stop, state}
     end
   end
+
+  defp failure_payload(%LLMError{} = error, attempt) do
+    %{
+      attempt: attempt,
+      reason: error.message,
+      error_category: Atom.to_string(error.category),
+      retryable?: error.retryable?,
+      details: normalize_map(error.details)
+    }
+  end
+
+  defp failure_payload(reason, attempt) do
+    %{
+      attempt: attempt,
+      reason: failure_reason(reason),
+      retryable?: retryable_reason?(reason)
+    }
+  end
+
+  defp failure_reason(%LLMError{} = error), do: error.message
+  defp failure_reason(reason), do: inspect(reason)
+
+  defp retryable_reason?(%LLMError{} = error), do: error.retryable?
+  defp retryable_reason?(_reason), do: true
 
   defp notify_finished(state) do
     send(state.manager, {:effect_finished, state.effect_id})
@@ -191,8 +236,422 @@ defmodule JidoConversation.Runtime.EffectWorker do
     if attempt <= force_fail_attempts do
       {:error, :forced_failure}
     else
-      {:ok, %{kind: state.kind, class: Atom.to_string(state.class), attempt: attempt}}
+      execute_attempt_for_class(state, attempt)
     end
+  end
+
+  defp execute_attempt_for_class(%{class: :llm} = state, attempt) do
+    with {:ok, execution} <- resolve_llm_execution(state),
+         {:ok, request} <- build_llm_request(state, execution, attempt),
+         {:ok, result, execution_ref} <- execute_llm_backend(state, execution, request, attempt) do
+      {:ok, llm_result_payload(result, execution, execution_ref)}
+    else
+      {:error, %LLMError{} = error} ->
+        {:error, error}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp execute_attempt_for_class(state, attempt) do
+    {:ok, %{kind: state.kind, class: Atom.to_string(state.class), attempt: attempt}}
+  end
+
+  defp resolve_llm_execution(state) do
+    effect_overrides = normalize_map(state.input)
+    conversation_defaults = llm_conversation_defaults(state.input)
+
+    case LLMResolver.resolve(effect_overrides, conversation_defaults, Config.llm()) do
+      {:ok, resolved} ->
+        {:ok, resolved}
+
+      {:error, %LLMError{} = error} ->
+        {:error, error}
+    end
+  end
+
+  defp build_llm_request(state, execution, attempt) do
+    input = normalize_map(state.input)
+
+    request_attrs = %{
+      request_id: "#{state.effect_id}:#{attempt}",
+      conversation_id: state.conversation_id,
+      backend: execution.backend,
+      messages: llm_messages(input),
+      model: first_non_nil([get_field(input, :model), execution.model]),
+      provider: first_non_nil([get_field(input, :provider), execution.provider]),
+      system_prompt:
+        first_non_nil([get_field(input, :system_prompt), get_field(input, :instructions)]),
+      stream?: execution.stream?,
+      max_tokens: optional_positive_int(get_field(input, :max_tokens)),
+      temperature: optional_number(get_field(input, :temperature)),
+      timeout_ms:
+        first_non_nil([
+          execution.timeout_ms,
+          optional_positive_int(get_field(input, :timeout_ms))
+        ]),
+      metadata: llm_request_metadata(state, attempt),
+      options: llm_request_options(input)
+    }
+
+    case LLMRequest.new(request_attrs) do
+      {:ok, request} ->
+        {:ok, request}
+
+      {:error, reason} ->
+        {:error,
+         LLMError.new!(
+           category: :config,
+           message: "invalid llm request payload",
+           details: %{request: request_attrs, reason: reason}
+         )}
+    end
+  end
+
+  defp execute_llm_backend(state, execution, request, attempt) do
+    backend_opts = backend_options(execution.options)
+    module = execution.module
+
+    if request.stream? do
+      emit = fn
+        %LLMEvent{} = event ->
+          emit_llm_stream_progress(state, attempt, event)
+
+        _other ->
+          :ok
+      end
+
+      with :ok <- ensure_backend_function(module, :stream, 3),
+           {:ok, response} <- invoke_backend(module, :stream, [request, emit, backend_opts]) do
+        normalize_backend_response(response)
+      end
+    else
+      with :ok <- ensure_backend_function(module, :start, 2),
+           {:ok, response} <- invoke_backend(module, :start, [request, backend_opts]) do
+        normalize_backend_response(response)
+      end
+    end
+  end
+
+  defp ensure_backend_function(module, function, arity) when is_atom(module) do
+    cond do
+      not Code.ensure_loaded?(module) ->
+        {:error,
+         LLMError.new!(
+           category: :config,
+           message: "llm backend module is not available",
+           details: %{module: module, function: function, arity: arity}
+         )}
+
+      not function_exported?(module, function, arity) ->
+        {:error,
+         LLMError.new!(
+           category: :config,
+           message: "llm backend module is missing required callback",
+           details: %{module: module, function: function, arity: arity}
+         )}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp invoke_backend(module, function, args) do
+    {:ok, apply(module, function, args)}
+  rescue
+    error ->
+      {:error, LLMError.from_reason(error, :unknown, message: Exception.message(error))}
+  catch
+    kind, reason ->
+      {:error, LLMError.from_reason({kind, reason}, :unknown)}
+  end
+
+  defp normalize_backend_response({:ok, %LLMResult{status: :completed} = result}) do
+    {:ok, result, nil}
+  end
+
+  defp normalize_backend_response({:ok, %LLMResult{status: :completed} = result, execution_ref}) do
+    {:ok, result, execution_ref}
+  end
+
+  defp normalize_backend_response({:ok, %LLMResult{} = result}) do
+    {:error, llm_non_completed_error(result)}
+  end
+
+  defp normalize_backend_response({:ok, %LLMResult{} = result, _execution_ref}) do
+    {:error, llm_non_completed_error(result)}
+  end
+
+  defp normalize_backend_response({:error, %LLMError{} = error}), do: {:error, error}
+
+  defp normalize_backend_response({:error, reason}) do
+    {:error, LLMError.from_reason(reason, :provider, message: "llm backend execution failed")}
+  end
+
+  defp normalize_backend_response(other) do
+    {:error,
+     LLMError.new!(
+       category: :provider,
+       message: "llm backend returned an invalid response tuple",
+       details: %{response: other}
+     )}
+  end
+
+  defp llm_non_completed_error(%LLMResult{status: :failed} = result) do
+    result.error ||
+      LLMError.new!(
+        category: :provider,
+        message: "llm backend returned a failed result",
+        details: %{result: Map.from_struct(result)}
+      )
+  end
+
+  defp llm_non_completed_error(%LLMResult{status: :canceled} = result) do
+    result.error ||
+      LLMError.new!(
+        category: :canceled,
+        message: "llm backend returned a canceled result",
+        details: %{result: Map.from_struct(result)}
+      )
+  end
+
+  defp llm_non_completed_error(%LLMResult{} = result) do
+    LLMError.new!(
+      category: :unknown,
+      message: "llm backend returned an unsupported result status",
+      details: %{status: result.status}
+    )
+  end
+
+  defp emit_llm_stream_progress(state, attempt, %LLMEvent{lifecycle: :delta} = event) do
+    token_delta = normalize_binary(event.delta)
+
+    if is_binary(token_delta) do
+      emit_lifecycle(
+        state,
+        "progress",
+        compact_map(%{
+          attempt: attempt,
+          status: "streaming",
+          token_delta: token_delta,
+          sequence: event.sequence,
+          provider: normalize_identifier(event.provider),
+          model: normalize_identifier(event.model),
+          backend: normalize_identifier(event.backend)
+        })
+      )
+    end
+
+    :ok
+  end
+
+  defp emit_llm_stream_progress(state, attempt, %LLMEvent{lifecycle: :thinking} = event) do
+    thinking_delta = normalize_binary(event.content)
+
+    if is_binary(thinking_delta) do
+      emit_lifecycle(
+        state,
+        "progress",
+        compact_map(%{
+          attempt: attempt,
+          status: "thinking",
+          thinking_delta: thinking_delta,
+          sequence: event.sequence,
+          provider: normalize_identifier(event.provider),
+          model: normalize_identifier(event.model),
+          backend: normalize_identifier(event.backend)
+        })
+      )
+    end
+
+    :ok
+  end
+
+  defp emit_llm_stream_progress(_state, _attempt, _event), do: :ok
+
+  defp llm_result_payload(%LLMResult{} = result, execution, execution_ref) do
+    base =
+      %{
+        status: normalize_identifier(result.status),
+        text: result.text,
+        model:
+          first_non_nil([
+            normalize_identifier(result.model),
+            normalize_identifier(execution.model)
+          ]),
+        provider:
+          first_non_nil([
+            normalize_identifier(result.provider),
+            normalize_identifier(execution.provider)
+          ]),
+        finish_reason: normalize_identifier(result.finish_reason),
+        usage: normalize_map(result.usage),
+        metadata:
+          result.metadata
+          |> normalize_map()
+          |> Map.put(:backend, normalize_identifier(execution.backend))
+      }
+      |> compact_map()
+
+    if is_nil(execution_ref) do
+      base
+    else
+      Map.put(base, :execution_ref, inspect(execution_ref))
+    end
+  end
+
+  defp llm_messages(input) do
+    input
+    |> get_field(:messages)
+    |> case do
+      messages when is_list(messages) and messages != [] ->
+        Enum.map(messages, &normalize_llm_message/1)
+
+      _ ->
+        [
+          %{
+            role: normalize_role(get_field(input, :role)),
+            content: default_llm_content(input)
+          }
+        ]
+    end
+  end
+
+  defp normalize_llm_message(message) when is_map(message) do
+    %{
+      role: normalize_role(get_field(message, :role)),
+      content:
+        first_non_nil([
+          get_field(message, :content),
+          get_field(message, :text),
+          ""
+        ])
+    }
+  end
+
+  defp normalize_llm_message(_message), do: %{role: :user, content: ""}
+
+  defp llm_request_metadata(state, attempt) do
+    state.input
+    |> get_field(:metadata)
+    |> normalize_map()
+    |> Map.put_new(:effect_id, state.effect_id)
+    |> Map.put_new(:attempt, attempt)
+    |> Map.put_new(:class, Atom.to_string(state.class))
+  end
+
+  defp llm_request_options(input) do
+    input
+    |> get_field(:request_options)
+    |> normalize_map()
+  end
+
+  defp llm_conversation_defaults(input) do
+    first_non_nil([
+      get_field(input, :conversation_defaults),
+      get_field(input, :conversation_llm_defaults),
+      %{}
+    ])
+    |> normalize_map()
+  end
+
+  defp backend_options(options) when is_map(options) do
+    options
+    |> Enum.reduce([], fn
+      {key, value}, acc when is_atom(key) ->
+        [{key, value} | acc]
+
+      {key, value}, acc when is_binary(key) ->
+        atom_key =
+          Map.get(@backend_option_string_keys, key) ||
+            existing_atom_key(key)
+
+        if is_atom(atom_key) do
+          [{atom_key, value} | acc]
+        else
+          acc
+        end
+
+      _entry, acc ->
+        acc
+    end)
+    |> Enum.reverse()
+  end
+
+  defp existing_atom_key(key) when is_binary(key) do
+    String.to_existing_atom(key)
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp default_llm_content(input) do
+    first_non_nil([
+      get_field(input, :content),
+      get_field(input, :text),
+      get_field(input, :prompt),
+      ""
+    ])
+  end
+
+  defp normalize_role(nil), do: :user
+  defp normalize_role(role) when role in [:user, :assistant, :system, :tool], do: role
+
+  defp normalize_role(role) when is_binary(role) do
+    case String.downcase(String.trim(role)) do
+      "assistant" -> :assistant
+      "system" -> :system
+      "tool" -> :tool
+      _ -> :user
+    end
+  end
+
+  defp normalize_role(_), do: :user
+
+  defp optional_positive_int(value) when is_integer(value) and value > 0, do: value
+
+  defp optional_positive_int(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, ""} when int > 0 -> int
+      _ -> nil
+    end
+  end
+
+  defp optional_positive_int(_), do: nil
+
+  defp optional_number(value) when is_number(value), do: value
+
+  defp optional_number(value) when is_binary(value) do
+    case Float.parse(value) do
+      {float, ""} -> float
+      _ -> nil
+    end
+  end
+
+  defp optional_number(_), do: nil
+
+  defp normalize_binary(value) when is_binary(value) do
+    value = String.trim(value)
+    if value == "", do: nil, else: value
+  end
+
+  defp normalize_binary(_), do: nil
+
+  defp normalize_identifier(nil), do: nil
+  defp normalize_identifier(value) when is_atom(value), do: Atom.to_string(value)
+  defp normalize_identifier(value) when is_binary(value), do: value
+  defp normalize_identifier(value) when is_number(value), do: to_string(value)
+  defp normalize_identifier(_), do: nil
+
+  defp first_non_nil(values) when is_list(values) do
+    Enum.find(values, &(not is_nil(&1)))
+  end
+
+  defp compact_map(map) when is_map(map) do
+    Enum.reduce(map, %{}, fn
+      {_key, nil}, acc -> acc
+      {key, value}, acc -> Map.put(acc, key, value)
+    end)
   end
 
   defp emit_lifecycle(state, lifecycle, extra_data, cause_id \\ nil) do
@@ -273,7 +732,13 @@ defmodule JidoConversation.Runtime.EffectWorker do
   end
 
   defp get_field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, to_string(key))
+    case Map.fetch(map, key) do
+      {:ok, value} ->
+        value
+
+      :error ->
+        Map.get(map, to_string(key))
+    end
   end
 
   defp get_field(_map, _key), do: nil
