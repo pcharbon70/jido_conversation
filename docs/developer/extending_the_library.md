@@ -2,6 +2,9 @@
 
 Use this guide when adding behavior to the runtime.
 
+For LLM adapter-specific extension rules, see:
+`docs/developer/llm_backend_adapter_contract.md`.
+
 ## Add a new ingress event type
 
 1. Define/confirm stream namespace and payload requirements in

@@ -80,6 +80,7 @@ metrics = JidoConversation.telemetry_snapshot()
 
 ## Next guides
 
+- LLM backend and override configuration: `docs/user/llm_backend_configuration.md`
 - Event ingestion patterns: `docs/user/ingesting_events.md`
 - Projection and replay usage: `docs/user/projections_and_replay.md`
 - Host operations integration: `docs/user/operations_and_host_integration.md`

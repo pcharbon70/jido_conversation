@@ -34,7 +34,7 @@ that can execute through:
 | Phase 7 | `completed` | Event/projection parity hardening | Output mapping consistency |
 | Phase 8 | `completed` | Observability and diagnostics | Telemetry + health snapshot |
 | Phase 9 | `completed` | Reliability and replay parity matrix | Stress/parity/failure suites |
-| Phase 10 | `planned` | Documentation and migration | User/developer docs |
+| Phase 10 | `completed` | Documentation and migration | User/developer docs |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -473,6 +473,24 @@ that can execute through:
 ### Exit criteria
 
 - Hosts can configure and run either backend without reading source code.
+
+### Completion notes
+
+- Added user-facing backend configuration guide:
+  - `docs/user/llm_backend_configuration.md`
+  - includes backend selection, provider/model routing, and override precedence
+- Added developer-facing adapter contract guide:
+  - `docs/developer/llm_backend_adapter_contract.md`
+  - documents callback contract, normalized lifecycle mapping, error taxonomy,
+    and cancellation expectations
+- Added migration notes for prior simulated LLM effect behavior:
+  - `docs/developer/llm_migration_notes.md`
+  - captures configuration requirements, payload changes, retry/cancel semantics,
+    and observability updates
+- Updated guide indexes and navigation links:
+  - `docs/user/README.md`
+  - `docs/developer/README.md`
+  - `docs/user/getting_started.md`
 
 ## Cross-phase quality gates
 
