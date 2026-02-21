@@ -147,13 +147,163 @@ defmodule JidoConversation.Runtime.ReducerTest do
     assert Enum.any?(progress_directives, fn directive ->
              directive.type == :emit_output and
                directive.payload.output_type == "conv.out.assistant.delta" and
-               directive.payload.data.delta == "hello "
+               directive.payload.data.delta == "hello " and
+               directive.payload.data.lifecycle == "progress" and
+               directive.payload.data.status == "progress"
            end)
 
     assert Enum.any?(completed_directives, fn directive ->
              directive.type == :emit_output and
                directive.payload.output_type == "conv.out.assistant.completed" and
-               directive.payload.data.content == "hello world"
+               directive.payload.data.content == "hello world" and
+               directive.payload.data.lifecycle == "completed" and
+               directive.payload.data.status == "completed"
+           end)
+  end
+
+  test "llm output payload normalizes provider/model/backend metadata across backend result shapes" do
+    state = Reducer.new("conversation-reducer")
+
+    progress =
+      Signal.new!(
+        "conv.effect.llm.generation.progress",
+        %{
+          effect_id: "eff-shape",
+          lifecycle: "progress",
+          token_delta: "chunk-1 ",
+          status: "streaming",
+          provider: "anthropic",
+          model: "claude-sonnet",
+          backend: "jido_ai",
+          attempt: 1,
+          sequence: 1
+        },
+        id: "eff-shape-progress",
+        source: "/tests/reducer",
+        subject: "conversation-reducer",
+        extensions: %{"contract_major" => 1}
+      )
+
+    completed =
+      Signal.new!(
+        "conv.effect.llm.generation.completed",
+        %{
+          effect_id: "eff-shape",
+          lifecycle: "completed",
+          result: %{
+            text: "chunk-1 done",
+            provider: "anthropic",
+            model: "anthropic:claude-sonnet",
+            finish_reason: "stop",
+            usage: %{input_tokens: 3, output_tokens: 2},
+            metadata: %{backend: "jido_ai", request_id: "req-1"}
+          }
+        },
+        id: "eff-shape-completed",
+        source: "/tests/reducer",
+        subject: "conversation-reducer",
+        extensions: %{"contract_major" => 1}
+      )
+
+    {:ok, _progress_state, progress_directives} =
+      Reducer.apply_event(state, progress, priority: 2, partition_id: 0, scheduler_seq: 1)
+
+    {:ok, _completed_state, completed_directives} =
+      Reducer.apply_event(state, completed, priority: 1, partition_id: 0, scheduler_seq: 2)
+
+    assert Enum.any?(progress_directives, fn directive ->
+             directive.type == :emit_output and
+               directive.payload.output_type == "conv.out.assistant.delta" and
+               directive.payload.data.delta == "chunk-1 " and
+               directive.payload.data.provider == "anthropic" and
+               directive.payload.data.model == "claude-sonnet" and
+               directive.payload.data.backend == "jido_ai" and
+               directive.payload.data.status == "streaming"
+           end)
+
+    assert Enum.any?(completed_directives, fn directive ->
+             directive.type == :emit_output and
+               directive.payload.output_type == "conv.out.assistant.completed" and
+               directive.payload.data.content == "chunk-1 done" and
+               directive.payload.data.provider == "anthropic" and
+               directive.payload.data.model == "anthropic:claude-sonnet" and
+               directive.payload.data.backend == "jido_ai" and
+               directive.payload.data.finish_reason == "stop" and
+               directive.payload.data.usage == %{input_tokens: 3, output_tokens: 2} and
+               directive.payload.data.metadata == %{request_id: "req-1"}
+           end)
+  end
+
+  test "tool lifecycle output includes explicit status and tool identifiers" do
+    state = Reducer.new("conversation-reducer")
+
+    progress =
+      Signal.new!(
+        "conv.effect.tool.execution.progress",
+        %{
+          effect_id: "tool-eff-1",
+          lifecycle: "progress",
+          status: "running",
+          tool_name: "web_search",
+          tool_call_id: "tool-call-1",
+          message: "tool in progress"
+        },
+        id: "tool-eff-progress",
+        source: "/tests/reducer",
+        subject: "conversation-reducer",
+        extensions: %{"contract_major" => 1}
+      )
+
+    {:ok, _state, directives} =
+      Reducer.apply_event(state, progress, priority: 2, partition_id: 0, scheduler_seq: 1)
+
+    assert Enum.any?(directives, fn directive ->
+             directive.type == :emit_output and
+               directive.payload.output_type == "conv.out.tool.status" and
+               directive.payload.data.effect_id == "tool-eff-1" and
+               directive.payload.data.status == "running" and
+               directive.payload.data.tool_name == "web_search" and
+               directive.payload.data.tool_call_id == "tool-call-1"
+           end)
+  end
+
+  test "llm lifecycle emits tool status output when backend payload includes tool-call status data" do
+    state = Reducer.new("conversation-reducer")
+
+    progress =
+      Signal.new!(
+        "conv.effect.llm.generation.progress",
+        %{
+          effect_id: "llm-eff-tool",
+          lifecycle: "progress",
+          status: "streaming",
+          backend: "harness",
+          provider: "codex",
+          model: "best",
+          tool_name: "web_search",
+          tool_call_id: "call-77",
+          tool_status: "started",
+          tool_message: "calling web_search"
+        },
+        id: "llm-eff-tool-progress",
+        source: "/tests/reducer",
+        subject: "conversation-reducer",
+        extensions: %{"contract_major" => 1}
+      )
+
+    {:ok, _state, directives} =
+      Reducer.apply_event(state, progress, priority: 2, partition_id: 0, scheduler_seq: 1)
+
+    assert Enum.any?(directives, fn directive ->
+             directive.type == :emit_output and
+               directive.payload.output_type == "conv.out.tool.status" and
+               directive.payload.output_id == "tool-call-77" and
+               directive.payload.data.status == "started" and
+               directive.payload.data.message == "calling web_search" and
+               directive.payload.data.tool_name == "web_search" and
+               directive.payload.data.tool_call_id == "call-77" and
+               directive.payload.data.backend == "harness" and
+               directive.payload.data.provider == "codex"
            end)
   end
 end

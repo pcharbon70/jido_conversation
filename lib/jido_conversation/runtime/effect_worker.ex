@@ -526,7 +526,7 @@ defmodule JidoConversation.Runtime.EffectWorker do
   end
 
   defp emit_llm_stream_progress(state, attempt, %LLMEvent{lifecycle: :delta} = event) do
-    token_delta = normalize_binary(event.delta)
+    token_delta = normalize_text_chunk(event.delta)
 
     if is_binary(token_delta) do
       emit_lifecycle(
@@ -548,7 +548,7 @@ defmodule JidoConversation.Runtime.EffectWorker do
   end
 
   defp emit_llm_stream_progress(state, attempt, %LLMEvent{lifecycle: :thinking} = event) do
-    thinking_delta = normalize_binary(event.content)
+    thinking_delta = normalize_text_chunk(event.content)
 
     if is_binary(thinking_delta) do
       emit_lifecycle(
@@ -783,6 +783,12 @@ defmodule JidoConversation.Runtime.EffectWorker do
   end
 
   defp normalize_binary(_), do: nil
+
+  defp normalize_text_chunk(value) when is_binary(value) do
+    if String.trim(value) == "", do: nil, else: value
+  end
+
+  defp normalize_text_chunk(_), do: nil
 
   defp normalize_identifier(nil), do: nil
   defp normalize_identifier(value) when is_atom(value), do: Atom.to_string(value)

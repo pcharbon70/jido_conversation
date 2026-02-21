@@ -50,6 +50,69 @@ defmodule JidoConversation.Projections.TimelineTest do
     assert Enum.map(timeline, & &1.content) == ["a", "b"]
   end
 
+  test "preserves normalized output metadata for assistant and tool entries" do
+    events = [
+      signal(
+        "conv.out.assistant.delta",
+        %{
+          output_id: "o1",
+          channel: "web",
+          delta: "Hi ",
+          lifecycle: "progress",
+          status: "streaming",
+          backend: "jido_ai",
+          provider: "anthropic",
+          model: "claude",
+          usage: %{input_tokens: 1},
+          metadata: %{trace_id: "t1"}
+        },
+        "2"
+      ),
+      signal(
+        "conv.out.assistant.completed",
+        %{
+          output_id: "o1",
+          channel: "web",
+          content: "Hi there",
+          lifecycle: "completed",
+          status: "completed",
+          finish_reason: "stop"
+        },
+        "3"
+      ),
+      signal(
+        "conv.out.tool.status",
+        %{
+          output_id: "tool-1",
+          channel: "web",
+          status: "started",
+          message: "calling web_search",
+          tool_name: "web_search",
+          tool_call_id: "call-1"
+        },
+        "4"
+      )
+    ]
+
+    timeline = Timeline.from_events(events, coalesce_deltas: false)
+
+    delta = Enum.at(timeline, 0)
+    assert delta.metadata.status == "streaming"
+    assert delta.metadata.backend == "jido_ai"
+    assert delta.metadata.provider == "anthropic"
+    assert delta.metadata.usage == %{input_tokens: 1}
+    assert delta.metadata.metadata == %{trace_id: "t1"}
+
+    completed = Enum.at(timeline, 1)
+    assert completed.metadata.status == "completed"
+    assert completed.metadata.finish_reason == "stop"
+
+    tool = Enum.at(timeline, 2)
+    assert tool.metadata.status == "started"
+    assert tool.metadata.tool_name == "web_search"
+    assert tool.metadata.tool_call_id == "call-1"
+  end
+
   defp signal(type, data, id) do
     Signal.new!(type, data,
       id: id,

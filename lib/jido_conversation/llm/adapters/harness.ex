@@ -658,8 +658,7 @@ defmodule JidoConversation.LLM.Adapters.Harness do
       end
 
     text_chunks
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
+    |> Enum.reject(&(String.trim(&1) == ""))
     |> Enum.uniq()
   end
 
@@ -678,8 +677,7 @@ defmodule JidoConversation.LLM.Adapters.Harness do
       end
 
     thinking_chunks
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
+    |> Enum.reject(&(String.trim(&1) == ""))
     |> Enum.uniq()
   end
 

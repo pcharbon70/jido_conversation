@@ -159,6 +159,36 @@ defmodule JidoConversation.LLM.Adapters.HarnessTest do
     assert Enum.map(events, & &1.lifecycle) == [:started, :failed]
   end
 
+  test "stream/3 normalizes non-empty delta chunks emitted by harness events" do
+    request =
+      request_fixture(%{
+        options: %{
+          test_stream: [
+            %{type: :session_started, provider: :codex, session_id: "session-1", payload: %{}},
+            %{type: :output_text_delta, payload: %{"text" => "hello "}},
+            %{type: :output_text_delta, payload: %{"text" => "world"}},
+            %{type: :session_completed, payload: %{"output_text" => "hello world"}}
+          ]
+        }
+      })
+
+    assert {:ok, %Result{}} =
+             Harness.stream(
+               request,
+               fn %Event{} = event -> send(self(), {:event, event}) end,
+               harness_module: TestHarness,
+               harness_provider: :codex
+             )
+
+    events =
+      []
+      |> collect_events()
+      |> Enum.reverse()
+
+    deltas = Enum.filter(events, &(&1.lifecycle == :delta))
+    assert Enum.map(deltas, & &1.delta) == ["hello", "world"]
+  end
+
   test "cancel/2 delegates to harness cancellation with provider and session_id" do
     assert :ok =
              Harness.cancel(

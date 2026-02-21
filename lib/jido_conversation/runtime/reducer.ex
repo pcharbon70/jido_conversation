@@ -236,14 +236,19 @@ defmodule JidoConversation.Runtime.Reducer do
   defp effect_directives(_state, _signal), do: []
 
   defp output_directives(%Signal{type: "conv.effect.llm.generation.progress"} = signal) do
-    case assistant_delta_directive(signal) do
-      nil -> []
-      directive -> [directive]
-    end
+    [
+      assistant_delta_directive(signal),
+      llm_tool_status_directive(signal, "progress")
+    ]
+    |> Enum.reject(&is_nil/1)
   end
 
   defp output_directives(%Signal{type: "conv.effect.llm.generation.completed"} = signal) do
-    [assistant_completed_directive(signal)]
+    [
+      assistant_completed_directive(signal),
+      llm_tool_status_directive(signal, "completed")
+    ]
+    |> Enum.reject(&is_nil/1)
   end
 
   defp output_directives(
@@ -283,25 +288,23 @@ defmodule JidoConversation.Runtime.Reducer do
       ])
 
     if is_binary(delta) and String.trim(delta) != "" do
-      effect_id = get_field(signal.data, :effect_id) || signal.id
+      effect_id = effect_id(signal)
       output_id = "assistant-#{effect_id}"
+      lifecycle = first_non_empty([get_field(signal.data, :lifecycle), "progress"]) || "progress"
+      base_data = llm_output_base_data(signal, lifecycle, effect_id)
 
       output_directive(
         signal,
         "conv.out.assistant.delta",
         output_id,
         output_channel(signal),
-        %{
-          effect_id: effect_id,
-          lifecycle: "progress",
-          delta: delta
-        }
+        Map.put(base_data, :delta, delta)
       )
     end
   end
 
   defp assistant_completed_directive(%Signal{} = signal) do
-    effect_id = get_field(signal.data, :effect_id) || signal.id
+    effect_id = effect_id(signal)
     output_id = "assistant-#{effect_id}"
 
     content =
@@ -312,42 +315,185 @@ defmodule JidoConversation.Runtime.Reducer do
         format_result(get_field(signal.data, :result))
       ]) || "completed"
 
+    lifecycle = first_non_empty([get_field(signal.data, :lifecycle), "completed"]) || "completed"
+    base_data = llm_output_base_data(signal, lifecycle, effect_id)
+
     output_directive(
       signal,
       "conv.out.assistant.completed",
       output_id,
       output_channel(signal),
-      %{
-        effect_id: effect_id,
-        lifecycle: "completed",
-        content: content
-      }
+      Map.put(base_data, :content, content)
     )
   end
 
   defp tool_status_directive(%Signal{} = signal, lifecycle) do
-    effect_id = get_field(signal.data, :effect_id) || signal.id
+    effect_id = effect_id(signal)
     output_id = "tool-#{effect_id}"
+    status = first_non_empty([get_field(signal.data, :status), lifecycle]) || lifecycle
 
     message =
       first_non_empty([
+        get_field(signal.data, :tool_message),
         get_field(signal.data, :message),
         get_field(signal.data, :reason),
-        get_field(signal.data, :status),
+        status,
         lifecycle
       ])
+
+    data =
+      %{
+        effect_id: effect_id,
+        lifecycle: lifecycle,
+        status: status,
+        message: message,
+        tool_name: get_field(signal.data, :tool_name),
+        tool_call_id: get_field(signal.data, :tool_call_id)
+      }
+      |> compact_map()
 
     output_directive(
       signal,
       "conv.out.tool.status",
       output_id,
       output_channel(signal),
+      data
+    )
+  end
+
+  defp llm_tool_status_directive(%Signal{} = signal, lifecycle) do
+    effect_id = effect_id(signal)
+    result = normalize_map(get_field(signal.data, :result))
+    result_metadata = normalize_map(get_field(result, :metadata))
+
+    tool_name =
+      first_non_empty([
+        get_field(signal.data, :tool_name),
+        get_field(result, :tool_name),
+        get_field(result_metadata, :tool_name)
+      ])
+
+    tool_call_id =
+      first_non_empty([
+        get_field(signal.data, :tool_call_id),
+        get_field(result, :tool_call_id),
+        get_field(result_metadata, :tool_call_id)
+      ])
+
+    tool_event =
+      first_non_empty([
+        get_field(signal.data, :tool_event),
+        get_field(result, :tool_event),
+        get_field(result_metadata, :tool_event)
+      ])
+
+    status =
+      first_non_empty([
+        get_field(signal.data, :tool_status),
+        get_field(result, :tool_status),
+        get_field(result_metadata, :tool_status),
+        tool_event
+      ])
+
+    message =
+      first_non_empty([
+        get_field(signal.data, :tool_message),
+        get_field(result, :tool_message),
+        get_field(result_metadata, :tool_message),
+        get_field(signal.data, :message),
+        get_field(signal.data, :reason),
+        status
+      ])
+
+    if tool_signal_present?(tool_name, tool_call_id, tool_event, status) do
+      base_data = llm_output_base_data(signal, lifecycle, effect_id)
+
+      tool_data =
+        %{
+          status: status || lifecycle,
+          message: message || lifecycle,
+          tool_name: tool_name,
+          tool_call_id: tool_call_id,
+          tool_event: tool_event
+        }
+        |> compact_map()
+
+      output_id = "tool-#{tool_call_id || effect_id}"
+
+      output_directive(
+        signal,
+        "conv.out.tool.status",
+        output_id,
+        output_channel(signal),
+        Map.merge(base_data, tool_data)
+      )
+    end
+  end
+
+  defp llm_output_base_data(%Signal{} = signal, lifecycle, effect_id) do
+    result = normalize_map(get_field(signal.data, :result))
+    signal_metadata = normalize_map(get_field(signal.data, :metadata))
+    result_metadata = normalize_map(get_field(result, :metadata))
+
+    usage =
+      normalize_map(first_non_nil([get_field(signal.data, :usage), get_field(result, :usage)]))
+
+    data =
       %{
         effect_id: effect_id,
         lifecycle: lifecycle,
-        message: message
+        status:
+          first_non_empty([
+            get_field(signal.data, :status),
+            get_field(result, :status),
+            lifecycle
+          ]),
+        attempt: get_field(signal.data, :attempt),
+        sequence: get_field(signal.data, :sequence),
+        backend:
+          first_non_empty([
+            get_field(signal.data, :backend),
+            get_field(result, :backend),
+            get_field(signal_metadata, :backend),
+            get_field(result_metadata, :backend)
+          ]),
+        provider:
+          first_non_empty([
+            get_field(signal.data, :provider),
+            get_field(result, :provider),
+            get_field(signal_metadata, :provider),
+            get_field(result_metadata, :provider)
+          ]),
+        model:
+          first_non_empty([
+            get_field(signal.data, :model),
+            get_field(result, :model),
+            get_field(signal_metadata, :model),
+            get_field(result_metadata, :model)
+          ]),
+        finish_reason:
+          first_non_empty([
+            get_field(signal.data, :finish_reason),
+            get_field(result, :finish_reason)
+          ])
       }
-    )
+      |> compact_map()
+      |> maybe_put_non_empty_map(:usage, usage)
+
+    metadata =
+      signal_metadata
+      |> Map.merge(result_metadata)
+      |> Map.drop([:backend, "backend", :provider, "provider", :model, "model"])
+
+    maybe_put_non_empty_map(data, :metadata, metadata)
+  end
+
+  defp effect_id(%Signal{} = signal) do
+    get_field(signal.data, :effect_id) || signal.id
+  end
+
+  defp tool_signal_present?(tool_name, tool_call_id, tool_event, status) do
+    Enum.any?([tool_name, tool_call_id, tool_event, status], &present?/1)
   end
 
   defp output_directive(%Signal{} = signal, output_type, output_id, channel, data) do
@@ -407,10 +553,34 @@ defmodule JidoConversation.Runtime.Reducer do
     end)
   end
 
+  defp first_non_nil(values) when is_list(values) do
+    Enum.find(values, &(not is_nil(&1)))
+  end
+
   defp format_result(nil), do: nil
   defp format_result(result) when is_binary(result), do: result
   defp format_result(result) when is_map(result), do: inspect(result)
   defp format_result(_result), do: nil
+
+  defp maybe_put_non_empty_map(map, key, value) when is_map(value) do
+    if map_size(value) == 0 do
+      map
+    else
+      Map.put(map, key, value)
+    end
+  end
+
+  defp compact_map(map) when is_map(map) do
+    Enum.reduce(map, %{}, fn
+      {_key, nil}, acc -> acc
+      {key, value}, acc -> Map.put(acc, key, value)
+    end)
+  end
+
+  defp present?(value) when is_binary(value), do: String.trim(value) != ""
+  defp present?(value) when is_map(value), do: map_size(value) > 0
+  defp present?(nil), do: false
+  defp present?(_value), do: true
 
   defp normalize_map(value) when is_map(value), do: value
   defp normalize_map(_value), do: %{}
