@@ -30,6 +30,9 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
         :auth_401 ->
           {:error, %{status: 401, message: "unauthorized"}}
 
+        :unknown_error ->
+          {:error, %{message: "unexpected_failure"}}
+
         :retryable_then_success ->
           scenario_recovery_result(attempt, model, :provider, "jido_ai recovered")
 
@@ -87,6 +90,9 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
 
         :auth_403 ->
           {:error, %{status: 403, message: "forbidden"}}
+
+        :unknown_error ->
+          {:error, %{message: "harness_unexpected_failure"}}
 
         :retryable_then_success ->
           scenario_recovery_result(attempt, provider, :provider, "harness recovered")
@@ -320,6 +326,26 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     assert_non_retryable_category_telemetry_unchanged!(baseline, "auth")
   end
 
+  test "jido_ai unknown failures are non-retryable and emit unknown category at runtime" do
+    counter = start_counter!()
+    put_runtime_backend!(:jido_ai, llm_client_context(:unknown_error, counter))
+    baseline = reset_llm_baseline!()
+    conversation_id = unique_id("conversation-jido-ai-unknown-non-retryable")
+    effect_id = unique_id("effect-jido-ai-unknown-non-retryable")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    start_retry_category_effect!(effect_id, conversation_id)
+
+    assert_receive {:jido_ai_generate_text, :unknown_error, 1, _model}
+    refute_receive {:jido_ai_generate_text, :unknown_error, 2, _model}, 200
+
+    events = await_failed_llm_effect_events(effect_id, replay_start)
+    assert_non_retryable_failed_path!(events, "unknown")
+    assert Agent.get(counter, & &1) == 1
+
+    assert_non_retryable_category_telemetry_unchanged!(baseline, "unknown")
+  end
+
   test "harness 4xx provider errors are non-retryable at runtime" do
     counter = start_counter!()
     put_runtime_backend!(:harness, %{})
@@ -500,6 +526,30 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     assert_non_retryable_category_telemetry_unchanged!(baseline, "auth")
   end
 
+  test "harness unknown failures are non-retryable and emit unknown category at runtime" do
+    counter = start_counter!()
+    put_runtime_backend!(:harness, %{})
+    baseline = reset_llm_baseline!()
+    conversation_id = unique_id("conversation-harness-unknown-non-retryable")
+    effect_id = unique_id("effect-harness-unknown-non-retryable")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    start_retry_category_effect!(
+      effect_id,
+      conversation_id,
+      %{request_options: %{scenario: :unknown_error, counter: counter, test_pid: self()}}
+    )
+
+    assert_receive {:harness_run, :unknown_error, 1, :codex}
+    refute_receive {:harness_run, :unknown_error, 2, :codex}, 200
+
+    events = await_failed_llm_effect_events(effect_id, replay_start)
+    assert_non_retryable_failed_path!(events, "unknown")
+    assert Agent.get(counter, & &1) == 1
+
+    assert_non_retryable_category_telemetry_unchanged!(baseline, "unknown")
+  end
+
   test "jido_ai timeout failures retry and increment timeout retry telemetry category" do
     assert_retry_category_recovery_jido_ai(
       :timeout_then_success,
@@ -603,6 +653,7 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
        when scenario in [
               :non_retryable_422,
               :auth_401,
+              :unknown_error,
               :retryable_then_success,
               :timeout_then_success,
               :transport_then_success
