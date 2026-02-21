@@ -5,6 +5,7 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
   alias JidoConversation.Runtime.Coordinator
   alias JidoConversation.Runtime.EffectManager
   alias JidoConversation.Runtime.IngressSubscriber
+  alias JidoConversation.Telemetry
 
   @app :jido_conversation
   @key JidoConversation.EventSystem
@@ -118,6 +119,8 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
   test "jido_ai 4xx provider errors are non-retryable at runtime" do
     counter = start_counter!()
     put_runtime_backend!(:jido_ai, llm_client_context(:non_retryable_422, counter))
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
 
     conversation_id = unique_id("conversation-jido-ai-non-retryable")
     effect_id = unique_id("effect-jido-ai-non-retryable")
@@ -165,11 +168,28 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
            end)
 
     assert Agent.get(counter, & &1) == 1
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+        failed = llm.lifecycle_counts.failed
+
+        if failed >= baseline.lifecycle_counts.failed + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert llm_retry_count(snapshot.retry_by_category, "provider") ==
+             llm_retry_count(baseline.retry_by_category, "provider")
   end
 
   test "jido_ai transient provider failures retry and complete" do
     counter = start_counter!()
     put_runtime_backend!(:jido_ai, llm_client_context(:retryable_then_success, counter))
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
 
     conversation_id = unique_id("conversation-jido-ai-retryable")
     effect_id = unique_id("effect-jido-ai-retryable")
@@ -219,11 +239,30 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
            end)
 
     assert Agent.get(counter, & &1) == 2
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+        completed = llm.lifecycle_counts.completed
+        retries = llm_retry_count(llm.retry_by_category, "provider")
+
+        if completed >= baseline.lifecycle_counts.completed + 1 and
+             retries >= llm_retry_count(baseline.retry_by_category, "provider") + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert llm_retry_count(snapshot.retry_by_category, "provider") >=
+             llm_retry_count(baseline.retry_by_category, "provider") + 1
   end
 
   test "harness 4xx provider errors are non-retryable at runtime" do
     counter = start_counter!()
     put_runtime_backend!(:harness, %{})
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
 
     conversation_id = unique_id("conversation-harness-non-retryable")
     effect_id = unique_id("effect-harness-non-retryable")
@@ -278,11 +317,28 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
            end)
 
     assert Agent.get(counter, & &1) == 1
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+        failed = llm.lifecycle_counts.failed
+
+        if failed >= baseline.lifecycle_counts.failed + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert llm_retry_count(snapshot.retry_by_category, "provider") ==
+             llm_retry_count(baseline.retry_by_category, "provider")
   end
 
   test "harness transient provider failures retry and complete" do
     counter = start_counter!()
     put_runtime_backend!(:harness, %{})
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
 
     conversation_id = unique_id("conversation-harness-retryable")
     effect_id = unique_id("effect-harness-retryable")
@@ -339,6 +395,23 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
            end)
 
     assert Agent.get(counter, & &1) == 2
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+        completed = llm.lifecycle_counts.completed
+        retries = llm_retry_count(llm.retry_by_category, "provider")
+
+        if completed >= baseline.lifecycle_counts.completed + 1 and
+             retries >= llm_retry_count(baseline.retry_by_category, "provider") + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert llm_retry_count(snapshot.retry_by_category, "provider") >=
+             llm_retry_count(baseline.retry_by_category, "provider") + 1
   end
 
   defp put_runtime_backend!(:jido_ai, llm_client_context) when is_map(llm_client_context) do
@@ -435,6 +508,10 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
 
   defp lifecycle_for(record), do: data_field(record, :lifecycle, "")
   defp effect_id_for(record), do: data_field(record, :effect_id, nil)
+
+  defp llm_retry_count(retry_by_category, key) when is_map(retry_by_category) and is_binary(key) do
+    Map.get(retry_by_category, key, 0)
+  end
 
   defp data_field(record, key, default) do
     data = record.signal.data || %{}

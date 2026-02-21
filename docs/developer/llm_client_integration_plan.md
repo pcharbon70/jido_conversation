@@ -38,6 +38,7 @@ that can execute through:
 | Phase 11 | `completed` | Open-decision closure and retry policy hardening | Retry map + contract clarifications |
 | Phase 12 | `completed` | Runtime retry policy matrix | End-to-end adapter retry classification |
 | Phase 13 | `completed` | Stream-path retry policy matrix | End-to-end stream adapter retry classification |
+| Phase 14 | `completed` | Retry telemetry parity matrix | Retry counters and backend lifecycle telemetry parity |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -600,6 +601,41 @@ that can execute through:
   - non-retryable provider `422` paths emit single-attempt failure
   - retryable provider `503` paths emit retry lifecycle and eventual completion
   - parity across `jido_ai` and `harness` stream execution paths
+
+## Phase 14: Retry telemetry parity matrix
+
+### Objectives
+
+- Ensure retry policy behavior is reflected consistently in runtime telemetry.
+- Validate parity for retry/no-retry paths across both built-in adapters.
+
+### Tasks
+
+- Extend runtime retry matrix coverage with telemetry assertions:
+  - `llm.retry_by_category`
+  - `llm.lifecycle_by_backend`
+- Verify non-retryable `422` paths increment backend failure lifecycle counters
+  without incrementing retry counters.
+- Verify retryable `503` paths increment both retry counters and backend
+  completion lifecycle counters.
+
+### Deliverables
+
+- Runtime retry matrix tests with telemetry parity assertions.
+
+### Exit criteria
+
+- Telemetry snapshot reflects retry policy outcomes deterministically for both
+  adapters.
+
+### Completion notes
+
+- Extended end-to-end runtime retry matrix tests with telemetry parity checks:
+  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+- Added explicit assertions for:
+  - no `provider` retry increment on non-retryable `422` failures
+  - `provider` retry increments on retryable `503` failures
+  - backend lifecycle counter progression (`failed`/`completed`) per adapter
 
 ## Cross-phase quality gates
 
