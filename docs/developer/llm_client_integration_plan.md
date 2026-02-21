@@ -37,6 +37,7 @@ that can execute through:
 | Phase 10 | `completed` | Documentation and migration | User/developer docs |
 | Phase 11 | `completed` | Open-decision closure and retry policy hardening | Retry map + contract clarifications |
 | Phase 12 | `completed` | Runtime retry policy matrix | End-to-end adapter retry classification |
+| Phase 13 | `completed` | Stream-path retry policy matrix | End-to-end stream adapter retry classification |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -564,6 +565,41 @@ that can execute through:
   - non-retryable provider `422` paths emit single-attempt failure (no retry)
   - retryable provider `503` paths emit retry lifecycle and eventual completion
   - behavior parity across `jido_ai` and `harness` backends
+
+## Phase 13: Stream-path retry policy matrix
+
+### Objectives
+
+- Validate retry classification behavior through stream execution paths for both
+  built-in adapters.
+- Ensure retry policy parity between start-path and stream-path runtime flows.
+
+### Tasks
+
+- Add runtime stream-mode matrix tests for:
+  - `JidoConversation.LLM.Adapters.JidoAI`
+  - `JidoConversation.LLM.Adapters.Harness`
+- Verify stream-mode `422` failures do not retry.
+- Verify stream-mode `503` failures retry and eventually complete.
+- Verify lifecycle stream still reports retry transitions consistently.
+
+### Deliverables
+
+- Runtime stream retry policy matrix test suite.
+
+### Exit criteria
+
+- Stream runtime behavior matches documented retryability policy for both
+  adapters.
+
+### Completion notes
+
+- Added end-to-end stream retry policy matrix coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+- Stream matrix verifies:
+  - non-retryable provider `422` paths emit single-attempt failure
+  - retryable provider `503` paths emit retry lifecycle and eventual completion
+  - parity across `jido_ai` and `harness` stream execution paths
 
 ## Cross-phase quality gates
 
