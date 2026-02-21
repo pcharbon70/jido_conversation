@@ -45,6 +45,13 @@ Recommended fields:
 - `queue_depth.by_partition`
 - `apply_latency_ms`
 - `abort_latency_ms`
+- `llm.lifecycle_counts`
+- `llm.lifecycle_by_backend`
+- `llm.stream_duration_ms`
+- `llm.stream_chunks`
+- `llm.cancel_latency_ms`
+- `llm.retry_by_category`
+- `llm.cancel_results`
 - `retry_count`
 - `dlq_count`
 - `dispatch_failure_count`
@@ -57,6 +64,9 @@ event families emitted by this library:
 - `[:jido_conversation, :runtime, :queue, :depth]`
 - `[:jido_conversation, :runtime, :apply, :stop]`
 - `[:jido_conversation, :runtime, :abort, :latency]`
+- `[:jido_conversation, :runtime, :llm, :lifecycle]`
+- `[:jido_conversation, :runtime, :llm, :cancel]`
+- `[:jido_conversation, :runtime, :llm, :retry]`
 - `[:jido, :signal, :subscription, :dispatch, :retry]`
 - `[:jido, :signal, :subscription, :dlq]`
 - `[:jido, :signal, :bus, :dispatch_error]`

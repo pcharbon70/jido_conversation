@@ -82,7 +82,9 @@ defmodule JidoConversation.Runtime.EffectWorker do
 
   @impl true
   def handle_cast({:cancel, reason, cancel_cause_id}, state) do
+    cancel_started_us = System.monotonic_time(:microsecond)
     {state, backend_cancel_data} = maybe_cancel_backend(state)
+    cancel_duration_us = max(System.monotonic_time(:microsecond) - cancel_started_us, 0)
     state = clear_in_flight(state)
 
     emit_lifecycle(
@@ -95,6 +97,8 @@ defmodule JidoConversation.Runtime.EffectWorker do
       |> Map.merge(backend_cancel_data),
       cancel_cause_id || state.cause_id
     )
+
+    _ = emit_llm_cancel_telemetry(state, cancel_duration_us, backend_cancel_data)
 
     notify_finished(state)
     {:stop, :normal, state}
@@ -121,10 +125,10 @@ defmodule JidoConversation.Runtime.EffectWorker do
 
   @impl true
   def handle_info(
-        {:llm_cancel_context, attempt, module, backend_opts, execution_ref},
+        {:llm_cancel_context, attempt, module, backend_opts, execution_ref, execution_meta},
         %{attempt: attempt, task: %Task{}} = state
       )
-      when is_atom(module) and is_list(backend_opts) do
+      when is_atom(module) and is_list(backend_opts) and is_map(execution_meta) do
     next_context =
       merge_llm_cancel_context(
         state.llm_cancel_context,
@@ -134,6 +138,7 @@ defmodule JidoConversation.Runtime.EffectWorker do
           backend_opts: backend_opts,
           execution_ref: execution_ref
         }
+        |> Map.merge(execution_meta)
       )
 
     {:noreply, %{state | llm_cancel_context: next_context}}
@@ -200,6 +205,8 @@ defmodule JidoConversation.Runtime.EffectWorker do
         retryable?: retryable_reason?(reason)
       })
 
+      _ = emit_llm_retry_telemetry(state, reason, backoff)
+
       Process.send_after(self(), :run_attempt, backoff)
       {:retry, state}
     else
@@ -234,6 +241,8 @@ defmodule JidoConversation.Runtime.EffectWorker do
   defp retryable_reason?(_reason), do: true
 
   defp maybe_cancel_backend(%{class: :llm} = state) do
+    context_dimensions = cancel_context_dimensions(state.llm_cancel_context)
+
     case state.llm_cancel_context do
       %{module: module, backend_opts: backend_opts, execution_ref: execution_ref}
       when is_atom(module) and is_list(backend_opts) and not is_nil(execution_ref) ->
@@ -248,10 +257,10 @@ defmodule JidoConversation.Runtime.EffectWorker do
               cancel_error_data(error)
           end
 
-        {state, cancel_data}
+        {state, Map.merge(context_dimensions, cancel_data)}
 
       _ ->
-        {state, %{backend_cancel: "not_available"}}
+        {state, Map.merge(context_dimensions, %{backend_cancel: "not_available"})}
     end
   end
 
@@ -400,12 +409,22 @@ defmodule JidoConversation.Runtime.EffectWorker do
   defp execute_llm_backend(state, execution, request, attempt) do
     backend_opts = backend_options(execution.options)
     module = execution.module
-    _ = notify_llm_cancel_context(state, attempt, module, backend_opts, nil)
+    execution_meta = llm_execution_metadata(execution)
+    _ = notify_llm_cancel_context(state, attempt, module, backend_opts, nil, execution_meta)
 
     if request.stream? do
       emit = fn
         %LLMEvent{} = event ->
-          _ = maybe_capture_stream_execution_ref(state, attempt, module, backend_opts, event)
+          _ =
+            maybe_capture_stream_execution_ref(
+              state,
+              attempt,
+              module,
+              backend_opts,
+              execution_meta,
+              event
+            )
+
           emit_llm_stream_progress(state, attempt, event)
 
         _other ->
@@ -414,20 +433,29 @@ defmodule JidoConversation.Runtime.EffectWorker do
 
       with :ok <- ensure_backend_function(module, :stream, 3),
            {:ok, response} <- invoke_backend(module, :stream, [request, emit, backend_opts]) do
-        capture_backend_response(state, attempt, module, backend_opts, response)
+        capture_backend_response(state, attempt, module, backend_opts, execution_meta, response)
       end
     else
       with :ok <- ensure_backend_function(module, :start, 2),
            {:ok, response} <- invoke_backend(module, :start, [request, backend_opts]) do
-        capture_backend_response(state, attempt, module, backend_opts, response)
+        capture_backend_response(state, attempt, module, backend_opts, execution_meta, response)
       end
     end
   end
 
-  defp capture_backend_response(state, attempt, module, backend_opts, response) do
+  defp capture_backend_response(state, attempt, module, backend_opts, execution_meta, response) do
     case normalize_backend_response(response) do
       {:ok, _result, execution_ref} = ok ->
-        _ = notify_llm_cancel_context(state, attempt, module, backend_opts, execution_ref)
+        _ =
+          notify_llm_cancel_context(
+            state,
+            attempt,
+            module,
+            backend_opts,
+            execution_ref,
+            execution_meta
+          )
+
         ok
 
       other ->
@@ -576,6 +604,7 @@ defmodule JidoConversation.Runtime.EffectWorker do
          attempt,
          module,
          backend_opts,
+         execution_meta,
          %LLMEvent{} = event
        ) do
     case execution_ref_from_event(event) do
@@ -583,7 +612,14 @@ defmodule JidoConversation.Runtime.EffectWorker do
         :ok
 
       execution_ref ->
-        notify_llm_cancel_context(state, attempt, module, backend_opts, execution_ref)
+        notify_llm_cancel_context(
+          state,
+          attempt,
+          module,
+          backend_opts,
+          execution_ref,
+          execution_meta
+        )
     end
   end
 
@@ -608,13 +644,34 @@ defmodule JidoConversation.Runtime.EffectWorker do
     end
   end
 
-  defp notify_llm_cancel_context(state, attempt, module, backend_opts, execution_ref) do
+  defp notify_llm_cancel_context(
+         state,
+         attempt,
+         module,
+         backend_opts,
+         execution_ref,
+         execution_meta
+       )
+       when is_map(execution_meta) do
     send(
       state.worker_pid,
-      {:llm_cancel_context, attempt, module, backend_opts, execution_ref}
+      {:llm_cancel_context, attempt, module, backend_opts, execution_ref, execution_meta}
     )
 
     :ok
+  end
+
+  defp llm_execution_metadata(execution) do
+    %{
+      backend:
+        first_non_nil([
+          normalize_identifier(Map.get(execution, :backend)),
+          module_backend(Map.get(execution, :module))
+        ]),
+      provider: normalize_identifier(Map.get(execution, :provider)),
+      model: normalize_identifier(Map.get(execution, :model))
+    }
+    |> compact_map()
   end
 
   defp llm_result_payload(%LLMResult{} = result, execution, execution_ref) do
@@ -807,6 +864,144 @@ defmodule JidoConversation.Runtime.EffectWorker do
     end)
   end
 
+  defp emit_llm_retry_telemetry(%{class: :llm} = state, reason, backoff_ms) do
+    dimensions = cancel_context_dimensions(state.llm_cancel_context)
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :retry],
+      %{count: 1, backoff_ms: max(backoff_ms, 0)},
+      %{
+        effect_id: state.effect_id,
+        conversation_id: state.conversation_id,
+        attempt: state.attempt,
+        retry_category: retry_category(reason)
+      }
+      |> Map.merge(dimensions)
+    )
+  end
+
+  defp emit_llm_retry_telemetry(_state, _reason, _backoff_ms), do: :ok
+
+  defp emit_llm_cancel_telemetry(%{class: :llm} = state, duration_us, cancel_data) do
+    dimensions =
+      cancel_context_dimensions(state.llm_cancel_context)
+      |> Map.merge(cancel_data)
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :cancel],
+      %{duration_us: max(duration_us, 0)},
+      %{
+        effect_id: state.effect_id,
+        conversation_id: state.conversation_id,
+        attempt: state.attempt,
+        cancel_result: get_field(dimensions, :backend_cancel)
+      }
+      |> Map.merge(dimensions)
+    )
+  end
+
+  defp emit_llm_cancel_telemetry(_state, _duration_us, _cancel_data), do: :ok
+
+  defp emit_llm_lifecycle_telemetry(%{class: :llm} = state, lifecycle, data)
+       when is_binary(lifecycle) and is_map(data) do
+    result = normalize_map(get_field(data, :result))
+    result_metadata = normalize_map(get_field(result, :metadata))
+
+    metadata =
+      %{
+        effect_id: state.effect_id,
+        conversation_id: state.conversation_id,
+        lifecycle: lifecycle,
+        attempt: get_field(data, :attempt),
+        status: first_non_nil([get_field(data, :status), lifecycle]),
+        backend:
+          first_non_nil([
+            normalize_identifier(get_field(data, :backend)),
+            normalize_identifier(get_field(result, :backend)),
+            normalize_identifier(get_field(result_metadata, :backend)),
+            normalize_identifier(get_field(state.llm_cancel_context || %{}, :backend))
+          ]),
+        provider:
+          first_non_nil([
+            normalize_identifier(get_field(data, :provider)),
+            normalize_identifier(get_field(result, :provider)),
+            normalize_identifier(get_field(result_metadata, :provider)),
+            normalize_identifier(get_field(state.llm_cancel_context || %{}, :provider))
+          ]),
+        model:
+          first_non_nil([
+            normalize_identifier(get_field(data, :model)),
+            normalize_identifier(get_field(result, :model)),
+            normalize_identifier(get_field(result_metadata, :model)),
+            normalize_identifier(get_field(state.llm_cancel_context || %{}, :model))
+          ]),
+        error_category: normalize_identifier(get_field(data, :error_category)),
+        retryable?: get_field(data, :retryable?),
+        retry_category: retry_category(get_field(data, :error_category)),
+        cancel_result: normalize_identifier(get_field(data, :backend_cancel)),
+        token_delta?: is_binary(normalize_text_chunk(get_field(data, :token_delta))),
+        thinking_delta?: is_binary(normalize_text_chunk(get_field(data, :thinking_delta)))
+      }
+      |> compact_map()
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :lifecycle],
+      %{count: 1, timestamp_us: System.monotonic_time(:microsecond)},
+      metadata
+    )
+  end
+
+  defp emit_llm_lifecycle_telemetry(_state, _lifecycle, _data), do: :ok
+
+  defp cancel_context_dimensions(context) when is_map(context) do
+    %{
+      backend:
+        first_non_nil([
+          normalize_identifier(get_field(context, :backend)),
+          module_backend(get_field(context, :module))
+        ]),
+      provider: normalize_identifier(get_field(context, :provider)),
+      model: normalize_identifier(get_field(context, :model))
+    }
+    |> compact_map()
+  end
+
+  defp cancel_context_dimensions(_context), do: %{}
+
+  defp module_backend(nil), do: nil
+
+  defp module_backend(module) when is_atom(module) do
+    module
+    |> Atom.to_string()
+    |> String.split(".")
+    |> List.last()
+    |> case do
+      "JidoAI" -> "jido_ai"
+      "Harness" -> "harness"
+      _ -> nil
+    end
+  end
+
+  defp module_backend(_), do: nil
+
+  defp retry_category(nil), do: nil
+
+  defp retry_category(%LLMError{category: category}) when is_atom(category),
+    do: Atom.to_string(category)
+
+  defp retry_category(:timeout), do: "timeout"
+  defp retry_category({:task_exit, _reason}), do: "task_exit"
+  defp retry_category(reason) when is_atom(reason), do: Atom.to_string(reason)
+
+  defp retry_category(reason) when is_binary(reason) do
+    case String.trim(reason) do
+      "" -> nil
+      value -> value
+    end
+  end
+
+  defp retry_category(_), do: "unknown"
+
   defp emit_lifecycle(state, lifecycle, extra_data, cause_id \\ nil) do
     attrs = %{
       type: "#{effect_type_prefix(state.class)}.#{lifecycle}",
@@ -822,6 +1017,8 @@ defmodule JidoConversation.Runtime.EffectWorker do
         |> Map.merge(extra_data),
       extensions: %{"contract_major" => 1}
     }
+
+    _ = emit_llm_lifecycle_telemetry(state, lifecycle, attrs.data)
 
     case ingest_with_cause(attrs, cause_id || state.cause_id) do
       {:ok, _result} ->

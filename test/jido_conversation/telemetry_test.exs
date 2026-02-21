@@ -81,6 +81,170 @@ defmodule JidoConversation.TelemetryTest do
     assert is_map(snapshot.last_dispatch_failure)
   end
 
+  test "aggregates llm lifecycle, stream, cancel, and retry metrics" do
+    baseline = Telemetry.snapshot()
+    now_us = System.monotonic_time(:microsecond)
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :lifecycle],
+      %{count: 1, timestamp_us: now_us},
+      %{
+        effect_id: "llm-1",
+        conversation_id: "c-1",
+        lifecycle: "started",
+        backend: "jido_ai",
+        provider: "anthropic",
+        model: "claude"
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :lifecycle],
+      %{count: 1, timestamp_us: now_us + 800},
+      %{
+        effect_id: "llm-1",
+        conversation_id: "c-1",
+        lifecycle: "progress",
+        backend: "jido_ai",
+        provider: "anthropic",
+        model: "claude",
+        token_delta?: true
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :lifecycle],
+      %{count: 1, timestamp_us: now_us + 1_400},
+      %{
+        effect_id: "llm-1",
+        conversation_id: "c-1",
+        lifecycle: "progress",
+        backend: "jido_ai",
+        provider: "anthropic",
+        model: "claude",
+        thinking_delta?: true
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :lifecycle],
+      %{count: 1, timestamp_us: now_us + 2_100},
+      %{
+        effect_id: "llm-1",
+        conversation_id: "c-1",
+        lifecycle: "completed",
+        backend: "jido_ai",
+        provider: "anthropic",
+        model: "claude"
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :lifecycle],
+      %{count: 1, timestamp_us: now_us + 2_500},
+      %{
+        effect_id: "llm-2",
+        conversation_id: "c-1",
+        lifecycle: "started",
+        backend: "harness",
+        provider: "codex",
+        model: "default"
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :lifecycle],
+      %{count: 1, timestamp_us: now_us + 3_100},
+      %{
+        effect_id: "llm-2",
+        conversation_id: "c-1",
+        lifecycle: "failed",
+        backend: "harness",
+        provider: "codex",
+        model: "default",
+        error_category: "provider"
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :lifecycle],
+      %{count: 1, timestamp_us: now_us + 3_600},
+      %{
+        effect_id: "llm-3",
+        conversation_id: "c-1",
+        lifecycle: "started",
+        backend: "jido_ai",
+        provider: "anthropic",
+        model: "claude"
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :retry],
+      %{count: 1, backoff_ms: 100},
+      %{
+        effect_id: "llm-3",
+        conversation_id: "c-1",
+        retry_category: "timeout",
+        backend: "jido_ai"
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :cancel],
+      %{duration_us: 1_200},
+      %{
+        effect_id: "llm-3",
+        conversation_id: "c-1",
+        cancel_result: "ok",
+        backend: "jido_ai"
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :lifecycle],
+      %{count: 1, timestamp_us: now_us + 4_100},
+      %{
+        effect_id: "llm-3",
+        conversation_id: "c-1",
+        lifecycle: "canceled",
+        backend: "jido_ai",
+        provider: "anthropic",
+        model: "claude",
+        cancel_result: "ok"
+      }
+    )
+
+    snapshot =
+      eventually(fn ->
+        current = Telemetry.snapshot()
+        llm = current.llm
+        baseline_llm = baseline.llm
+
+        if llm.lifecycle_counts.started >= baseline_llm.lifecycle_counts.started + 3 and
+             llm.lifecycle_counts.completed >= baseline_llm.lifecycle_counts.completed + 1 and
+             llm.lifecycle_counts.failed >= baseline_llm.lifecycle_counts.failed + 1 and
+             llm.lifecycle_counts.canceled >= baseline_llm.lifecycle_counts.canceled + 1 and
+             llm.stream_duration_ms.count >= baseline_llm.stream_duration_ms.count + 3 and
+             llm.stream_chunks.total >= baseline_llm.stream_chunks.total + 2 and
+             llm.cancel_latency_ms.count >= baseline_llm.cancel_latency_ms.count + 1 do
+          {:ok, current}
+        else
+          :retry
+        end
+      end)
+
+    llm = snapshot.llm
+
+    assert llm.lifecycle_by_backend["jido_ai"].completed >= 1
+    assert llm.lifecycle_by_backend["harness"].failed >= 1
+    assert llm.stream_chunks.delta >= 1
+    assert llm.stream_chunks.thinking >= 1
+    assert llm.retry_by_category["timeout"] >= 1
+    assert llm.cancel_results["ok"] >= 1
+    assert llm.cancel_latency_ms.avg_ms > 0.0
+  end
+
   test "reset clears metrics to baseline" do
     partition_id = System.unique_integer([:positive, :monotonic]) + 2_000
 
@@ -110,6 +274,16 @@ defmodule JidoConversation.TelemetryTest do
       end)
 
     assert Map.get(reset_snapshot.queue_depth.by_partition, partition_id, 0) == 0
+
+    assert reset_snapshot.llm.lifecycle_counts == %{
+             started: 0,
+             progress: 0,
+             completed: 0,
+             failed: 0,
+             canceled: 0
+           }
+
+    assert reset_snapshot.llm.stream_chunks == %{delta: 0, thinking: 0, total: 0}
   end
 
   defp eventually(fun, attempts \\ 100)

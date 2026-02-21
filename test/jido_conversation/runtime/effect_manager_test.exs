@@ -8,6 +8,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
   alias JidoConversation.Runtime.Coordinator
   alias JidoConversation.Runtime.EffectManager
   alias JidoConversation.Runtime.IngressSubscriber
+  alias JidoConversation.Telemetry
 
   @app :jido_conversation
   @key JidoConversation.EventSystem
@@ -397,6 +398,47 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
              lifecycle_for(event) == "completed" and
                get_in(data_field(event, :result, %{}), [:text]) == "hello world"
            end)
+  end
+
+  test "llm effect execution updates runtime telemetry snapshot with lifecycle and stream metrics" do
+    put_runtime_llm_backend!(LLMBackendStub, self())
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "telemetry path", role: "user"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 1_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_backend_stream, %Request{}, _opts}
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.started >= baseline.lifecycle_counts.started + 1 and
+             llm.lifecycle_counts.completed >= baseline.lifecycle_counts.completed + 1 and
+             llm.stream_chunks.total >= baseline.stream_chunks.total + 2 and
+             llm.stream_duration_ms.count >= baseline.stream_duration_ms.count + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert snapshot.lifecycle_by_backend["jido_ai"].completed >= 1
+    assert snapshot.stream_chunks.delta >= baseline.stream_chunks.delta + 2
   end
 
   test "non-retryable llm backend errors do not retry even when max_attempts is greater than one" do
