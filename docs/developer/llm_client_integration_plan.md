@@ -39,6 +39,7 @@ that can execute through:
 | Phase 12 | `completed` | Runtime retry policy matrix | End-to-end adapter retry classification |
 | Phase 13 | `completed` | Stream-path retry policy matrix | End-to-end stream adapter retry classification |
 | Phase 14 | `completed` | Retry telemetry parity matrix | Retry counters and backend lifecycle telemetry parity |
+| Phase 15 | `completed` | Stream retry telemetry parity matrix | Stream retry counters and lifecycle telemetry parity |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -636,6 +637,41 @@ that can execute through:
   - no `provider` retry increment on non-retryable `422` failures
   - `provider` retry increments on retryable `503` failures
   - backend lifecycle counter progression (`failed`/`completed`) per adapter
+
+## Phase 15: Stream retry telemetry parity matrix
+
+### Objectives
+
+- Ensure stream-path retry behavior is reflected consistently in telemetry.
+- Validate retry/no-retry telemetry parity for both built-in adapters in
+  stream mode.
+
+### Tasks
+
+- Extend stream retry matrix coverage with telemetry snapshot assertions:
+  - `llm.retry_by_category`
+  - `llm.lifecycle_counts`
+- Verify stream non-retryable `422` paths increment failed lifecycle telemetry
+  without incrementing provider retry counters.
+- Verify stream retryable `503` paths increment provider retry counters and
+  completion lifecycle telemetry.
+
+### Deliverables
+
+- Stream runtime retry matrix tests with telemetry parity assertions.
+
+### Exit criteria
+
+- Stream telemetry deterministically reflects documented retry policy outcomes.
+
+### Completion notes
+
+- Extended stream retry policy matrix with telemetry parity checks:
+  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+- Added explicit assertions for:
+  - no `provider` retry increment on non-retryable stream `422` failures
+  - `provider` retry increments on retryable stream `503` failures
+  - stream lifecycle counter progression for failed/completed outcomes
 
 ## Cross-phase quality gates
 
