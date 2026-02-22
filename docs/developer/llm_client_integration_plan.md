@@ -45,6 +45,7 @@ that can execute through:
 | Phase 18 | `completed` | Stream timeout/transport retry telemetry parity | Stream retry category counters for timeout and transport classes |
 | Phase 19 | `completed` | Auth non-retryable runtime parity | Non-stream auth classification and retry telemetry invariants |
 | Phase 20 | `completed` | Stream auth non-retryable runtime parity | Stream auth classification and retry telemetry invariants |
+| Phase 21 | `completed` | Unknown non-retryable runtime parity | Non-stream unknown classification and retry telemetry invariants |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -870,6 +871,46 @@ that can execute through:
   - stream failed lifecycle payload category/retryable invariants
     (`auth`, `false`)
   - no `auth` retry counter increments in telemetry snapshot for stream paths
+
+## Phase 21: Unknown non-retryable runtime parity
+
+### Objectives
+
+- Validate runtime fallback classification parity across non-stream execution
+  paths for built-in adapters.
+- Ensure unknown failures remain non-retryable and do not increment retry
+  category counters.
+
+### Tasks
+
+- Extend runtime retry matrix coverage with unknown failure scenarios for:
+  - `jido_ai` backend path (unclassified map error)
+  - `harness` backend path (unclassified map error)
+- Verify unknown failures do not retry and terminate with failed lifecycle.
+- Verify failed lifecycle payload includes:
+  - `error_category: "unknown"`
+  - `retryable?: false`
+- Verify telemetry `llm.retry_by_category["unknown"]` remains unchanged for
+  non-retryable unknown failures.
+
+### Deliverables
+
+- Runtime retry matrix tests covering unknown non-retryable fallback
+  classification and telemetry invariants.
+
+### Exit criteria
+
+- Unknown runtime failures are classified deterministically and never retried
+  across both built-in adapters in non-stream mode.
+
+### Completion notes
+
+- Extended runtime retry policy matrix with unknown non-retryable coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+- Added explicit assertions for:
+  - no retry attempts on unknown classified failures
+  - failed lifecycle payload category/retryable invariants (`unknown`, `false`)
+  - no `unknown` retry counter increments in telemetry snapshot
 
 ## Cross-phase quality gates
 
