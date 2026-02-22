@@ -68,6 +68,7 @@ that can execute through:
 | Phase 41 | `completed` | Effect-manager LLM cancel-without-context parity hardening | Cancel lifecycle and telemetry invariants when execution_ref is unavailable in effect runtime tests |
 | Phase 42 | `completed` | Effect-manager LLM cancel-failed parity hardening | Cancel lifecycle payload and telemetry invariants when backend cancellation returns failure in effect runtime tests |
 | Phase 43 | `completed` | Effect-manager LLM cancel attribution parity hardening | Cancel-failed lifecycle backend/provider/model attribution and backend lifecycle telemetry invariants in effect runtime tests |
+| Phase 44 | `completed` | Effect-manager LLM cancel cause-link parity hardening | Explicit cancel `cause_id` lifecycle linkage and backward trace-chain invariants in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1762,6 +1763,39 @@ that can execute through:
 
 - Extended cancel-failed attribution and backend lifecycle telemetry assertions
   in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 44: Effect-manager LLM cancel cause-link parity hardening
+
+### Objectives
+
+- Harden effect runtime LLM cancellation parity coverage for explicit
+  `cause_id` linkage on canceled lifecycle emission.
+- Ensure canceled lifecycle records are traceable back to the provided cancel
+  cause through journal chain traversal.
+
+### Tasks
+
+- Add effect manager cancellation test with explicit valid `cause_id` to assert:
+  - cancellation still invokes backend cancel path
+  - canceled lifecycle is emitted for the target effect
+  - backward trace chain from canceled lifecycle includes:
+    - canceled lifecycle signal id
+    - explicit cancel cause signal id
+
+### Deliverables
+
+- Hardened effect manager cancellation test assertions for explicit cancel
+  cause-link lifecycle tracing invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify deterministic canceled lifecycle
+  linkage to provided cancel causes and backward trace-chain integrity.
+
+### Completion notes
+
+- Added explicit cancel cause-link tracing assertions in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
