@@ -65,6 +65,7 @@ that can execute through:
 | Phase 38 | `completed` | Effect-manager LLM stream-path retry-attempt-start parity hardening | Stream retry-attempt-start lifecycle cardinality and attempt labeling invariants in effect runtime tests |
 | Phase 39 | `completed` | Effect-manager LLM start-path retry-attempt-start parity hardening | Non-stream retry-attempt-start lifecycle cardinality and attempt labeling invariants in effect runtime tests |
 | Phase 40 | `completed` | Effect-manager LLM cancel lifecycle/telemetry parity hardening | Cancel lifecycle payload/cardinality and cancel telemetry invariants in effect runtime tests |
+| Phase 41 | `completed` | Effect-manager LLM cancel-without-context parity hardening | Cancel lifecycle and telemetry invariants when execution_ref is unavailable in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1645,6 +1646,45 @@ that can execute through:
 ### Completion notes
 
 - Extended cancellation-path assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 41: Effect-manager LLM cancel-without-context parity hardening
+
+### Objectives
+
+- Harden effect runtime LLM cancellation parity coverage when no backend
+  execution reference is available.
+- Ensure canceled lifecycle payload and telemetry remain deterministic for the
+  no-context cancellation path.
+
+### Tasks
+
+- Extend cancellable backend test scaffolding to support stream events without
+  `execution_ref` metadata.
+- Add effect manager cancellation test for missing `execution_ref` to assert:
+  - backend cancel is not invoked
+  - exactly one `started` and one `canceled` lifecycle is emitted
+  - no `completed` or `failed` lifecycle is emitted
+  - canceled payload includes `reason: "user_abort"` and
+    `backend_cancel: "not_available"`
+  - telemetry `lifecycle_counts.canceled`, `cancel_latency_ms.count`, and
+    `cancel_results["not_available"]` increment
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened effect manager cancellation test assertions for no-context cancel
+  lifecycle payload/cardinality and cancel telemetry snapshot invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify deterministic no-context cancellation
+  lifecycle semantics and consistent `not_available` cancel telemetry updates
+  without retry drift.
+
+### Completion notes
+
+- Extended no-context cancellation assertions and backend stub options in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates

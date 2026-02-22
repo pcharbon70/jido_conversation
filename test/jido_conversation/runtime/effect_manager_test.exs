@@ -288,8 +288,16 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     @impl true
     def stream(%Request{} = request, emit, opts) do
       test_pid = Keyword.get(opts, :test_pid, self())
-      execution_ref = self()
+      include_execution_ref? = Keyword.get(opts, :include_execution_ref?, true)
+      execution_ref = if(include_execution_ref?, do: self(), else: nil)
       send(test_pid, {:llm_cancellable_stream, request, execution_ref})
+
+      metadata =
+        if is_nil(execution_ref) do
+          %{}
+        else
+          %{execution_ref: execution_ref}
+        end
 
       _ =
         emit.(
@@ -300,7 +308,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
             lifecycle: :started,
             provider: "stub-provider",
             model: "stub-model",
-            metadata: %{execution_ref: execution_ref}
+            metadata: metadata
           })
         )
 
@@ -985,6 +993,85 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
 
+  test "cancel_conversation records not_available cancel result when execution_ref is missing" do
+    put_runtime_llm_backend!(LLMCancellableBackendStub, self(), true,
+      include_execution_ref?: false
+    )
+
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "please run without execution ref"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 5_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_cancellable_stream, %Request{}, nil}
+    Process.sleep(50)
+
+    :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", nil)
+    refute_receive {:llm_cancellable_cancel_called, _execution_ref}, 200
+
+    assert {:ok, recorded} =
+             eventually(fn ->
+               case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+                 {:ok, events} ->
+                   events_for_effect = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+                   lifecycles = Enum.map(events_for_effect, &lifecycle_for/1)
+
+                   if "canceled" in lifecycles do
+                     {:ok, {:ok, events_for_effect}}
+                   else
+                     :retry
+                   end
+
+                 other ->
+                   {:ok, other}
+               end
+             end)
+
+    assert Enum.count(recorded, &(lifecycle_for(&1) == "started")) == 1
+    assert Enum.count(recorded, &(lifecycle_for(&1) == "canceled")) == 1
+    refute Enum.any?(recorded, &(lifecycle_for(&1) == "completed"))
+    refute Enum.any?(recorded, &(lifecycle_for(&1) == "failed"))
+
+    canceled_event = Enum.find(recorded, &(lifecycle_for(&1) == "canceled"))
+    assert canceled_event
+    assert data_field(canceled_event, :reason, nil) == "user_abort"
+    assert data_field(canceled_event, :backend_cancel, nil) == "not_available"
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
+             Map.get(llm.cancel_results, "not_available", 0) >=
+               Map.get(baseline.cancel_results, "not_available", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.cancel_results, "not_available", 0) >=
+             Map.get(baseline.cancel_results, "not_available", 0) + 1
+
+    assert snapshot.retry_by_category == baseline.retry_by_category
+  end
+
   test "invalid cause_id falls back to uncoupled lifecycle ingestion" do
     conversation_id = unique_id("conversation")
     effect_id = unique_id("effect")
@@ -1142,8 +1229,8 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     "#{prefix}-#{System.unique_integer([:positive, :monotonic])}"
   end
 
-  defp put_runtime_llm_backend!(module, test_pid, stream? \\ true)
-       when is_atom(module) and is_pid(test_pid) and is_boolean(stream?) do
+  defp put_runtime_llm_backend!(module, test_pid, stream? \\ true, backend_opts \\ [])
+       when is_atom(module) and is_pid(test_pid) and is_boolean(stream?) and is_list(backend_opts) do
     Application.put_env(@app, @key,
       llm: [
         default_backend: :jido_ai,
@@ -1158,7 +1245,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
             timeout_ms: 1_000,
             provider: "stub-provider",
             model: "stub-model",
-            options: [test_pid: test_pid]
+            options: [test_pid: test_pid] ++ backend_opts
           ],
           harness: [module: nil, stream?: stream?, options: []]
         ]
