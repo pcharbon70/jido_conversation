@@ -51,6 +51,7 @@ that can execute through:
 | Phase 24 | `completed` | Stream config non-retryable runtime parity | Stream config classification and retry telemetry invariants |
 | Phase 25 | `completed` | Canceled non-retryable runtime parity | Non-stream canceled classification and retry telemetry invariants |
 | Phase 26 | `completed` | Stream canceled non-retryable runtime parity | Stream canceled classification and retry telemetry invariants |
+| Phase 27 | `completed` | Provider non-retryable runtime parity hardening | Non-stream provider failed payload classification parity + telemetry invariants |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1137,6 +1138,45 @@ that can execute through:
     (`canceled`, `false`)
   - no `canceled` retry counter increments in telemetry snapshot for stream
     paths
+
+## Phase 27: Provider non-retryable runtime parity hardening
+
+### Objectives
+
+- Harden non-stream provider `4xx` non-retryable runtime parity assertions for
+  built-in adapters.
+- Ensure failed lifecycle payload invariants are explicitly verified for the
+  provider category.
+
+### Tasks
+
+- Update non-stream runtime retry matrix provider `4xx` coverage for:
+  - `jido_ai` backend path (`422` provider validation failure)
+  - `harness` backend path (`422` provider validation failure)
+- Assert failed lifecycle payload includes:
+  - `error_category: "provider"`
+  - `retryable?: false`
+- Preserve invariant that provider retry category counters do not increment for
+  non-retryable provider failures.
+
+### Deliverables
+
+- Updated non-stream runtime retry matrix tests for provider non-retryable
+  classification parity and telemetry invariants.
+
+### Exit criteria
+
+- Provider `4xx` non-stream runtime failures for both built-in adapters verify
+  deterministic failed payload classification (`provider`, non-retryable) and
+  no retry category counter increments.
+
+### Completion notes
+
+- Hardened provider `4xx` non-retryable runtime tests to assert failed payload
+  category/retryable invariants:
+  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+- Unified provider non-retryable assertions with retry-category helper
+  patterns used by later phase slices.
 
 ## Cross-phase quality gates
 
