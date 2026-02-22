@@ -46,6 +46,7 @@ that can execute through:
 | Phase 19 | `completed` | Auth non-retryable runtime parity | Non-stream auth classification and retry telemetry invariants |
 | Phase 20 | `completed` | Stream auth non-retryable runtime parity | Stream auth classification and retry telemetry invariants |
 | Phase 21 | `completed` | Unknown non-retryable runtime parity | Non-stream unknown classification and retry telemetry invariants |
+| Phase 22 | `completed` | Stream unknown non-retryable runtime parity | Stream unknown classification and retry telemetry invariants |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -911,6 +912,53 @@ that can execute through:
   - no retry attempts on unknown classified failures
   - failed lifecycle payload category/retryable invariants (`unknown`, `false`)
   - no `unknown` retry counter increments in telemetry snapshot
+
+## Phase 22: Stream unknown non-retryable runtime parity
+
+### Objectives
+
+- Validate runtime fallback classification parity across stream execution paths
+  for built-in adapters.
+- Ensure stream unknown failures remain non-retryable and do not increment
+  retry category counters.
+
+### Tasks
+
+- Extend runtime stream retry matrix coverage with unknown failure scenarios
+  for:
+  - `jido_ai` backend stream path (unclassified map error)
+  - `harness` backend stream path (unclassified map error)
+- Verify unknown stream failures do not retry and terminate with failed
+  lifecycle.
+- Verify failed lifecycle payload includes:
+  - `error_category: "unknown"`
+  - `retryable?: false`
+- Verify telemetry `llm.retry_by_category["unknown"]` remains unchanged for
+  non-retryable stream unknown failures.
+
+### Deliverables
+
+- Runtime stream retry matrix tests covering unknown non-retryable fallback
+  classification and telemetry invariants.
+
+### Exit criteria
+
+- Unknown stream runtime failures are classified deterministically and never
+  retried across both built-in adapters.
+
+### Completion notes
+
+- Updated Harness stream failure normalization to preserve `unknown` category
+  for structured map errors:
+  - `lib/jido_conversation/llm/adapters/harness.ex`
+- Extended stream retry policy matrix with unknown non-retryable coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+- Added explicit assertions for:
+  - no retry attempts on unknown classified stream failures
+  - failed stream lifecycle payload category/retryable invariants
+    (`unknown`, `false`)
+  - no `unknown` retry counter increments in telemetry snapshot for stream
+    paths
 
 ## Cross-phase quality gates
 

@@ -4,7 +4,7 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 
 ## Current status
 
-- Phases 0-21 complete:
+- Phases 0-22 complete:
   - architecture baseline through reliability hardening
   - replay-vs-live determinism parity hardening
 - Post-phase hardening complete:
@@ -23,6 +23,7 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
   - auth non-retryable runtime parity coverage across built-in adapters
   - stream auth non-retryable runtime parity coverage across built-in adapters
   - unknown non-retryable runtime parity coverage across built-in adapters
+  - stream unknown non-retryable runtime parity coverage across built-in adapters
 
 ## Library scope
 
