@@ -690,6 +690,92 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
              Map.get(baseline.retry_by_category, "provider", 0) + 1
   end
 
+  test "retryable llm backend start-path errors emit classified retrying progress and recover" do
+    put_runtime_llm_backend!(LLMRetryableProviderBackendStub, self(), false)
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "trigger non-stream retryable failure"},
+          policy: %{max_attempts: 3, backoff_ms: 5, timeout_ms: 1_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_retryable_start, %Request{}, 1}
+    assert_receive {:llm_retryable_start, %Request{}, 2}
+
+    assert {:ok, recorded} =
+             eventually(fn ->
+               case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+                 {:ok, events} ->
+                   events_for_effect = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+
+                   has_started? = Enum.any?(events_for_effect, &(lifecycle_for(&1) == "started"))
+
+                   has_retrying_progress? =
+                     Enum.any?(events_for_effect, fn event ->
+                       lifecycle_for(event) == "progress" and
+                         data_field(event, :status, nil) == "retrying"
+                     end)
+
+                   has_completed? =
+                     Enum.any?(events_for_effect, &(lifecycle_for(&1) == "completed"))
+
+                   if has_started? and has_retrying_progress? and has_completed? do
+                     {:ok, {:ok, events_for_effect}}
+                   else
+                     :retry
+                   end
+
+                 other ->
+                   {:ok, other}
+               end
+             end)
+
+    retrying_event =
+      Enum.find(recorded, fn event ->
+        lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
+      end)
+
+    assert retrying_event
+    assert data_field(retrying_event, :error_category, nil) == "provider"
+    assert data_field(retrying_event, :retryable?, false) == true
+
+    assert Enum.any?(recorded, fn event ->
+             lifecycle_for(event) == "completed" and
+               get_in(data_field(event, :result, %{}), [:text]) == "recovered response"
+           end)
+
+    refute Enum.any?(recorded, &(lifecycle_for(&1) == "failed"))
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.completed >= baseline.lifecycle_counts.completed + 1 and
+             Map.get(llm.retry_by_category, "provider", 0) >=
+               Map.get(baseline.retry_by_category, "provider", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.retry_by_category, "provider", 0) ==
+             Map.get(baseline.retry_by_category, "provider", 0) + 1
+  end
+
   test "cancel_conversation triggers llm backend cancel when execution_ref is available" do
     put_runtime_llm_backend!(LLMCancellableBackendStub, self())
 
@@ -896,24 +982,25 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     "#{prefix}-#{System.unique_integer([:positive, :monotonic])}"
   end
 
-  defp put_runtime_llm_backend!(module, test_pid) when is_atom(module) and is_pid(test_pid) do
+  defp put_runtime_llm_backend!(module, test_pid, stream? \\ true)
+       when is_atom(module) and is_pid(test_pid) and is_boolean(stream?) do
     Application.put_env(@app, @key,
       llm: [
         default_backend: :jido_ai,
-        default_stream?: true,
+        default_stream?: stream?,
         default_timeout_ms: 1_000,
         default_provider: "stub-provider",
         default_model: "stub-model",
         backends: [
           jido_ai: [
             module: module,
-            stream?: true,
+            stream?: stream?,
             timeout_ms: 1_000,
             provider: "stub-provider",
             model: "stub-model",
             options: [test_pid: test_pid]
           ],
-          harness: [module: nil, stream?: true, options: []]
+          harness: [module: nil, stream?: stream?, options: []]
         ]
       ]
     )
