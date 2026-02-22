@@ -912,6 +912,8 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
   test "cancel_conversation triggers llm backend cancel when execution_ref is available" do
     put_runtime_llm_backend!(LLMCancellableBackendStub, self())
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
 
     conversation_id = unique_id("conversation")
     effect_id = unique_id("effect")
@@ -930,11 +932,11 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
         nil
       )
 
-    assert_receive {:llm_cancellable_stream, %Request{}, _execution_ref}
+    assert_receive {:llm_cancellable_stream, %Request{}, execution_ref}
     Process.sleep(50)
 
     :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", nil)
-    assert_receive {:llm_cancellable_cancel_called, _execution_ref}
+    assert_receive {:llm_cancellable_cancel_called, ^execution_ref}
 
     assert {:ok, recorded} =
              eventually(fn ->
@@ -954,9 +956,33 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
                end
              end)
 
-    assert Enum.any?(recorded, &(lifecycle_for(&1) == "canceled"))
-
+    assert Enum.count(recorded, &(lifecycle_for(&1) == "started")) == 1
+    assert Enum.count(recorded, &(lifecycle_for(&1) == "canceled")) == 1
     refute Enum.any?(recorded, &(lifecycle_for(&1) == "completed"))
+    refute Enum.any?(recorded, &(lifecycle_for(&1) == "failed"))
+
+    canceled_event = Enum.find(recorded, &(lifecycle_for(&1) == "canceled"))
+    assert canceled_event
+    assert data_field(canceled_event, :reason, nil) == "user_abort"
+    assert data_field(canceled_event, :backend_cancel, nil) == "ok"
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             Map.get(llm.cancel_results, "ok", 0) >=
+               Map.get(baseline.cancel_results, "ok", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.cancel_results, "ok", 0) >=
+             Map.get(baseline.cancel_results, "ok", 0) + 1
+
+    assert snapshot.retry_by_category == baseline.retry_by_category
   end
 
   test "invalid cause_id falls back to uncoupled lifecycle ingestion" do
