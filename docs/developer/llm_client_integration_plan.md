@@ -48,6 +48,7 @@ that can execute through:
 | Phase 21 | `completed` | Unknown non-retryable runtime parity | Non-stream unknown classification and retry telemetry invariants |
 | Phase 22 | `completed` | Stream unknown non-retryable runtime parity | Stream unknown classification and retry telemetry invariants |
 | Phase 23 | `completed` | Config non-retryable runtime parity | Non-stream config classification and retry telemetry invariants |
+| Phase 24 | `completed` | Stream config non-retryable runtime parity | Stream config classification and retry telemetry invariants |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1000,6 +1001,50 @@ that can execute through:
   - no retry attempts on config-classified failures
   - failed lifecycle payload category/retryable invariants (`config`, `false`)
   - no `config` retry counter increments in telemetry snapshot
+
+## Phase 24: Stream config non-retryable runtime parity
+
+### Objectives
+
+- Validate runtime config classification parity across stream execution paths
+  for built-in adapters.
+- Ensure stream config failures remain non-retryable and do not increment retry
+  category counters.
+
+### Tasks
+
+- Extend runtime stream retry matrix coverage with config failure scenarios
+  for:
+  - `jido_ai` backend stream path (`ArgumentError` configuration failure)
+  - `harness` backend stream path (`ArgumentError` configuration failure)
+- Verify config stream failures do not retry and terminate with failed
+  lifecycle.
+- Verify failed lifecycle payload includes:
+  - `error_category: "config"`
+  - `retryable?: false`
+- Verify telemetry `llm.retry_by_category["config"]` remains unchanged for
+  non-retryable stream config failures.
+
+### Deliverables
+
+- Runtime stream retry matrix tests covering config non-retryable
+  classification and telemetry invariants.
+
+### Exit criteria
+
+- Config stream runtime failures are classified deterministically and never
+  retried across both built-in adapters.
+
+### Completion notes
+
+- Extended stream retry policy matrix with config non-retryable coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+- Added explicit assertions for:
+  - no retry attempts on config-classified stream failures
+  - failed stream lifecycle payload category/retryable invariants
+    (`config`, `false`)
+  - no `config` retry counter increments in telemetry snapshot for stream
+    paths
 
 ## Cross-phase quality gates
 
