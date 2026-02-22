@@ -731,6 +731,9 @@ defmodule JidoConversation.LLM.Adapters.Harness do
     error = normalize_error(reason)
 
     case error.category do
+      :unknown when is_map(reason) ->
+        error
+
       :unknown ->
         Error.from_reason(reason, :provider, message: error.message)
 
