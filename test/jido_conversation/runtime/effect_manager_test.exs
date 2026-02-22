@@ -1140,6 +1140,9 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert data_field(canceled_event, :backend_cancel_reason, nil) == "cancel failed"
     assert data_field(canceled_event, :backend_cancel_category, nil) == "provider"
     assert data_field(canceled_event, :backend_cancel_retryable?, nil) == true
+    assert data_field(canceled_event, :backend, nil) == "jido_ai"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
 
     snapshot =
       eventually(fn ->
@@ -1157,6 +1160,9 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert Map.get(snapshot.cancel_results, "failed", 0) >=
              Map.get(baseline.cancel_results, "failed", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
 
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
@@ -1313,6 +1319,13 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
   end
 
   defp to_integer(_value), do: 0
+
+  defp backend_lifecycle_count(lifecycle_by_backend, backend, key)
+       when is_map(lifecycle_by_backend) and is_binary(backend) and is_atom(key) do
+    lifecycle_by_backend
+    |> Map.get(backend, %{})
+    |> Map.get(key, 0)
+  end
 
   defp unique_id(prefix) do
     "#{prefix}-#{System.unique_integer([:positive, :monotonic])}"
