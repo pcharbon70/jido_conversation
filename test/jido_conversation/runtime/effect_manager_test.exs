@@ -1167,6 +1167,66 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
 
+  test "cancel_conversation links canceled lifecycle to explicit cause_id when provided" do
+    put_runtime_llm_backend!(LLMCancellableBackendStub, self())
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    assert {:ok, %{signal: cause_signal}} =
+             Ingest.ingest(%{
+               id: unique_id("cause"),
+               type: "conv.audit.policy.decision_recorded",
+               source: "/tests/effect-manager",
+               subject: conversation_id,
+               data: %{audit_id: unique_id("audit"), category: "policy", decision: "allow"},
+               extensions: %{contract_major: 1}
+             })
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "please run with explicit cancel cause"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 5_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_cancellable_stream, %Request{}, execution_ref}
+    assert is_pid(execution_ref)
+    Process.sleep(50)
+
+    :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", cause_signal.id)
+    assert_receive {:llm_cancellable_cancel_called, :ok, ^execution_ref}
+
+    canceled_events =
+      eventually(fn ->
+        case Ingest.replay("conv.effect.llm.generation.canceled", replay_start) do
+          {:ok, events} ->
+            matches = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+            if matches == [], do: :retry, else: {:ok, matches}
+
+          _other ->
+            :retry
+        end
+      end)
+
+    assert Enum.count(canceled_events, &(lifecycle_for(&1) == "canceled")) == 1
+    canceled_event = Enum.find(canceled_events, &(lifecycle_for(&1) == "canceled"))
+    assert canceled_event
+
+    trace = Ingest.trace_chain(canceled_event.signal.id, :backward)
+    trace_ids = Enum.map(trace, & &1.id)
+
+    assert canceled_event.signal.id in trace_ids
+    assert cause_signal.id in trace_ids
+  end
+
   test "invalid cause_id falls back to uncoupled lifecycle ingestion" do
     conversation_id = unique_id("conversation")
     effect_id = unique_id("effect")
