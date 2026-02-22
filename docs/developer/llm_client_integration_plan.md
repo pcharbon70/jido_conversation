@@ -55,6 +55,7 @@ that can execute through:
 | Phase 28 | `completed` | Stream provider non-retryable runtime parity hardening | Stream provider failed payload classification parity + telemetry invariants |
 | Phase 29 | `completed` | Non-stream retry progress payload parity hardening | Retrying progress error-category/retryable invariants across retryable categories |
 | Phase 30 | `completed` | Stream retry progress payload parity hardening | Stream retrying progress error-category/retryable invariants across retryable categories |
+| Phase 31 | `completed` | Telemetry retry-category parity hardening | Retry-category precedence/fallback invariants in telemetry aggregation |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1302,6 +1303,36 @@ that can execute through:
   - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
 - Refactored stream provider retryable recovery tests to use the shared
   retry-category helper path for consistent parity checks.
+
+## Phase 31: Telemetry retry-category parity hardening
+
+### Objectives
+
+- Harden retry-category aggregation invariants in telemetry snapshot handling.
+- Ensure retry-category precedence and fallback behavior remains deterministic.
+
+### Tasks
+
+- Extend telemetry test coverage for runtime LLM retry events to verify:
+  - explicit `retry_category` increments the matching counter
+  - missing `retry_category` falls back to `error_category`
+  - when both are present, `retry_category` takes precedence
+  - blank retry category values are ignored
+
+### Deliverables
+
+- Added telemetry unit coverage for retry-category precedence/fallback rules.
+
+### Exit criteria
+
+- Telemetry snapshot `llm.retry_by_category` reflects deterministic increments
+  for explicit and fallback categories without double-counting conflicting
+  metadata.
+
+### Completion notes
+
+- Added retry-category precedence/fallback parity test:
+  - `test/jido_conversation/telemetry_test.exs`
 
 ## Cross-phase quality gates
 
