@@ -281,72 +281,24 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyStreamMatrixTest do
     :ok
   end
 
-  test "jido_ai stream 4xx provider errors are non-retryable at runtime" do
+  test "jido_ai stream 4xx provider errors are non-retryable and emit provider category at runtime" do
     counter = start_counter!()
     put_runtime_backend!(:jido_ai, llm_client_context(:non_retryable_422, counter))
-    :ok = Telemetry.reset()
-    baseline = Telemetry.snapshot().llm
-
+    baseline = reset_llm_baseline!()
     conversation_id = unique_id("conversation-jido-ai-stream-non-retryable")
     effect_id = unique_id("effect-jido-ai-stream-non-retryable")
     replay_start = DateTime.utc_now() |> DateTime.to_unix()
 
-    :ok =
-      EffectManager.start_effect(
-        %{
-          effect_id: effect_id,
-          conversation_id: conversation_id,
-          class: :llm,
-          kind: "generation",
-          input: %{content: "trigger stream non-retryable"},
-          policy: %{max_attempts: 3, backoff_ms: 5, timeout_ms: 800}
-        },
-        nil
-      )
+    start_retry_category_effect!(effect_id, conversation_id)
 
     assert_receive {:jido_ai_stream_text, :non_retryable_422, 1, _model}
     refute_receive {:jido_ai_stream_text, :non_retryable_422, 2, _model}, 200
 
-    events =
-      eventually(fn ->
-        case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
-          {:ok, records} ->
-            matches = Enum.filter(records, &(effect_id_for(&1) == effect_id))
-            lifecycles = Enum.map(matches, &lifecycle_for/1) |> MapSet.new()
-
-            if MapSet.subset?(MapSet.new(["started", "failed"]), lifecycles) do
-              {:ok, matches}
-            else
-              :retry
-            end
-
-          _other ->
-            :retry
-        end
-      end)
-
-    assert Enum.count(events, &(lifecycle_for(&1) == "started")) == 1
-    assert Enum.count(events, &(lifecycle_for(&1) == "failed")) == 1
-
-    refute Enum.any?(events, fn event ->
-             lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
-           end)
-
+    events = await_failed_llm_effect_events(effect_id, replay_start)
+    assert_non_retryable_failed_path!(events, "provider")
     assert Agent.get(counter, & &1) == 1
 
-    snapshot =
-      eventually(fn ->
-        llm = Telemetry.snapshot().llm
-
-        if llm.lifecycle_counts.failed >= baseline.lifecycle_counts.failed + 1 do
-          {:ok, llm}
-        else
-          :retry
-        end
-      end)
-
-    assert llm_retry_count(snapshot.retry_by_category, "provider") ==
-             llm_retry_count(baseline.retry_by_category, "provider")
+    assert_non_retryable_category_telemetry_unchanged!(baseline, "provider")
   end
 
   test "jido_ai stream transient provider failures retry and complete" do
@@ -501,79 +453,28 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyStreamMatrixTest do
     assert_non_retryable_category_telemetry_unchanged!(baseline, "unknown")
   end
 
-  test "harness stream 4xx provider errors are non-retryable at runtime" do
+  test "harness stream 4xx provider errors are non-retryable and emit provider category at runtime" do
     counter = start_counter!()
     put_runtime_backend!(:harness, %{})
-    :ok = Telemetry.reset()
-    baseline = Telemetry.snapshot().llm
-
+    baseline = reset_llm_baseline!()
     conversation_id = unique_id("conversation-harness-stream-non-retryable")
     effect_id = unique_id("effect-harness-stream-non-retryable")
     replay_start = DateTime.utc_now() |> DateTime.to_unix()
 
-    :ok =
-      EffectManager.start_effect(
-        %{
-          effect_id: effect_id,
-          conversation_id: conversation_id,
-          class: :llm,
-          kind: "generation",
-          input: %{
-            content: "trigger harness stream non-retryable",
-            request_options: %{
-              scenario: :non_retryable_422,
-              counter: counter,
-              test_pid: self()
-            }
-          },
-          policy: %{max_attempts: 3, backoff_ms: 5, timeout_ms: 800}
-        },
-        nil
-      )
+    start_retry_category_effect!(
+      effect_id,
+      conversation_id,
+      %{request_options: %{scenario: :non_retryable_422, counter: counter, test_pid: self()}}
+    )
 
     assert_receive {:harness_stream_run, :non_retryable_422, 1, :codex}
     refute_receive {:harness_stream_run, :non_retryable_422, 2, :codex}, 200
 
-    events =
-      eventually(fn ->
-        case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
-          {:ok, records} ->
-            matches = Enum.filter(records, &(effect_id_for(&1) == effect_id))
-            lifecycles = Enum.map(matches, &lifecycle_for/1) |> MapSet.new()
-
-            if MapSet.subset?(MapSet.new(["started", "failed"]), lifecycles) do
-              {:ok, matches}
-            else
-              :retry
-            end
-
-          _other ->
-            :retry
-        end
-      end)
-
-    assert Enum.count(events, &(lifecycle_for(&1) == "started")) == 1
-    assert Enum.count(events, &(lifecycle_for(&1) == "failed")) == 1
-
-    refute Enum.any?(events, fn event ->
-             lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
-           end)
-
+    events = await_failed_llm_effect_events(effect_id, replay_start)
+    assert_non_retryable_failed_path!(events, "provider")
     assert Agent.get(counter, & &1) == 1
 
-    snapshot =
-      eventually(fn ->
-        llm = Telemetry.snapshot().llm
-
-        if llm.lifecycle_counts.failed >= baseline.lifecycle_counts.failed + 1 do
-          {:ok, llm}
-        else
-          :retry
-        end
-      end)
-
-    assert llm_retry_count(snapshot.retry_by_category, "provider") ==
-             llm_retry_count(baseline.retry_by_category, "provider")
+    assert_non_retryable_category_telemetry_unchanged!(baseline, "provider")
   end
 
   test "harness stream transient provider failures retry and complete" do

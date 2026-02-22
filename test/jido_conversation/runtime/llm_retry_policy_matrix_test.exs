@@ -203,77 +203,12 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     assert_non_retryable_category_telemetry_unchanged!(baseline, "provider")
   end
 
-  test "jido_ai transient provider failures retry and complete" do
-    counter = start_counter!()
-    put_runtime_backend!(:jido_ai, llm_client_context(:retryable_then_success, counter))
-    :ok = Telemetry.reset()
-    baseline = Telemetry.snapshot().llm
-
-    conversation_id = unique_id("conversation-jido-ai-retryable")
-    effect_id = unique_id("effect-jido-ai-retryable")
-    replay_start = DateTime.utc_now() |> DateTime.to_unix()
-
-    :ok =
-      EffectManager.start_effect(
-        %{
-          effect_id: effect_id,
-          conversation_id: conversation_id,
-          class: :llm,
-          kind: "generation",
-          input: %{content: "trigger retry then success"},
-          policy: %{max_attempts: 3, backoff_ms: 5, timeout_ms: 800}
-        },
-        nil
-      )
-
-    assert_receive {:jido_ai_generate_text, :retryable_then_success, 1, _model}
-    assert_receive {:jido_ai_generate_text, :retryable_then_success, 2, _model}
-
-    events =
-      eventually(fn ->
-        case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
-          {:ok, records} ->
-            matches = Enum.filter(records, &(effect_id_for(&1) == effect_id))
-            lifecycles = Enum.map(matches, &lifecycle_for/1) |> MapSet.new()
-
-            if MapSet.subset?(MapSet.new(["started", "progress", "completed"]), lifecycles) do
-              {:ok, matches}
-            else
-              :retry
-            end
-
-          _other ->
-            :retry
-        end
-      end)
-
-    assert Enum.any?(events, fn event ->
-             lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
-           end)
-
-    assert Enum.any?(events, fn event ->
-             lifecycle_for(event) == "completed" and
-               get_in(data_field(event, :result, %{}), [:text]) == "jido_ai recovered"
-           end)
-
-    assert Agent.get(counter, & &1) == 2
-
-    snapshot =
-      eventually(fn ->
-        llm = Telemetry.snapshot().llm
-        completed = llm.lifecycle_counts.completed
-        retries = llm_retry_count(llm.retry_by_category, "provider")
-
-        if completed >= baseline.lifecycle_counts.completed + 1 and
-             retries >= llm_retry_count(baseline.retry_by_category, "provider") + 1 do
-          {:ok, llm}
-        else
-          :retry
-        end
-      end)
-
-    assert llm_retry_count(snapshot.retry_by_category, "provider") >=
-             llm_retry_count(baseline.retry_by_category, "provider") + 1
+  test "jido_ai transient provider failures retry with provider classification and complete" do
+    assert_retry_category_recovery_jido_ai(
+      :retryable_then_success,
+      "provider",
+      "jido_ai recovered"
+    )
   end
 
   test "jido_ai auth failures are non-retryable and emit auth category at runtime" do
@@ -380,84 +315,12 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     assert_non_retryable_category_telemetry_unchanged!(baseline, "provider")
   end
 
-  test "harness transient provider failures retry and complete" do
-    counter = start_counter!()
-    put_runtime_backend!(:harness, %{})
-    :ok = Telemetry.reset()
-    baseline = Telemetry.snapshot().llm
-
-    conversation_id = unique_id("conversation-harness-retryable")
-    effect_id = unique_id("effect-harness-retryable")
-    replay_start = DateTime.utc_now() |> DateTime.to_unix()
-
-    :ok =
-      EffectManager.start_effect(
-        %{
-          effect_id: effect_id,
-          conversation_id: conversation_id,
-          class: :llm,
-          kind: "generation",
-          input: %{
-            content: "trigger harness retry then success",
-            request_options: %{
-              scenario: :retryable_then_success,
-              counter: counter,
-              test_pid: self()
-            }
-          },
-          policy: %{max_attempts: 3, backoff_ms: 5, timeout_ms: 800}
-        },
-        nil
-      )
-
-    assert_receive {:harness_run, :retryable_then_success, 1, :codex}
-    assert_receive {:harness_run, :retryable_then_success, 2, :codex}
-
-    events =
-      eventually(fn ->
-        case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
-          {:ok, records} ->
-            matches = Enum.filter(records, &(effect_id_for(&1) == effect_id))
-            lifecycles = Enum.map(matches, &lifecycle_for/1) |> MapSet.new()
-
-            if MapSet.subset?(MapSet.new(["started", "progress", "completed"]), lifecycles) do
-              {:ok, matches}
-            else
-              :retry
-            end
-
-          _other ->
-            :retry
-        end
-      end)
-
-    assert Enum.any?(events, fn event ->
-             lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
-           end)
-
-    assert Enum.any?(events, fn event ->
-             lifecycle_for(event) == "completed" and
-               get_in(data_field(event, :result, %{}), [:text]) == "harness recovered"
-           end)
-
-    assert Agent.get(counter, & &1) == 2
-
-    snapshot =
-      eventually(fn ->
-        llm = Telemetry.snapshot().llm
-        completed = llm.lifecycle_counts.completed
-        retries = llm_retry_count(llm.retry_by_category, "provider")
-
-        if completed >= baseline.lifecycle_counts.completed + 1 and
-             retries >= llm_retry_count(baseline.retry_by_category, "provider") + 1 do
-          {:ok, llm}
-        else
-          :retry
-        end
-      end)
-
-    assert llm_retry_count(snapshot.retry_by_category, "provider") >=
-             llm_retry_count(baseline.retry_by_category, "provider") + 1
+  test "harness transient provider failures retry with provider classification and complete" do
+    assert_retry_category_recovery_harness(
+      :retryable_then_success,
+      "provider",
+      "harness recovered"
+    )
   end
 
   test "harness auth failures are non-retryable and emit auth category at runtime" do
@@ -684,7 +547,7 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     assert_receive {:jido_ai_generate_text, ^scenario, 2, _model}
 
     events = await_completed_llm_effect_events(effect_id, replay_start)
-    assert_retrying_progress_and_completed_text!(events, expected_text)
+    assert_retrying_progress_and_completed_text!(events, expected_category, expected_text)
     assert Agent.get(counter, & &1) == 2
 
     assert_retry_category_telemetry_increment!(baseline, expected_category)
@@ -709,7 +572,7 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     assert_receive {:harness_run, ^scenario, 2, :codex}
 
     events = await_completed_llm_effect_events(effect_id, replay_start)
-    assert_retrying_progress_and_completed_text!(events, expected_text)
+    assert_retrying_progress_and_completed_text!(events, expected_category, expected_text)
     assert Agent.get(counter, & &1) == 2
 
     assert_retry_category_telemetry_increment!(baseline, expected_category)
@@ -792,11 +655,16 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     MapSet.subset?(MapSet.new(["started", "failed"]), lifecycles)
   end
 
-  defp assert_retrying_progress_and_completed_text!(events, expected_text)
-       when is_list(events) and is_binary(expected_text) do
-    assert Enum.any?(events, fn event ->
-             lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
-           end)
+  defp assert_retrying_progress_and_completed_text!(events, expected_category, expected_text)
+       when is_list(events) and is_binary(expected_category) and is_binary(expected_text) do
+    retrying_event =
+      Enum.find(events, fn event ->
+        lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
+      end)
+
+    assert retrying_event
+    assert data_field(retrying_event, :error_category, nil) == expected_category
+    assert data_field(retrying_event, :retryable?, false) == true
 
     assert Enum.any?(events, fn event ->
              lifecycle_for(event) == "completed" and
