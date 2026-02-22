@@ -2,7 +2,7 @@ defmodule JidoConversationTest do
   use ExUnit.Case, async: true
 
   test "health reports core supervisors as alive" do
-    health = JidoConversation.health()
+    health = Jido.Conversation.health()
 
     assert health.status in [:ok, :degraded]
     assert is_boolean(health.bus_alive?)

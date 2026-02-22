@@ -1,13 +1,13 @@
-defmodule JidoConversation.Config do
+defmodule Jido.Conversation.Config do
   @moduledoc """
   Accessors and validation for event-system runtime configuration.
   """
 
+  alias Jido.Conversation.Signal.Router
   alias Jido.Signal.Journal.Adapters.ETS
-  alias JidoConversation.Signal.Router
 
   @app :jido_conversation
-  @key JidoConversation.EventSystem
+  @key Jido.Conversation.EventSystem
 
   @default_config [
     bus_name: :jido_conversation_bus,

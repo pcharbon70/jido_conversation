@@ -5,7 +5,7 @@ host application.
 
 ## Health
 
-Use `JidoConversation.health/0` in host health/readiness endpoints:
+Use `Jido.Conversation.health/0` in host health/readiness endpoints:
 
 ```elixir
 %{
@@ -14,12 +14,12 @@ Use `JidoConversation.health/0` in host health/readiness endpoints:
   bus_alive?: _,
   runtime_supervisor_alive?: _,
   runtime_coordinator_alive?: _
-} = JidoConversation.health()
+} = Jido.Conversation.health()
 ```
 
 ## Telemetry snapshot
 
-Use `JidoConversation.telemetry_snapshot/0` for metrics polling and dashboards.
+Use `Jido.Conversation.telemetry_snapshot/0` for metrics polling and dashboards.
 
 It includes:
 

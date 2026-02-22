@@ -1,11 +1,11 @@
-defmodule JidoConversation.Telemetry do
+defmodule Jido.Conversation.Telemetry do
   @moduledoc """
   Attaches telemetry handlers and aggregates runtime operational metrics.
   """
 
   use GenServer
 
-  alias JidoConversation.Config
+  alias Jido.Conversation.Config
 
   @type latency_summary :: %{
           count: non_neg_integer(),

@@ -1,8 +1,8 @@
-defmodule JidoConversation.Runtime.SchedulerTest do
+defmodule Jido.Conversation.Runtime.SchedulerTest do
   use ExUnit.Case, async: true
 
+  alias Jido.Conversation.Runtime.Scheduler
   alias Jido.Signal
-  alias JidoConversation.Runtime.Scheduler
 
   test "priority classification matches control/data plane model" do
     assert Scheduler.priority_for("conv.in.control.abort_requested") == 0

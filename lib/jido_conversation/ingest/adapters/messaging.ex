@@ -1,4 +1,4 @@
-defmodule JidoConversation.Ingest.Adapters.Messaging do
+defmodule Jido.Conversation.Ingest.Adapters.Messaging do
   @moduledoc """
   Messaging ingress adapters.
 
@@ -7,15 +7,15 @@ defmodule JidoConversation.Ingest.Adapters.Messaging do
   jido_messaging style integrations) and normalizes it into the same event.
   """
 
-  alias JidoConversation.Ingest
+  alias Jido.Conversation.Ingest
 
   @type adapter_error ::
           {:invalid_message_payload, atom(), term()}
           | {:invalid_message_payload, :message, term()}
 
   @spec ingest_received(String.t(), String.t(), String.t(), map() | keyword(), keyword()) ::
-          {:ok, JidoConversation.Ingest.Pipeline.ingest_result()}
-          | {:error, JidoConversation.Ingest.Pipeline.ingest_error()}
+          {:ok, Jido.Conversation.Ingest.Pipeline.ingest_result()}
+          | {:error, Jido.Conversation.Ingest.Pipeline.ingest_error()}
   def ingest_received(conversation_id, message_id, ingress, payload \\ %{}, opts \\ [])
       when is_binary(conversation_id) and is_binary(message_id) and is_binary(ingress) do
     payload = to_map(payload)
@@ -36,8 +36,8 @@ defmodule JidoConversation.Ingest.Adapters.Messaging do
   end
 
   @spec ingest_channel_message(map(), keyword()) ::
-          {:ok, JidoConversation.Ingest.Pipeline.ingest_result()}
-          | {:error, JidoConversation.Ingest.Pipeline.ingest_error() | adapter_error()}
+          {:ok, Jido.Conversation.Ingest.Pipeline.ingest_result()}
+          | {:error, Jido.Conversation.Ingest.Pipeline.ingest_error() | adapter_error()}
   def ingest_channel_message(message, opts \\ [])
 
   def ingest_channel_message(message, opts) when is_map(message) do

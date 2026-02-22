@@ -11,13 +11,13 @@
   - subscription retry attempts
   - subscription DLQ events
   - runtime internal metrics above
-- Reworked `JidoConversation.Telemetry` into an operational metrics aggregator:
+- Reworked `Jido.Conversation.Telemetry` into an operational metrics aggregator:
   - queue depth by partition and total depth
   - apply latency summary
   - abort latency summary
   - retry, DLQ, and dispatch failure counters
   - latest dispatch failure metadata
-- Added root API wrapper in `JidoConversation` for telemetry snapshot.
+- Added root API wrapper in `Jido.Conversation` for telemetry snapshot.
 
 ## Tests added
 

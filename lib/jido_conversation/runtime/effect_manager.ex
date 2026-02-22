@@ -1,4 +1,4 @@
-defmodule JidoConversation.Runtime.EffectManager do
+defmodule Jido.Conversation.Runtime.EffectManager do
   @moduledoc """
   Manages in-flight effect workers and cancellation for conversation runtime.
 
@@ -10,9 +10,9 @@ defmodule JidoConversation.Runtime.EffectManager do
 
   require Logger
 
-  alias JidoConversation.Config
-  alias JidoConversation.Ingest
-  alias JidoConversation.Runtime.EffectWorker
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.Runtime.EffectWorker
 
   @type effect_class :: :llm | :tool | :timer
 
@@ -153,7 +153,7 @@ defmodule JidoConversation.Runtime.EffectManager do
     ]
 
     case DynamicSupervisor.start_child(
-           JidoConversation.Runtime.EffectSupervisor,
+           Jido.Conversation.Runtime.EffectSupervisor,
            {EffectWorker, worker_opts}
          ) do
       {:ok, pid} ->

@@ -1,13 +1,13 @@
-defmodule JidoConversation.Ingest.Adapters.Tool do
+defmodule Jido.Conversation.Ingest.Adapters.Tool do
   @moduledoc """
   Tool lifecycle ingress adapter.
   """
 
-  alias JidoConversation.Ingest
+  alias Jido.Conversation.Ingest
 
   @spec ingest_lifecycle(String.t(), String.t(), String.t(), map() | keyword(), keyword()) ::
-          {:ok, JidoConversation.Ingest.Pipeline.ingest_result()}
-          | {:error, JidoConversation.Ingest.Pipeline.ingest_error()}
+          {:ok, Jido.Conversation.Ingest.Pipeline.ingest_result()}
+          | {:error, Jido.Conversation.Ingest.Pipeline.ingest_error()}
   def ingest_lifecycle(conversation_id, effect_id, lifecycle, payload \\ %{}, opts \\ [])
       when is_binary(conversation_id) and is_binary(effect_id) and is_binary(lifecycle) do
     payload = to_map(payload)

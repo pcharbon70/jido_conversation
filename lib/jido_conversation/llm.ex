@@ -1,4 +1,4 @@
-defmodule JidoConversation.LLM do
+defmodule Jido.Conversation.LLM do
   @moduledoc """
   Backend-agnostic LLM domain types and behaviour contracts.
 

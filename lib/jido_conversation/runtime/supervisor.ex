@@ -1,4 +1,4 @@
-defmodule JidoConversation.Runtime.Supervisor do
+defmodule Jido.Conversation.Runtime.Supervisor do
   @moduledoc """
   Supervises runtime schedulers and workers that consume conversation signals.
   """
@@ -13,14 +13,14 @@ defmodule JidoConversation.Runtime.Supervisor do
   @impl true
   def init(_opts) do
     children = [
-      {Registry, keys: :unique, name: JidoConversation.Runtime.Registry},
+      {Registry, keys: :unique, name: Jido.Conversation.Runtime.Registry},
       {DynamicSupervisor,
-       strategy: :one_for_one, name: JidoConversation.Runtime.PartitionSupervisor},
+       strategy: :one_for_one, name: Jido.Conversation.Runtime.PartitionSupervisor},
       {DynamicSupervisor,
-       strategy: :one_for_one, name: JidoConversation.Runtime.EffectSupervisor},
-      JidoConversation.Runtime.EffectManager,
-      JidoConversation.Runtime.Coordinator,
-      JidoConversation.Runtime.IngressSubscriber
+       strategy: :one_for_one, name: Jido.Conversation.Runtime.EffectSupervisor},
+      Jido.Conversation.Runtime.EffectManager,
+      Jido.Conversation.Runtime.Coordinator,
+      Jido.Conversation.Runtime.IngressSubscriber
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

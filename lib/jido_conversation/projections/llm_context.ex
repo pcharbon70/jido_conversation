@@ -1,10 +1,10 @@
-defmodule JidoConversation.Projections.LlmContext do
+defmodule Jido.Conversation.Projections.LlmContext do
   @moduledoc """
   Derives a role/content LLM context projection from timeline entries.
   """
 
+  alias Jido.Conversation.Projections.Timeline
   alias Jido.Signal
-  alias JidoConversation.Projections.Timeline
 
   @type context_message :: %{
           role: :user | :assistant | :tool | :system,

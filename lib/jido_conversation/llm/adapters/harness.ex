@@ -1,4 +1,4 @@
-defmodule JidoConversation.LLM.Adapters.Harness do
+defmodule Jido.Conversation.LLM.Adapters.Harness do
   @moduledoc """
   `JidoHarness` backend adapter for the unified LLM client contract.
 
@@ -6,12 +6,12 @@ defmodule JidoConversation.LLM.Adapters.Harness do
   compile without requiring `jido_harness` in all environments.
   """
 
-  @behaviour JidoConversation.LLM.Backend
+  @behaviour Jido.Conversation.LLM.Backend
 
-  alias JidoConversation.LLM.Error
-  alias JidoConversation.LLM.Event
-  alias JidoConversation.LLM.Request
-  alias JidoConversation.LLM.Result
+  alias Jido.Conversation.LLM.Error
+  alias Jido.Conversation.LLM.Event
+  alias Jido.Conversation.LLM.Request
+  alias Jido.Conversation.LLM.Result
 
   @default_harness_module Jido.Harness
 

@@ -59,8 +59,8 @@ Every signal must satisfy:
 
 ## Public entry points
 
-- `JidoConversation.ingest/2`
-- `JidoConversation.timeline/2`
-- `JidoConversation.llm_context/2`
-- `JidoConversation.health/0`
-- `JidoConversation.telemetry_snapshot/0`
+- `Jido.Conversation.ingest/2`
+- `Jido.Conversation.timeline/2`
+- `Jido.Conversation.llm_context/2`
+- `Jido.Conversation.health/0`
+- `Jido.Conversation.telemetry_snapshot/0`

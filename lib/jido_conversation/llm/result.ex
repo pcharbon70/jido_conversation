@@ -1,9 +1,9 @@
-defmodule JidoConversation.LLM.Result do
+defmodule Jido.Conversation.LLM.Result do
   @moduledoc """
   Normalized final response from an LLM backend adapter.
   """
 
-  alias JidoConversation.LLM.Error
+  alias Jido.Conversation.LLM.Error
 
   @statuses [:completed, :failed, :canceled]
 

@@ -3,7 +3,7 @@
 ## Scope completed
 
 - Added a centralized journal-first ingestion runtime:
-  - `JidoConversation.Ingest.Pipeline`
+  - `Jido.Conversation.Ingest.Pipeline`
 - Implemented ingestion flow at one boundary:
   1. Normalize/validate contract
   2. Deduplicate by `{subject, id}`
@@ -14,7 +14,7 @@
   - conversation events
   - causal chain traces
   - bus replay access
-- Added a public ingestion facade: `JidoConversation.Ingest`.
+- Added a public ingestion facade: `Jido.Conversation.Ingest`.
 - Added ingress adapters for major event-source categories:
   - messaging
   - tool lifecycle
@@ -26,7 +26,7 @@
 
 ## Configuration added
 
-- `ingestion_dedupe_cache_size` under `JidoConversation.EventSystem`
+- `ingestion_dedupe_cache_size` under `Jido.Conversation.EventSystem`
 
 ## Test coverage added
 

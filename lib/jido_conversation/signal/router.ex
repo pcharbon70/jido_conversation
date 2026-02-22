@@ -1,4 +1,4 @@
-defmodule JidoConversation.Signal.Router do
+defmodule Jido.Conversation.Signal.Router do
   @moduledoc """
   Router bootstrap for the conversation bus.
   """

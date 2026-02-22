@@ -1,19 +1,19 @@
-defmodule JidoConversation.DeterminismTest do
+defmodule Jido.Conversation.DeterminismTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Config
-  alias JidoConversation.Ingest
-  alias JidoConversation.Ingest.Adapters.Messaging
-  alias JidoConversation.Ingest.Adapters.Outbound
-  alias JidoConversation.Projections
-  alias JidoConversation.Projections.LlmContext
-  alias JidoConversation.Projections.Timeline
-  alias JidoConversation.Runtime.Coordinator
-  alias JidoConversation.Runtime.EffectManager
-  alias JidoConversation.Runtime.IngressSubscriber
-  alias JidoConversation.Runtime.PartitionWorker
-  alias JidoConversation.Runtime.Reducer
-  alias JidoConversation.Runtime.Scheduler
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.Ingest.Adapters.Messaging
+  alias Jido.Conversation.Ingest.Adapters.Outbound
+  alias Jido.Conversation.Projections
+  alias Jido.Conversation.Projections.LlmContext
+  alias Jido.Conversation.Projections.Timeline
+  alias Jido.Conversation.Runtime.Coordinator
+  alias Jido.Conversation.Runtime.EffectManager
+  alias Jido.Conversation.Runtime.IngressSubscriber
+  alias Jido.Conversation.Runtime.PartitionWorker
+  alias Jido.Conversation.Runtime.Reducer
+  alias Jido.Conversation.Runtime.Scheduler
 
   setup do
     wait_for_ingress_subscriber!()

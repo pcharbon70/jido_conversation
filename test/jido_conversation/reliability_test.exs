@@ -1,11 +1,11 @@
-defmodule JidoConversation.ReliabilityTest do
+defmodule Jido.Conversation.ReliabilityTest do
   use ExUnit.Case, async: false
 
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.Runtime.Coordinator
+  alias Jido.Conversation.Runtime.EffectManager
+  alias Jido.Conversation.Runtime.IngressSubscriber
   alias Jido.Signal.Error.ExecutionFailureError
-  alias JidoConversation.Ingest
-  alias JidoConversation.Runtime.Coordinator
-  alias JidoConversation.Runtime.EffectManager
-  alias JidoConversation.Runtime.IngressSubscriber
 
   setup do
     wait_for_ingress_subscriber!()

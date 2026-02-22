@@ -38,7 +38,7 @@ You can send effect runtime hints in inbound data:
 Use the control adapter to request conversation cancellation:
 
 ```elixir
-alias JidoConversation.Ingest.Adapters.Control
+alias Jido.Conversation.Ingest.Adapters.Control
 
 :ok =
   Control.ingest_abort(

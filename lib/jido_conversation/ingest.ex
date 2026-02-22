@@ -1,13 +1,13 @@
-defmodule JidoConversation.Ingest do
+defmodule Jido.Conversation.Ingest do
   @moduledoc """
   Public API for journal-first event ingestion and queries.
   """
 
-  alias JidoConversation.Ingest.Pipeline
+  alias Jido.Conversation.Ingest.Pipeline
 
-  @spec ingest(JidoConversation.Signal.Contract.input(), keyword()) ::
-          {:ok, JidoConversation.Ingest.Pipeline.ingest_result()}
-          | {:error, JidoConversation.Ingest.Pipeline.ingest_error()}
+  @spec ingest(Jido.Conversation.Signal.Contract.input(), keyword()) ::
+          {:ok, Jido.Conversation.Ingest.Pipeline.ingest_result()}
+          | {:error, Jido.Conversation.Ingest.Pipeline.ingest_error()}
   def ingest(attrs, opts \\ []) do
     Pipeline.ingest(attrs, opts)
   end

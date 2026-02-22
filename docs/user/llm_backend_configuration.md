@@ -5,12 +5,12 @@ and per-request overrides for LLM effects.
 
 ## 1. Configure LLM backends
 
-Set the `llm` block under `JidoConversation.EventSystem`:
+Set the `llm` block under `Jido.Conversation.EventSystem`:
 
 ```elixir
 import Config
 
-config :jido_conversation, JidoConversation.EventSystem,
+config :jido_conversation, Jido.Conversation.EventSystem,
   llm: [
     default_backend: :jido_ai,
     default_stream?: true,
@@ -19,7 +19,7 @@ config :jido_conversation, JidoConversation.EventSystem,
     default_model: "claude-sonnet",
     backends: [
       jido_ai: [
-        module: JidoConversation.LLM.Adapters.JidoAI,
+        module: Jido.Conversation.LLM.Adapters.JidoAI,
         stream?: true,
         timeout_ms: 20_000,
         provider: "anthropic",
@@ -27,7 +27,7 @@ config :jido_conversation, JidoConversation.EventSystem,
         options: [llm_client_module: Jido.AI.LLMClient]
       ],
       harness: [
-        module: JidoConversation.LLM.Adapters.Harness,
+        module: Jido.Conversation.LLM.Adapters.Harness,
         stream?: true,
         timeout_ms: 60_000,
         provider: "codex",
@@ -70,7 +70,7 @@ You can pass conversation defaults and request-level overrides in inbound event
 payloads.
 
 ```elixir
-JidoConversation.ingest(%{
+Jido.Conversation.ingest(%{
   type: "conv.in.message.received",
   source: "/app/chat",
   subject: "conv-123",
@@ -110,8 +110,8 @@ JidoConversation.ingest(%{
 
 Use these APIs to validate effective behavior:
 
-- `JidoConversation.timeline/2`
-- `JidoConversation.llm_context/2`
-- `JidoConversation.telemetry_snapshot/0`
+- `Jido.Conversation.timeline/2`
+- `Jido.Conversation.llm_context/2`
+- `Jido.Conversation.telemetry_snapshot/0`
 
 For operations details, see `docs/user/operations_and_host_integration.md`.

@@ -4,13 +4,13 @@
 
 - Added effect runtime configuration and policy accessors:
   - `effect_runtime` policy block for `:llm`, `:tool`, `:timer`
-  - deep merge + validation in `JidoConversation.Config`
-  - `JidoConversation.Config.effect_runtime_policy/1`
+  - deep merge + validation in `Jido.Conversation.Config`
+  - `Jido.Conversation.Config.effect_runtime_policy/1`
 - Added dedicated effect runtime supervision:
-  - `JidoConversation.Runtime.EffectSupervisor` (dynamic)
-  - `JidoConversation.Runtime.EffectManager` (manager process)
+  - `Jido.Conversation.Runtime.EffectSupervisor` (dynamic)
+  - `Jido.Conversation.Runtime.EffectManager` (manager process)
 - Added asynchronous effect execution worker:
-  - `JidoConversation.Runtime.EffectWorker`
+  - `Jido.Conversation.Runtime.EffectWorker`
   - lifecycle emissions: `started`, `progress`, `completed`, `failed`, `canceled`
   - timeout handling
   - retry with exponential backoff
@@ -33,7 +33,7 @@
 
 ## Integration adjustments
 
-- `JidoConversation.Runtime.PartitionWorker.wait_for_runtime_idle!/0` test helper now waits for:
+- `Jido.Conversation.Runtime.PartitionWorker.wait_for_runtime_idle!/0` test helper now waits for:
   - empty partition queues
   - zero in-flight effect workers
 - Reducer helper clause ordering was normalized to remove compile warnings and keep static analysis clean.

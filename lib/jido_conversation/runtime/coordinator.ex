@@ -1,4 +1,4 @@
-defmodule JidoConversation.Runtime.Coordinator do
+defmodule Jido.Conversation.Runtime.Coordinator do
   @moduledoc """
   Routes incoming signals to partition workers.
   """
@@ -7,8 +7,8 @@ defmodule JidoConversation.Runtime.Coordinator do
 
   require Logger
 
-  alias JidoConversation.Config
-  alias JidoConversation.Runtime.PartitionWorker
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.Runtime.PartitionWorker
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -37,7 +37,7 @@ defmodule JidoConversation.Runtime.Coordinator do
 
     Enum.each(0..(partition_count - 1), fn partition_id ->
       DynamicSupervisor.start_child(
-        JidoConversation.Runtime.PartitionSupervisor,
+        Jido.Conversation.Runtime.PartitionSupervisor,
         {PartitionWorker, partition_id}
       )
     end)

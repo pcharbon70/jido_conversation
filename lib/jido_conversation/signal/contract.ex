@@ -1,4 +1,4 @@
-defmodule JidoConversation.Signal.Contract do
+defmodule Jido.Conversation.Signal.Contract do
   @moduledoc """
   Canonical normalization and validation boundary for conversation signals.
 

@@ -1,8 +1,8 @@
-defmodule JidoConversation.Runtime.ReducerTest do
+defmodule Jido.Conversation.Runtime.ReducerTest do
   use ExUnit.Case, async: true
 
+  alias Jido.Conversation.Runtime.Reducer
   alias Jido.Signal
-  alias JidoConversation.Runtime.Reducer
 
   test "message ingress emits applied marker and start_effect directives" do
     state = Reducer.new("conversation-reducer")

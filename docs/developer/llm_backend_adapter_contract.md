@@ -4,18 +4,18 @@ This guide documents the adapter contract used by the runtime LLM effect path.
 
 ## Purpose
 
-`jido_conversation` runs all LLM work through `JidoConversation.LLM.Backend`.
+`jido_conversation` runs all LLM work through `Jido.Conversation.LLM.Backend`.
 Adapters hide provider-specific details while exposing normalized request,
 stream, error, and cancellation semantics.
 
 Core modules:
 
-- `JidoConversation.LLM.Backend`
-- `JidoConversation.LLM.Request`
-- `JidoConversation.LLM.Event`
-- `JidoConversation.LLM.Result`
-- `JidoConversation.LLM.Error`
-- `JidoConversation.Runtime.EffectWorker`
+- `Jido.Conversation.LLM.Backend`
+- `Jido.Conversation.LLM.Request`
+- `Jido.Conversation.LLM.Event`
+- `Jido.Conversation.LLM.Result`
+- `Jido.Conversation.LLM.Error`
+- `Jido.Conversation.Runtime.EffectWorker`
 
 ## Runtime flow
 
@@ -32,7 +32,7 @@ flowchart LR
 
 ## Behaviour contract
 
-Defined in `JidoConversation.LLM.Backend`:
+Defined in `Jido.Conversation.LLM.Backend`:
 
 - `capabilities/0`
 - `start/2`
@@ -51,7 +51,7 @@ Return contracts:
 
 ## Event normalization contract
 
-Stream callbacks must emit `JidoConversation.LLM.Event` lifecycles:
+Stream callbacks must emit `Jido.Conversation.LLM.Event` lifecycles:
 
 - `:started`
 - `:delta`
@@ -85,7 +85,7 @@ Minimum attribution metadata:
 
 ## Error taxonomy
 
-Adapters should normalize provider-native failures to `JidoConversation.LLM.Error`
+Adapters should normalize provider-native failures to `Jido.Conversation.LLM.Error`
 categories:
 
 - `:config`
@@ -116,7 +116,7 @@ Built-in adapter HTTP retryability policy:
 
 ## Adapter checklist
 
-1. Implement `JidoConversation.LLM.Backend`.
+1. Implement `Jido.Conversation.LLM.Backend`.
 2. Normalize inbound request options and provider/model inputs.
 3. Emit valid `LLM.Event` structs for streaming lifecycles.
 4. Return `LLM.Result` structs for terminal outcomes.

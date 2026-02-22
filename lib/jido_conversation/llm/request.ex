@@ -1,4 +1,4 @@
-defmodule JidoConversation.LLM.Request do
+defmodule Jido.Conversation.LLM.Request do
   @moduledoc """
   Normalized LLM request for backend adapters.
   """

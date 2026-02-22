@@ -1,4 +1,4 @@
-defmodule JidoConversation.Runtime.Reducer do
+defmodule Jido.Conversation.Runtime.Reducer do
   @moduledoc """
   Pure conversation reducer.
 

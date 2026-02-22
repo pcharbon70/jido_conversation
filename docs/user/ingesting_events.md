@@ -1,13 +1,13 @@
 # Ingesting Events
 
-You can ingest events directly with `JidoConversation.ingest/2` or through
+You can ingest events directly with `Jido.Conversation.ingest/2` or through
 adapter helpers.
 
 ## Direct ingest API
 
 ```elixir
 {:ok, result} =
-  JidoConversation.ingest(%{
+  Jido.Conversation.ingest(%{
     type: "conv.effect.tool.execution.started",
     source: "/tool/runtime",
     subject: "conv-123",
@@ -29,7 +29,7 @@ adapter helpers.
 - You can add causality with `cause_id`:
 
 ```elixir
-JidoConversation.ingest(event_attrs, cause_id: "root-event-id")
+Jido.Conversation.ingest(event_attrs, cause_id: "root-event-id")
 ```
 
 ## Adapter helpers
@@ -37,7 +37,7 @@ JidoConversation.ingest(event_attrs, cause_id: "root-event-id")
 ### Messaging ingress
 
 ```elixir
-alias JidoConversation.Ingest.Adapters.Messaging
+alias Jido.Conversation.Ingest.Adapters.Messaging
 
 Messaging.ingest_received("conv-123", "msg-1", "web", %{text: "Hello"})
 ```
@@ -45,7 +45,7 @@ Messaging.ingest_received("conv-123", "msg-1", "web", %{text: "Hello"})
 ### Control ingress (abort)
 
 ```elixir
-alias JidoConversation.Ingest.Adapters.Control
+alias Jido.Conversation.Ingest.Adapters.Control
 
 Control.ingest_abort("conv-123", "ctrl-1", %{reason: "user_cancel"})
 ```
@@ -53,7 +53,7 @@ Control.ingest_abort("conv-123", "ctrl-1", %{reason: "user_cancel"})
 ### Tool lifecycle ingress
 
 ```elixir
-alias JidoConversation.Ingest.Adapters.Tool
+alias Jido.Conversation.Ingest.Adapters.Tool
 
 Tool.ingest_lifecycle("conv-123", "tool-1", "progress", %{status: "running"})
 Tool.ingest_lifecycle("conv-123", "tool-1", "completed", %{result: %{ok: true}})
@@ -62,7 +62,7 @@ Tool.ingest_lifecycle("conv-123", "tool-1", "completed", %{result: %{ok: true}})
 ### LLM lifecycle ingress
 
 ```elixir
-alias JidoConversation.Ingest.Adapters.Llm
+alias Jido.Conversation.Ingest.Adapters.Llm
 
 Llm.ingest_lifecycle("conv-123", "llm-1", "progress", %{token_delta: "hi "})
 Llm.ingest_lifecycle("conv-123", "llm-1", "completed", %{result: %{text: "hi there"}})
@@ -71,7 +71,7 @@ Llm.ingest_lifecycle("conv-123", "llm-1", "completed", %{result: %{text: "hi the
 ### Timer ingress
 
 ```elixir
-alias JidoConversation.Ingest.Adapters.Timer
+alias Jido.Conversation.Ingest.Adapters.Timer
 
 Timer.ingest_tick("conv-123", "tick-1", %{kind: "reminder"})
 ```
@@ -79,7 +79,7 @@ Timer.ingest_tick("conv-123", "tick-1", %{kind: "reminder"})
 ### Outbound event helpers
 
 ```elixir
-alias JidoConversation.Ingest.Adapters.Outbound
+alias Jido.Conversation.Ingest.Adapters.Outbound
 
 Outbound.emit_assistant_delta("conv-123", "out-1", "web", "hello ")
 Outbound.emit_assistant_completed("conv-123", "out-1", "web", "hello world")

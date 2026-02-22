@@ -1,13 +1,13 @@
-defmodule JidoConversation.Ingest.Adapters.Timer do
+defmodule Jido.Conversation.Ingest.Adapters.Timer do
   @moduledoc """
   Timer/scheduler ingress adapter.
   """
 
-  alias JidoConversation.Ingest
+  alias Jido.Conversation.Ingest
 
   @spec ingest_tick(String.t(), String.t(), map() | keyword(), keyword()) ::
-          {:ok, JidoConversation.Ingest.Pipeline.ingest_result()}
-          | {:error, JidoConversation.Ingest.Pipeline.ingest_error()}
+          {:ok, Jido.Conversation.Ingest.Pipeline.ingest_result()}
+          | {:error, Jido.Conversation.Ingest.Pipeline.ingest_error()}
   def ingest_tick(conversation_id, tick_id, payload \\ %{}, opts \\ [])
       when is_binary(conversation_id) and is_binary(tick_id) do
     payload = to_map(payload)

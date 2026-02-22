@@ -3,7 +3,7 @@
 ## Scope completed
 
 - Implemented canonical signal normalization/validation boundary:
-  - `JidoConversation.Signal.Contract`
+  - `Jido.Conversation.Signal.Contract`
 - Added contract validation rules for framework boundaries:
   - Required envelope fields: `type`, `source`, `id`, `subject`
   - Supported stream namespaces:

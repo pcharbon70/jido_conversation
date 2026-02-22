@@ -1,11 +1,11 @@
-defmodule JidoConversation.LLM.Adapters.JidoAITest do
+defmodule Jido.Conversation.LLM.Adapters.JidoAITest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.LLM.Adapters.JidoAI
-  alias JidoConversation.LLM.Error
-  alias JidoConversation.LLM.Event
-  alias JidoConversation.LLM.Request
-  alias JidoConversation.LLM.Result
+  alias Jido.Conversation.LLM.Adapters.JidoAI
+  alias Jido.Conversation.LLM.Error
+  alias Jido.Conversation.LLM.Event
+  alias Jido.Conversation.LLM.Request
+  alias Jido.Conversation.LLM.Result
 
   defmodule TestJidoAI do
     def resolve_model(:fast), do: "openai:gpt-4o-mini"

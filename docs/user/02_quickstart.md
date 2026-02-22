@@ -18,7 +18,7 @@ end
 ```elixir
 import Config
 
-config :jido_conversation, JidoConversation.EventSystem,
+config :jido_conversation, Jido.Conversation.EventSystem,
   bus_name: :jido_conversation_bus,
   journal_adapter: Jido.Signal.Journal.Adapters.ETS,
   journal_adapter_opts: [],
@@ -34,8 +34,8 @@ config :jido_conversation, JidoConversation.EventSystem,
     default_stream?: true,
     default_timeout_ms: 30_000,
     backends: [
-      jido_ai: [module: JidoConversation.LLM.Adapters.JidoAI],
-      harness: [module: JidoConversation.LLM.Adapters.Harness]
+      jido_ai: [module: Jido.Conversation.LLM.Adapters.JidoAI],
+      harness: [module: Jido.Conversation.LLM.Adapters.Harness]
     ]
   ]
 ```
@@ -43,7 +43,7 @@ config :jido_conversation, JidoConversation.EventSystem,
 ## 3. Ingest a first message
 
 ```elixir
-alias JidoConversation.Ingest.Adapters.Messaging
+alias Jido.Conversation.Ingest.Adapters.Messaging
 
 conversation_id = "conv-123"
 
@@ -59,15 +59,15 @@ conversation_id = "conv-123"
 ## 4. Read projections
 
 ```elixir
-timeline = JidoConversation.timeline(conversation_id)
-llm_context = JidoConversation.llm_context(conversation_id)
+timeline = Jido.Conversation.timeline(conversation_id)
+llm_context = Jido.Conversation.llm_context(conversation_id)
 ```
 
 ## 5. Check runtime diagnostics
 
 ```elixir
-health = JidoConversation.health()
-telemetry = JidoConversation.telemetry_snapshot()
+health = Jido.Conversation.health()
+telemetry = Jido.Conversation.telemetry_snapshot()
 ```
 
 ## Next steps

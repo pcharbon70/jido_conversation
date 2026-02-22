@@ -1,4 +1,4 @@
-defmodule JidoConversation.MixProject do
+defmodule Jido.Conversation.MixProject do
   use Mix.Project
 
   def project do
@@ -19,7 +19,7 @@ defmodule JidoConversation.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {JidoConversation.Application, []}
+      mod: {Jido.Conversation.Application, []}
     ]
   end
 

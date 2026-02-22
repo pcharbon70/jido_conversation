@@ -1,7 +1,7 @@
-defmodule JidoConversation.Signal.ContractEvolutionTest do
+defmodule Jido.Conversation.Signal.ContractEvolutionTest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.Signal.Contract
+  alias Jido.Conversation.Signal.Contract
 
   @namespace_examples [
     {:in, "conv.in.message.received", %{message_id: "msg-1", ingress: "web"}},

@@ -1,15 +1,15 @@
-defmodule JidoConversation.LLM.BackendTest do
+defmodule Jido.Conversation.LLM.BackendTest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.LLM.Backend
-  alias JidoConversation.LLM.Event
-  alias JidoConversation.LLM.Request
-  alias JidoConversation.LLM.Result
+  alias Jido.Conversation.LLM.Backend
+  alias Jido.Conversation.LLM.Event
+  alias Jido.Conversation.LLM.Request
+  alias Jido.Conversation.LLM.Result
 
   defmodule TestBackend do
     @behaviour Backend
 
-    alias JidoConversation.LLM.Error
+    alias Jido.Conversation.LLM.Error
 
     @impl true
     def capabilities do

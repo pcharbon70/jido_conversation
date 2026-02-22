@@ -1,7 +1,7 @@
-defmodule JidoConversation.LLM.EventTest do
+defmodule Jido.Conversation.LLM.EventTest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.LLM.Event
+  alias Jido.Conversation.LLM.Event
 
   test "new/1 builds a normalized event and error payload" do
     attrs = %{

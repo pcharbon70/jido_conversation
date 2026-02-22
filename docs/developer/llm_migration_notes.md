@@ -10,8 +10,8 @@ execute real backend calls and had limited lifecycle/result semantics.
 
 Now `:llm` effects execute through configured adapters:
 
-- `JidoConversation.LLM.Adapters.JidoAI`
-- `JidoConversation.LLM.Adapters.Harness`
+- `Jido.Conversation.LLM.Adapters.JidoAI`
+- `Jido.Conversation.LLM.Adapters.Harness`
 
 ## Migration impact
 
@@ -19,7 +19,7 @@ Now `:llm` effects execute through configured adapters:
 
 Hosts must provide valid backend module wiring under:
 
-- `config :jido_conversation, JidoConversation.EventSystem, llm: [...]`
+- `config :jido_conversation, Jido.Conversation.EventSystem, llm: [...]`
 
 If backend modules are missing or invalid, effects fail with `:config` errors.
 
@@ -51,7 +51,7 @@ Retries now depend on normalized error retryability:
 
 ### 5. Observability surface expanded
 
-`JidoConversation.telemetry_snapshot/0` now includes LLM-specific metrics:
+`Jido.Conversation.telemetry_snapshot/0` now includes LLM-specific metrics:
 
 - lifecycle counts
 - backend-grouped lifecycle counts
@@ -66,8 +66,8 @@ Retries now depend on normalized error retryability:
 3. Update any consumers of `conv.effect.llm.generation.*` to read normalized
    fields.
 4. Validate projections from real backend traces:
-   - `JidoConversation.timeline/2`
-   - `JidoConversation.llm_context/2`
+   - `Jido.Conversation.timeline/2`
+   - `Jido.Conversation.llm_context/2`
 5. Update dashboards/alerts to include new LLM telemetry metrics.
 
 ## Verification commands

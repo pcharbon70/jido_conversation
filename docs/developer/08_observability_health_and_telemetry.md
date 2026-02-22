@@ -4,7 +4,7 @@ This guide covers operational introspection internals.
 
 ## Health endpoint internals
 
-`JidoConversation.health/0` delegates to `Health.status/0`, which validates:
+`Jido.Conversation.health/0` delegates to `Health.status/0`, which validates:
 
 - bus process alive
 - runtime supervisor alive
@@ -14,7 +14,7 @@ It returns `:ok` only when all required runtime processes are healthy.
 
 ## Telemetry aggregation model
 
-`JidoConversation.Telemetry` is a GenServer that attaches handlers and
+`Jido.Conversation.Telemetry` is a GenServer that attaches handlers and
 aggregates counters/latencies into one snapshot.
 
 Tracked domains:
@@ -42,7 +42,7 @@ Blank category values are ignored.
 
 ## Host-facing API
 
-- `JidoConversation.telemetry_snapshot/0`
-- `JidoConversation.health/0`
+- `Jido.Conversation.telemetry_snapshot/0`
+- `Jido.Conversation.health/0`
 
 These endpoints are polling-safe and intended for dashboards/readiness checks.

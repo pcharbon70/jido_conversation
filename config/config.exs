@@ -1,6 +1,6 @@
 import Config
 
-config :jido_conversation, JidoConversation.EventSystem,
+config :jido_conversation, Jido.Conversation.EventSystem,
   bus_name: :jido_conversation_bus,
   journal_adapter: Jido.Signal.Journal.Adapters.ETS,
   journal_adapter_opts: [],

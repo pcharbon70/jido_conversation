@@ -1,8 +1,8 @@
-defmodule JidoConversation.LLM.ResolverTest do
+defmodule Jido.Conversation.LLM.ResolverTest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.LLM.Error
-  alias JidoConversation.LLM.Resolver
+  alias Jido.Conversation.LLM.Error
+  alias Jido.Conversation.LLM.Resolver
 
   defmodule JidoAIBackend do
   end
@@ -68,7 +68,7 @@ defmodule JidoConversation.LLM.ResolverTest do
 
   test "resolve/3 returns config error when backend module is not available" do
     llm_config =
-      llm_config(backends: [jido_ai: [module: JidoConversation.LLM.Adapters.DoesNotExist]])
+      llm_config(backends: [jido_ai: [module: Jido.Conversation.LLM.Adapters.DoesNotExist]])
 
     assert {:error, %Error{} = error} = Resolver.resolve(%{}, %{}, llm_config)
     assert error.category == :config

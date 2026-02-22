@@ -20,7 +20,7 @@ Add host config (adjust values by environment):
 ```elixir
 import Config
 
-config :jido_conversation, JidoConversation.EventSystem,
+config :jido_conversation, Jido.Conversation.EventSystem,
   bus_name: :jido_conversation_bus,
   journal_adapter: Jido.Signal.Journal.Adapters.ETS,
   journal_adapter_opts: [],
@@ -49,7 +49,7 @@ config :jido_conversation, JidoConversation.EventSystem,
 conversation_id = "conv-123"
 
 {:ok, _result} =
-  JidoConversation.ingest(%{
+  Jido.Conversation.ingest(%{
     type: "conv.in.message.received",
     source: "/messaging/web",
     subject: conversation_id,
@@ -67,15 +67,15 @@ conversation_id = "conv-123"
 ## 4. Read projections
 
 ```elixir
-timeline = JidoConversation.timeline(conversation_id)
-llm_context = JidoConversation.llm_context(conversation_id)
+timeline = Jido.Conversation.timeline(conversation_id)
+llm_context = Jido.Conversation.llm_context(conversation_id)
 ```
 
 ## 5. Add runtime diagnostics
 
 ```elixir
-health = JidoConversation.health()
-metrics = JidoConversation.telemetry_snapshot()
+health = Jido.Conversation.health()
+metrics = Jido.Conversation.telemetry_snapshot()
 ```
 
 ## Next guides

@@ -3,11 +3,11 @@
 ## Scope completed
 
 - Extended messaging ingress integration:
-  - `JidoConversation.Ingest.Adapters.Messaging.ingest_channel_message/2`
+  - `Jido.Conversation.Ingest.Adapters.Messaging.ingest_channel_message/2`
   - Accepts normalized channel payloads (jido_messaging style maps) and emits
     `conv.in.message.received`.
 - Added outbound projection adapter:
-  - `JidoConversation.Ingest.Adapters.Outbound`
+  - `Jido.Conversation.Ingest.Adapters.Outbound`
   - Emits contract-compliant `conv.out.*` events with required `output_id` and
     `channel` payload fields.
   - Helper APIs:
@@ -15,10 +15,10 @@
     - `emit_assistant_completed/6`
     - `emit_tool_status/6`
 - Added projection layer modules:
-  - `JidoConversation.Projections`
-  - `JidoConversation.Projections.Timeline`
-  - `JidoConversation.Projections.LlmContext`
-  - `JidoConversation.Projections.TokenCoalescer`
+  - `Jido.Conversation.Projections`
+  - `Jido.Conversation.Projections.Timeline`
+  - `Jido.Conversation.Projections.LlmContext`
+  - `Jido.Conversation.Projections.TokenCoalescer`
 - Added runtime outbound projection flow:
   - Reducer now emits `:emit_output` directives for effect lifecycle events:
     - `conv.effect.llm.generation.progress` -> `conv.out.assistant.delta`
@@ -26,8 +26,8 @@
     - `conv.effect.tool.execution.*` -> `conv.out.tool.status`
   - Partition worker executes `:emit_output` directives through outbound adapter.
 - Added root API convenience methods:
-  - `JidoConversation.timeline/2`
-  - `JidoConversation.llm_context/2`
+  - `Jido.Conversation.timeline/2`
+  - `Jido.Conversation.llm_context/2`
 
 ## Token delta coalescing policy
 

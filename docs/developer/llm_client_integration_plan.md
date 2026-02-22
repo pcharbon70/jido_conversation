@@ -25,7 +25,7 @@ that can execute through:
 | Phase | Status | Description | Target PR Slice |
 | --- | --- | --- | --- |
 | Phase 0 | `completed` | Architecture contract and ADR | ADR + docs only |
-| Phase 1 | `completed` | LLM domain model + backend behaviour | New `JidoConversation.LLM` modules |
+| Phase 1 | `completed` | LLM domain model + backend behaviour | New `Jido.Conversation.LLM` modules |
 | Phase 2 | `completed` | Config and backend resolution | Config wiring + validation |
 | Phase 3 | `completed` | `JidoAI` adapter implementation | Adapter + tests |
 | Phase 4 | `completed` | `JidoHarness` adapter implementation | Adapter + tests |
@@ -110,7 +110,7 @@ that can execute through:
 
 ### Tasks
 
-- Add `JidoConversation.LLM` namespace:
+- Add `Jido.Conversation.LLM` namespace:
   - `Request`
   - `Result`
   - `Event` (normalized stream event struct)
@@ -162,7 +162,7 @@ that can execute through:
 
 ### Tasks
 
-- Extend `JidoConversation.Config` with `:llm` settings:
+- Extend `Jido.Conversation.Config` with `:llm` settings:
   - default backend
   - backend-specific config
   - default stream mode
@@ -207,7 +207,7 @@ that can execute through:
 
 ### Tasks
 
-- Add `JidoConversation.LLM.Adapters.JidoAI`.
+- Add `Jido.Conversation.LLM.Adapters.JidoAI`.
 - Integrate with `Jido.AI`/ReqLLM generation + streaming paths.
 - Support model/provider selection for this path:
   - alias
@@ -244,7 +244,7 @@ that can execute through:
 
 ### Tasks
 
-- Add `JidoConversation.LLM.Adapters.Harness`.
+- Add `Jido.Conversation.LLM.Adapters.Harness`.
 - Integrate with `Jido.Harness.run/2` or `run/3` event stream.
 - Map harness event types into canonical normalized events.
 - Preserve harness responsibility for provider/model resolution.
@@ -434,7 +434,7 @@ that can execute through:
   - model
   - cancel result
   - retry category
-- Extended `JidoConversation.Telemetry` aggregation state and snapshot with
+- Extended `Jido.Conversation.Telemetry` aggregation state and snapshot with
   LLM-specific metrics:
   - lifecycle counts (overall and grouped by backend)
   - stream duration summary
@@ -571,8 +571,8 @@ that can execute through:
 ### Tasks
 
 - Add runtime matrix tests that exercise `EffectManager` with built-in adapters:
-  - `JidoConversation.LLM.Adapters.JidoAI`
-  - `JidoConversation.LLM.Adapters.Harness`
+  - `Jido.Conversation.LLM.Adapters.JidoAI`
+  - `Jido.Conversation.LLM.Adapters.Harness`
 - Verify `422` provider failures do not retry.
 - Verify `503` provider failures retry and complete within max attempts.
 - Verify lifecycle stream reflects retry state consistently.
@@ -605,8 +605,8 @@ that can execute through:
 ### Tasks
 
 - Add runtime stream-mode matrix tests for:
-  - `JidoConversation.LLM.Adapters.JidoAI`
-  - `JidoConversation.LLM.Adapters.Harness`
+  - `Jido.Conversation.LLM.Adapters.JidoAI`
+  - `Jido.Conversation.LLM.Adapters.Harness`
 - Verify stream-mode `422` failures do not retry.
 - Verify stream-mode `503` failures retry and eventually complete.
 - Verify lifecycle stream still reports retry transitions consistently.

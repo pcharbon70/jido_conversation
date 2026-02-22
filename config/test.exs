@@ -1,6 +1,6 @@
 import Config
 
-config :jido_conversation, JidoConversation.EventSystem,
+config :jido_conversation, Jido.Conversation.EventSystem,
   journal_adapter: Jido.Signal.Journal.Adapters.InMemory,
   ingestion_dedupe_cache_size: 100,
   partition_count: 1,

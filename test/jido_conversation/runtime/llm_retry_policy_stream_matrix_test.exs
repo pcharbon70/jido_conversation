@@ -1,14 +1,14 @@
-defmodule JidoConversation.Runtime.LLMRetryPolicyStreamMatrixTest do
+defmodule Jido.Conversation.Runtime.LLMRetryPolicyStreamMatrixTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Ingest
-  alias JidoConversation.Runtime.Coordinator
-  alias JidoConversation.Runtime.EffectManager
-  alias JidoConversation.Runtime.IngressSubscriber
-  alias JidoConversation.Telemetry
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.Runtime.Coordinator
+  alias Jido.Conversation.Runtime.EffectManager
+  alias Jido.Conversation.Runtime.IngressSubscriber
+  alias Jido.Conversation.Telemetry
 
   @app :jido_conversation
-  @key JidoConversation.EventSystem
+  @key Jido.Conversation.EventSystem
 
   defmodule RetryStreamJidoAI do
     def resolve_model(:fast), do: "openai:gpt-4o-mini"
@@ -559,7 +559,7 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyStreamMatrixTest do
         default_model: "openai:gpt-4o-mini",
         backends: [
           jido_ai: [
-            module: JidoConversation.LLM.Adapters.JidoAI,
+            module: Jido.Conversation.LLM.Adapters.JidoAI,
             stream?: true,
             timeout_ms: 800,
             provider: "openai",
@@ -601,7 +601,7 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyStreamMatrixTest do
             options: []
           ],
           harness: [
-            module: JidoConversation.LLM.Adapters.Harness,
+            module: Jido.Conversation.LLM.Adapters.Harness,
             stream?: true,
             timeout_ms: 800,
             provider: "codex",

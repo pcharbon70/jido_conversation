@@ -1,4 +1,4 @@
-defmodule JidoConversation.Projections.TokenCoalescer do
+defmodule Jido.Conversation.Projections.TokenCoalescer do
   @moduledoc """
   Coalesces adjacent assistant delta entries to reduce high-volume output noise.
   """

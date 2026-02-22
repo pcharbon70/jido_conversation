@@ -1,10 +1,10 @@
-defmodule JidoConversation.ConfigTest do
+defmodule Jido.Conversation.ConfigTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Config
+  alias Jido.Conversation.Config
 
   @app :jido_conversation
-  @key JidoConversation.EventSystem
+  @key Jido.Conversation.EventSystem
 
   defmodule HarnessBackend do
   end

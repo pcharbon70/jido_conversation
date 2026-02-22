@@ -5,16 +5,16 @@ modules collaborate.
 
 ## Application boot graph
 
-`JidoConversation.Application` starts four top-level subsystems:
+`Jido.Conversation.Application` starts four top-level subsystems:
 
-- `JidoConversation.Telemetry`
-- `JidoConversation.Signal.Supervisor`
-- `JidoConversation.Ingest.Pipeline`
-- `JidoConversation.Runtime.Supervisor`
+- `Jido.Conversation.Telemetry`
+- `Jido.Conversation.Signal.Supervisor`
+- `Jido.Conversation.Ingest.Pipeline`
+- `Jido.Conversation.Runtime.Supervisor`
 
 ```mermaid
 flowchart TD
-  A["JidoConversation.Application"] --> B["Telemetry"]
+  A["Jido.Conversation.Application"] --> B["Telemetry"]
   A --> C["Signal.Supervisor"]
   A --> D["Ingest.Pipeline"]
   A --> E["Runtime.Supervisor"]
@@ -52,12 +52,12 @@ flowchart LR
 - Keep reducer logic pure and deterministic.
 - Route all side effects through runtime directives.
 - Preserve journal-first ingestion as the durable source of truth.
-- Expose only stable public APIs through `JidoConversation`.
+- Expose only stable public APIs through `Jido.Conversation`.
 
 ## Public API surface
 
-- `JidoConversation.ingest/2`
-- `JidoConversation.timeline/2`
-- `JidoConversation.llm_context/2`
-- `JidoConversation.health/0`
-- `JidoConversation.telemetry_snapshot/0`
+- `Jido.Conversation.ingest/2`
+- `Jido.Conversation.timeline/2`
+- `Jido.Conversation.llm_context/2`
+- `Jido.Conversation.health/0`
+- `Jido.Conversation.telemetry_snapshot/0`

@@ -10,7 +10,7 @@
 ## Base config
 
 ```elixir
-config :jido_conversation, JidoConversation.EventSystem,
+config :jido_conversation, Jido.Conversation.EventSystem,
   llm: [
     default_backend: :jido_ai,
     default_stream?: true,
@@ -19,14 +19,14 @@ config :jido_conversation, JidoConversation.EventSystem,
     default_model: "anthropic:claude-sonnet-4-5",
     backends: [
       jido_ai: [
-        module: JidoConversation.LLM.Adapters.JidoAI,
+        module: Jido.Conversation.LLM.Adapters.JidoAI,
         stream?: true,
         timeout_ms: 20_000,
         provider: "anthropic",
         model: "anthropic:claude-sonnet-4-5"
       ],
       harness: [
-        module: JidoConversation.LLM.Adapters.Harness,
+        module: Jido.Conversation.LLM.Adapters.Harness,
         stream?: true,
         timeout_ms: 60_000,
         provider: "codex",

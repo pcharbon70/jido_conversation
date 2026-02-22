@@ -1,4 +1,4 @@
-defmodule JidoConversation.Runtime.PartitionWorker do
+defmodule Jido.Conversation.Runtime.PartitionWorker do
   @moduledoc """
   Per-partition runtime worker.
 
@@ -10,12 +10,12 @@ defmodule JidoConversation.Runtime.PartitionWorker do
 
   require Logger
 
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.Ingest.Adapters.Outbound
+  alias Jido.Conversation.Runtime.EffectManager
+  alias Jido.Conversation.Runtime.Reducer
+  alias Jido.Conversation.Runtime.Scheduler
   alias Jido.Signal
-  alias JidoConversation.Ingest
-  alias JidoConversation.Ingest.Adapters.Outbound
-  alias JidoConversation.Runtime.EffectManager
-  alias JidoConversation.Runtime.Reducer
-  alias JidoConversation.Runtime.Scheduler
 
   @max_steps_per_drain 200
   @control_latency_types [
@@ -142,7 +142,7 @@ defmodule JidoConversation.Runtime.PartitionWorker do
 
   @spec via_tuple(non_neg_integer()) :: {:via, Registry, {module(), tuple()}}
   def via_tuple(partition_id) do
-    {:via, Registry, {JidoConversation.Runtime.Registry, {:partition, partition_id}}}
+    {:via, Registry, {Jido.Conversation.Runtime.Registry, {:partition, partition_id}}}
   end
 
   defp drain_and_schedule(state) do
