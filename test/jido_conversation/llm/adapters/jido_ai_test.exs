@@ -143,6 +143,26 @@ defmodule JidoConversation.LLM.Adapters.JidoAITest do
     assert error.retryable? == false
   end
 
+  test "start/2 normalizes canceled reason errors" do
+    request = request_fixture()
+
+    llm_context = %{
+      test_pid: self(),
+      generate_result: {:error, %{reason: :canceled, message: "canceled"}}
+    }
+
+    assert {:error, %Error{} = error} =
+             JidoAI.start(
+               request,
+               llm_client_module: TestLLMClient,
+               jido_ai_module: TestJidoAI,
+               llm_client_context: llm_context
+             )
+
+    assert error.category == :canceled
+    assert error.retryable? == false
+  end
+
   test "start/2 marks non-retryable provider status errors correctly" do
     request = request_fixture()
 

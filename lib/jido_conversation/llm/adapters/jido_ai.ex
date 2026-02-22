@@ -746,6 +746,9 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
       reason in @network_reasons ->
         Error.from_reason(error, :transport, message: extract_error_message(error))
 
+      canceled_reason?(reason) ->
+        Error.from_reason(error, :canceled, message: extract_error_message(error))
+
       true ->
         Error.from_reason(error, :unknown, message: extract_error_message(error))
     end
@@ -757,6 +760,10 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
 
   defp normalize_error(reason) when reason in @network_reasons do
     Error.from_reason(reason, :transport, message: extract_error_message(reason))
+  end
+
+  defp normalize_error(reason) when reason in [:canceled, :cancelled] do
+    Error.from_reason(reason, :canceled, message: extract_error_message(reason))
   end
 
   defp normalize_error(error) do
@@ -780,6 +787,18 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
        do: true
 
   defp retryable_provider_status?(_status), do: false
+
+  defp canceled_reason?(reason) when reason in [:canceled, :cancelled], do: true
+
+  defp canceled_reason?(reason) when is_binary(reason) do
+    case String.trim(reason) |> String.downcase() do
+      "canceled" -> true
+      "cancelled" -> true
+      _ -> false
+    end
+  end
+
+  defp canceled_reason?(_), do: false
 
   defp extract_error_message(%{message: message}) when is_binary(message), do: message
   defp extract_error_message({kind, reason}), do: "#{inspect(kind)}: #{inspect(reason)}"
