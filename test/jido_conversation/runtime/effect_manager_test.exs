@@ -604,6 +604,76 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
            end)
   end
 
+  test "non-retryable llm backend start-path errors do not retry and keep retry telemetry unchanged" do
+    put_runtime_llm_backend!(LLMNonRetryableBackendStub, self(), false)
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "trigger non-stream non-retryable failure"},
+          policy: %{max_attempts: 3, backoff_ms: 5, timeout_ms: 1_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_non_retryable_start, %Request{}}
+    refute_receive {:llm_non_retryable_start, %Request{}}, 200
+
+    assert {:ok, recorded} =
+             eventually(fn ->
+               case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+                 {:ok, events} ->
+                   events_for_effect = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+                   lifecycles = Enum.map(events_for_effect, &lifecycle_for/1) |> MapSet.new()
+
+                   if MapSet.subset?(MapSet.new(["started", "failed"]), lifecycles) do
+                     {:ok, {:ok, events_for_effect}}
+                   else
+                     :retry
+                   end
+
+                 other ->
+                   {:ok, other}
+               end
+             end)
+
+    assert Enum.count(recorded, &(lifecycle_for(&1) == "failed")) == 1
+    assert Enum.count(recorded, &(lifecycle_for(&1) == "started")) == 1
+
+    refute Enum.any?(recorded, fn event ->
+             lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
+           end)
+
+    failed_event = Enum.find(recorded, &(lifecycle_for(&1) == "failed"))
+    assert failed_event
+    assert data_field(failed_event, :error_category, nil) == "config"
+    assert data_field(failed_event, :retryable?, true) == false
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.failed >= baseline.lifecycle_counts.failed + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.retry_by_category, "config", 0) ==
+             Map.get(baseline.retry_by_category, "config", 0)
+  end
+
   test "retryable llm backend errors emit classified retrying progress and recover" do
     put_runtime_llm_backend!(LLMRetryableProviderBackendStub, self())
     :ok = Telemetry.reset()
