@@ -787,7 +787,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert snapshot.lifecycle_counts.failed == baseline.lifecycle_counts.failed
   end
 
-  test "retryable llm backend start-path errors emit classified retrying progress and recover" do
+  test "retryable llm backend start-path errors retry with bounded attempts and recover without failed telemetry regressions" do
     put_runtime_llm_backend!(LLMRetryableProviderBackendStub, self(), false)
     :ok = Telemetry.reset()
     baseline = Telemetry.snapshot().llm
@@ -811,6 +811,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert_receive {:llm_retryable_start, %Request{}, 1}
     assert_receive {:llm_retryable_start, %Request{}, 2}
+    refute_receive {:llm_retryable_start, %Request{}, 3}, 200
 
     assert {:ok, recorded} =
              eventually(fn ->
@@ -848,6 +849,12 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert retrying_event
     assert data_field(retrying_event, :error_category, nil) == "provider"
     assert data_field(retrying_event, :retryable?, false) == true
+    assert Enum.count(recorded, &(lifecycle_for(&1) == "started")) == 1
+    assert Enum.count(recorded, &(lifecycle_for(&1) == "completed")) == 1
+
+    assert Enum.count(recorded, fn event ->
+             lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
+           end) == 1
 
     assert Enum.any?(recorded, fn event ->
              lifecycle_for(event) == "completed" and
@@ -871,6 +878,8 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert Map.get(snapshot.retry_by_category, "provider", 0) ==
              Map.get(baseline.retry_by_category, "provider", 0) + 1
+
+    assert snapshot.lifecycle_counts.failed == baseline.lifecycle_counts.failed
   end
 
   test "cancel_conversation triggers llm backend cancel when execution_ref is available" do
