@@ -30,6 +30,9 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
         :auth_401 ->
           {:error, %{status: 401, message: "unauthorized"}}
 
+        :config_error ->
+          {:error, ArgumentError.exception("invalid request configuration")}
+
         :unknown_error ->
           {:error, %{message: "unexpected_failure"}}
 
@@ -83,26 +86,7 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
       attempt = next_attempt(counter)
 
       send(test_pid, {:harness_run, scenario, attempt, provider})
-
-      case scenario do
-        :non_retryable_422 ->
-          {:error, %{status: 422, message: "invalid_request"}}
-
-        :auth_403 ->
-          {:error, %{status: 403, message: "forbidden"}}
-
-        :unknown_error ->
-          {:error, %{message: "harness_unexpected_failure"}}
-
-        :retryable_then_success ->
-          scenario_recovery_result(attempt, provider, :provider, "harness recovered")
-
-        :timeout_then_success ->
-          scenario_recovery_result(attempt, provider, :timeout, "harness timeout recovered")
-
-        :transport_then_success ->
-          scenario_recovery_result(attempt, provider, :transport, "harness transport recovered")
-      end
+      run_scenario_result(scenario, attempt, provider)
     end
 
     def run(prompt, opts) when is_binary(prompt) and is_list(opts) do
@@ -110,6 +94,34 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     end
 
     def cancel(_provider, _session_id), do: :ok
+
+    defp run_scenario_result(:non_retryable_422, _attempt, _provider) do
+      {:error, %{status: 422, message: "invalid_request"}}
+    end
+
+    defp run_scenario_result(:auth_403, _attempt, _provider) do
+      {:error, %{status: 403, message: "forbidden"}}
+    end
+
+    defp run_scenario_result(:config_error, _attempt, _provider) do
+      {:error, ArgumentError.exception("invalid harness configuration")}
+    end
+
+    defp run_scenario_result(:unknown_error, _attempt, _provider) do
+      {:error, %{message: "harness_unexpected_failure"}}
+    end
+
+    defp run_scenario_result(:retryable_then_success, attempt, provider) do
+      scenario_recovery_result(attempt, provider, :provider, "harness recovered")
+    end
+
+    defp run_scenario_result(:timeout_then_success, attempt, provider) do
+      scenario_recovery_result(attempt, provider, :timeout, "harness timeout recovered")
+    end
+
+    defp run_scenario_result(:transport_then_success, attempt, provider) do
+      scenario_recovery_result(attempt, provider, :transport, "harness transport recovered")
+    end
 
     defp next_attempt(counter) when is_pid(counter) do
       Agent.get_and_update(counter, fn value ->
@@ -326,6 +338,26 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     assert_non_retryable_category_telemetry_unchanged!(baseline, "auth")
   end
 
+  test "jido_ai config failures are non-retryable and emit config category at runtime" do
+    counter = start_counter!()
+    put_runtime_backend!(:jido_ai, llm_client_context(:config_error, counter))
+    baseline = reset_llm_baseline!()
+    conversation_id = unique_id("conversation-jido-ai-config-non-retryable")
+    effect_id = unique_id("effect-jido-ai-config-non-retryable")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    start_retry_category_effect!(effect_id, conversation_id)
+
+    assert_receive {:jido_ai_generate_text, :config_error, 1, _model}
+    refute_receive {:jido_ai_generate_text, :config_error, 2, _model}, 200
+
+    events = await_failed_llm_effect_events(effect_id, replay_start)
+    assert_non_retryable_failed_path!(events, "config")
+    assert Agent.get(counter, & &1) == 1
+
+    assert_non_retryable_category_telemetry_unchanged!(baseline, "config")
+  end
+
   test "jido_ai unknown failures are non-retryable and emit unknown category at runtime" do
     counter = start_counter!()
     put_runtime_backend!(:jido_ai, llm_client_context(:unknown_error, counter))
@@ -526,6 +558,30 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
     assert_non_retryable_category_telemetry_unchanged!(baseline, "auth")
   end
 
+  test "harness config failures are non-retryable and emit config category at runtime" do
+    counter = start_counter!()
+    put_runtime_backend!(:harness, %{})
+    baseline = reset_llm_baseline!()
+    conversation_id = unique_id("conversation-harness-config-non-retryable")
+    effect_id = unique_id("effect-harness-config-non-retryable")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    start_retry_category_effect!(
+      effect_id,
+      conversation_id,
+      %{request_options: %{scenario: :config_error, counter: counter, test_pid: self()}}
+    )
+
+    assert_receive {:harness_run, :config_error, 1, :codex}
+    refute_receive {:harness_run, :config_error, 2, :codex}, 200
+
+    events = await_failed_llm_effect_events(effect_id, replay_start)
+    assert_non_retryable_failed_path!(events, "config")
+    assert Agent.get(counter, & &1) == 1
+
+    assert_non_retryable_category_telemetry_unchanged!(baseline, "config")
+  end
+
   test "harness unknown failures are non-retryable and emit unknown category at runtime" do
     counter = start_counter!()
     put_runtime_backend!(:harness, %{})
@@ -653,6 +709,7 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyMatrixTest do
        when scenario in [
               :non_retryable_422,
               :auth_401,
+              :config_error,
               :unknown_error,
               :retryable_then_success,
               :timeout_then_success,
