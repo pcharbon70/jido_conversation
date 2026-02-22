@@ -37,6 +37,9 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyStreamMatrixTest do
         :config_error ->
           {:error, ArgumentError.exception("invalid stream request configuration")}
 
+        :canceled_error ->
+          {:error, %{reason: :canceled, message: "canceled"}}
+
         :unknown_error ->
           {:error, %{message: "unexpected_stream_failure"}}
 
@@ -149,6 +152,19 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyStreamMatrixTest do
            type: :session_failed,
            payload: %{
              "error" => ArgumentError.exception("invalid harness stream configuration")
+           }
+         }
+       ]}
+    end
+
+    defp run_scenario_result(:canceled_error, _attempt, provider) do
+      {:ok,
+       [
+         %{type: :session_started, provider: provider, payload: %{}},
+         %{
+           type: :session_failed,
+           payload: %{
+             "error" => %{"reason" => :canceled, "message" => "canceled"}
            }
          }
        ]}
@@ -445,6 +461,26 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyStreamMatrixTest do
     assert_non_retryable_category_telemetry_unchanged!(baseline, "config")
   end
 
+  test "jido_ai stream canceled failures are non-retryable and emit canceled category at runtime" do
+    counter = start_counter!()
+    put_runtime_backend!(:jido_ai, llm_client_context(:canceled_error, counter))
+    baseline = reset_llm_baseline!()
+    conversation_id = unique_id("conversation-jido-ai-stream-canceled-non-retryable")
+    effect_id = unique_id("effect-jido-ai-stream-canceled-non-retryable")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    start_retry_category_effect!(effect_id, conversation_id)
+
+    assert_receive {:jido_ai_stream_text, :canceled_error, 1, _model}
+    refute_receive {:jido_ai_stream_text, :canceled_error, 2, _model}, 200
+
+    events = await_failed_llm_effect_events(effect_id, replay_start)
+    assert_non_retryable_failed_path!(events, "canceled")
+    assert Agent.get(counter, & &1) == 1
+
+    assert_non_retryable_category_telemetry_unchanged!(baseline, "canceled")
+  end
+
   test "jido_ai stream unknown failures are non-retryable and emit unknown category at runtime" do
     counter = start_counter!()
     put_runtime_backend!(:jido_ai, llm_client_context(:unknown_error, counter))
@@ -667,6 +703,30 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyStreamMatrixTest do
     assert_non_retryable_category_telemetry_unchanged!(baseline, "config")
   end
 
+  test "harness stream canceled failures are non-retryable and emit canceled category at runtime" do
+    counter = start_counter!()
+    put_runtime_backend!(:harness, %{})
+    baseline = reset_llm_baseline!()
+    conversation_id = unique_id("conversation-harness-stream-canceled-non-retryable")
+    effect_id = unique_id("effect-harness-stream-canceled-non-retryable")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    start_retry_category_effect!(
+      effect_id,
+      conversation_id,
+      %{request_options: %{scenario: :canceled_error, counter: counter, test_pid: self()}}
+    )
+
+    assert_receive {:harness_stream_run, :canceled_error, 1, :codex}
+    refute_receive {:harness_stream_run, :canceled_error, 2, :codex}, 200
+
+    events = await_failed_llm_effect_events(effect_id, replay_start)
+    assert_non_retryable_failed_path!(events, "canceled")
+    assert Agent.get(counter, & &1) == 1
+
+    assert_non_retryable_category_telemetry_unchanged!(baseline, "canceled")
+  end
+
   test "harness stream unknown failures are non-retryable and emit unknown category at runtime" do
     counter = start_counter!()
     put_runtime_backend!(:harness, %{})
@@ -795,6 +855,7 @@ defmodule JidoConversation.Runtime.LLMRetryPolicyStreamMatrixTest do
               :non_retryable_422,
               :auth_401,
               :config_error,
+              :canceled_error,
               :unknown_error,
               :retryable_then_success,
               :timeout_then_success,
