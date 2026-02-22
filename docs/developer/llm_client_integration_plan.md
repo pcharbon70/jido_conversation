@@ -64,6 +64,7 @@ that can execute through:
 | Phase 37 | `completed` | Effect-manager LLM start-path retry cardinality parity hardening | Non-stream retry-attempt bounds, retrying lifecycle cardinality, and failed-telemetry invariants in effect runtime tests |
 | Phase 38 | `completed` | Effect-manager LLM stream-path retry-attempt-start parity hardening | Stream retry-attempt-start lifecycle cardinality and attempt labeling invariants in effect runtime tests |
 | Phase 39 | `completed` | Effect-manager LLM start-path retry-attempt-start parity hardening | Non-stream retry-attempt-start lifecycle cardinality and attempt labeling invariants in effect runtime tests |
+| Phase 40 | `completed` | Effect-manager LLM cancel lifecycle/telemetry parity hardening | Cancel lifecycle payload/cardinality and cancel telemetry invariants in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1610,6 +1611,40 @@ that can execute through:
 ### Completion notes
 
 - Extended non-stream retryable provider failure assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 40: Effect-manager LLM cancel lifecycle/telemetry parity hardening
+
+### Objectives
+
+- Harden effect runtime LLM cancellation parity coverage for deterministic
+  canceled lifecycle payload/cardinality semantics.
+- Ensure cancellation updates runtime telemetry snapshot consistently without
+  introducing retry-category regressions.
+
+### Tasks
+
+- Extend effect manager cancellation test to assert:
+  - backend cancellation is invoked with the captured execution reference
+  - exactly one `started` and one `canceled` lifecycle is emitted
+  - no `completed` or `failed` lifecycle is emitted after cancellation
+  - canceled payload includes `reason: "user_abort"` and `backend_cancel: "ok"`
+  - telemetry `lifecycle_counts.canceled` and `cancel_results["ok"]` increment
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened effect manager cancellation test assertions for canceled lifecycle
+  payload/cardinality and cancel telemetry snapshot invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify deterministic cancellation lifecycle
+  semantics and consistent cancel telemetry updates without retry drift.
+
+### Completion notes
+
+- Extended cancellation-path assertions in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
