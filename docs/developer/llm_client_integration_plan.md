@@ -67,6 +67,7 @@ that can execute through:
 | Phase 40 | `completed` | Effect-manager LLM cancel lifecycle/telemetry parity hardening | Cancel lifecycle payload/cardinality and cancel telemetry invariants in effect runtime tests |
 | Phase 41 | `completed` | Effect-manager LLM cancel-without-context parity hardening | Cancel lifecycle and telemetry invariants when execution_ref is unavailable in effect runtime tests |
 | Phase 42 | `completed` | Effect-manager LLM cancel-failed parity hardening | Cancel lifecycle payload and telemetry invariants when backend cancellation returns failure in effect runtime tests |
+| Phase 43 | `completed` | Effect-manager LLM cancel attribution parity hardening | Cancel-failed lifecycle backend/provider/model attribution and backend lifecycle telemetry invariants in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1727,6 +1728,40 @@ that can execute through:
 ### Completion notes
 
 - Extended cancel-failed cancellation assertions and backend stub options in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 43: Effect-manager LLM cancel attribution parity hardening
+
+### Objectives
+
+- Harden effect runtime LLM cancellation parity coverage for attribution fields
+  in cancel-failed lifecycle payloads.
+- Ensure backend lifecycle telemetry attribution remains consistent for
+  cancel-failed outcomes.
+
+### Tasks
+
+- Extend effect manager cancel-failed test to assert canceled payload includes:
+  - `backend: "jido_ai"`
+  - `provider: "stub-provider"`
+  - `model: "stub-model"`
+- Assert backend lifecycle telemetry reflects canceled increments for the
+  resolved backend key (`"jido_ai"`).
+
+### Deliverables
+
+- Hardened cancel-failed effect manager assertions for lifecycle attribution
+  payload and backend lifecycle telemetry invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify deterministic cancel-failed attribution
+  payload fields and backend canceled lifecycle telemetry increments.
+
+### Completion notes
+
+- Extended cancel-failed attribution and backend lifecycle telemetry assertions
+  in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
