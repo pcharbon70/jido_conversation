@@ -142,6 +142,117 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     def cancel(_execution_ref, _opts), do: :ok
   end
 
+  defmodule LLMRetryableProviderBackendStub do
+    @behaviour JidoConversation.LLM.Backend
+
+    alias JidoConversation.LLM.Error
+    alias JidoConversation.LLM.Event
+    alias JidoConversation.LLM.Request
+    alias JidoConversation.LLM.Result
+
+    @impl true
+    def capabilities do
+      %{
+        streaming?: true,
+        cancellation?: false,
+        provider_selection?: true,
+        model_selection?: true
+      }
+    end
+
+    @impl true
+    def start(%Request{} = request, opts) do
+      attempt = attempt_for_request(request)
+      send(Keyword.get(opts, :test_pid, self()), {:llm_retryable_start, request, attempt})
+
+      case attempt do
+        1 ->
+          {:error,
+           Error.new!(category: :provider, message: "retryable provider error", retryable?: true)}
+
+        _ ->
+          {:ok,
+           Result.new!(%{
+             request_id: request.request_id,
+             conversation_id: request.conversation_id,
+             backend: request.backend,
+             status: :completed,
+             text: "recovered response",
+             provider: request.provider || "stub-provider",
+             model: request.model || "stub-model"
+           })}
+      end
+    end
+
+    @impl true
+    def stream(%Request{} = request, emit, opts) when is_function(emit, 1) do
+      attempt = attempt_for_request(request)
+      send(Keyword.get(opts, :test_pid, self()), {:llm_retryable_stream, request, attempt})
+
+      case attempt do
+        1 ->
+          {:error,
+           Error.new!(category: :provider, message: "retryable provider error", retryable?: true)}
+
+        _ ->
+          _ =
+            emit.(
+              Event.new!(%{
+                request_id: request.request_id,
+                conversation_id: request.conversation_id,
+                backend: request.backend,
+                lifecycle: :started,
+                provider: request.provider || "stub-provider",
+                model: request.model || "stub-model"
+              })
+            )
+
+          _ =
+            emit.(
+              Event.new!(%{
+                request_id: request.request_id,
+                conversation_id: request.conversation_id,
+                backend: request.backend,
+                lifecycle: :delta,
+                delta: "recovered response",
+                provider: request.provider || "stub-provider",
+                model: request.model || "stub-model"
+              })
+            )
+
+          {:ok,
+           Result.new!(%{
+             request_id: request.request_id,
+             conversation_id: request.conversation_id,
+             backend: request.backend,
+             status: :completed,
+             text: "recovered response",
+             provider: request.provider || "stub-provider",
+             model: request.model || "stub-model"
+           })}
+      end
+    end
+
+    @impl true
+    def cancel(_execution_ref, _opts), do: :ok
+
+    defp attempt_for_request(%Request{request_id: request_id}) when is_binary(request_id) do
+      request_id
+      |> String.split(":")
+      |> List.last()
+      |> case do
+        value when is_binary(value) ->
+          case Integer.parse(value) do
+            {attempt, ""} -> attempt
+            _ -> 1
+          end
+
+        _other ->
+          1
+      end
+    end
+  end
+
   defmodule LLMCancellableBackendStub do
     @behaviour JidoConversation.LLM.Backend
 
@@ -491,6 +602,92 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert Enum.any?(recorded, fn event ->
              lifecycle_for(event) == "failed" and data_field(event, :retryable?, true) == false
            end)
+  end
+
+  test "retryable llm backend errors emit classified retrying progress and recover" do
+    put_runtime_llm_backend!(LLMRetryableProviderBackendStub, self())
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "trigger retryable failure"},
+          policy: %{max_attempts: 3, backoff_ms: 5, timeout_ms: 1_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_retryable_stream, %Request{}, 1}
+    assert_receive {:llm_retryable_stream, %Request{}, 2}
+
+    assert {:ok, recorded} =
+             eventually(fn ->
+               case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+                 {:ok, events} ->
+                   events_for_effect = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+
+                   has_started? = Enum.any?(events_for_effect, &(lifecycle_for(&1) == "started"))
+
+                   has_retrying_progress? =
+                     Enum.any?(events_for_effect, fn event ->
+                       lifecycle_for(event) == "progress" and
+                         data_field(event, :status, nil) == "retrying"
+                     end)
+
+                   has_completed? =
+                     Enum.any?(events_for_effect, &(lifecycle_for(&1) == "completed"))
+
+                   if has_started? and has_retrying_progress? and has_completed? do
+                     {:ok, {:ok, events_for_effect}}
+                   else
+                     :retry
+                   end
+
+                 other ->
+                   {:ok, other}
+               end
+             end)
+
+    retrying_event =
+      Enum.find(recorded, fn event ->
+        lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
+      end)
+
+    assert retrying_event
+    assert data_field(retrying_event, :error_category, nil) == "provider"
+    assert data_field(retrying_event, :retryable?, false) == true
+
+    assert Enum.any?(recorded, fn event ->
+             lifecycle_for(event) == "completed" and
+               get_in(data_field(event, :result, %{}), [:text]) == "recovered response"
+           end)
+
+    refute Enum.any?(recorded, &(lifecycle_for(&1) == "failed"))
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.completed >= baseline.lifecycle_counts.completed + 1 and
+             Map.get(llm.retry_by_category, "provider", 0) >=
+               Map.get(baseline.retry_by_category, "provider", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.retry_by_category, "provider", 0) ==
+             Map.get(baseline.retry_by_category, "provider", 0) + 1
   end
 
   test "cancel_conversation triggers llm backend cancel when execution_ref is available" do
