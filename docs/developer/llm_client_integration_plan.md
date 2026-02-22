@@ -59,6 +59,7 @@ that can execute through:
 | Phase 32 | `completed` | Effect-manager LLM retry lifecycle parity hardening | Retrying progress payload classification and telemetry invariants in effect runtime tests |
 | Phase 33 | `completed` | Effect-manager LLM start-path retry parity hardening | Non-stream retrying progress payload classification and telemetry invariants in effect runtime tests |
 | Phase 34 | `completed` | Effect-manager LLM start-path non-retry parity hardening | Non-stream non-retryable failed payload classification and retry telemetry invariants in effect runtime tests |
+| Phase 35 | `completed` | Effect-manager LLM stream-path non-retry parity hardening | Stream non-retryable failed payload classification and retry telemetry invariants in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1444,6 +1445,40 @@ that can execute through:
 ### Completion notes
 
 - Added non-stream non-retryable config failure assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 35: Effect-manager LLM stream-path non-retry parity hardening
+
+### Objectives
+
+- Harden effect runtime non-retryable parity coverage for stream-path LLM
+  execution.
+- Ensure stream-path non-retryable failures carry deterministic failed payload
+  classification and do not increment retry counters.
+
+### Tasks
+
+- Extend stream-path effect manager test for non-retryable config errors to
+  assert:
+  - no second stream attempt occurs with `max_attempts > 1`
+  - failed payload includes `error_category: "config"` and `retryable?: false`
+  - no retrying progress lifecycle is emitted
+  - telemetry retry category `config` remains unchanged
+
+### Deliverables
+
+- Hardened stream-path effect manager non-retryable LLM test assertions for
+  failed payload classification and retry telemetry invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify deterministic stream non-retryable
+  failed payload classification and no retry-category increments for config
+  failures.
+
+### Completion notes
+
+- Extended stream non-retryable config failure assertions in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
