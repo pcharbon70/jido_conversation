@@ -197,13 +197,7 @@ defmodule JidoConversation.Runtime.EffectWorker do
     if state.attempt < state.max_attempts and retryable_reason?(reason) do
       backoff = backoff_for_attempt(state.backoff_ms, state.attempt)
 
-      emit_lifecycle(state, "progress", %{
-        attempt: state.attempt,
-        status: "retrying",
-        backoff_ms: backoff,
-        reason: failure_reason(reason),
-        retryable?: retryable_reason?(reason)
-      })
+      emit_lifecycle(state, "progress", retrying_payload(state, reason, backoff))
 
       _ = emit_llm_retry_telemetry(state, reason, backoff)
 
@@ -213,6 +207,21 @@ defmodule JidoConversation.Runtime.EffectWorker do
       emit_lifecycle(state, "failed", failure_payload(reason, state.attempt))
       notify_finished(state)
       {:stop, state}
+    end
+  end
+
+  defp retrying_payload(state, reason, backoff) do
+    payload = %{
+      attempt: state.attempt,
+      status: "retrying",
+      backoff_ms: backoff,
+      reason: failure_reason(reason),
+      retryable?: retryable_reason?(reason)
+    }
+
+    case state.class do
+      :llm -> Map.put(payload, :error_category, retry_category(reason))
+      _other -> payload
     end
   end
 
