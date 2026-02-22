@@ -49,6 +49,7 @@ that can execute through:
 | Phase 22 | `completed` | Stream unknown non-retryable runtime parity | Stream unknown classification and retry telemetry invariants |
 | Phase 23 | `completed` | Config non-retryable runtime parity | Non-stream config classification and retry telemetry invariants |
 | Phase 24 | `completed` | Stream config non-retryable runtime parity | Stream config classification and retry telemetry invariants |
+| Phase 25 | `completed` | Canceled non-retryable runtime parity | Non-stream canceled classification and retry telemetry invariants |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1045,6 +1046,52 @@ that can execute through:
     (`config`, `false`)
   - no `config` retry counter increments in telemetry snapshot for stream
     paths
+
+## Phase 25: Canceled non-retryable runtime parity
+
+### Objectives
+
+- Validate runtime canceled classification parity across non-stream execution
+  paths for built-in adapters.
+- Ensure canceled failures remain non-retryable and do not increment retry
+  category counters.
+
+### Tasks
+
+- Extend runtime retry matrix coverage with canceled failure scenarios for:
+  - `jido_ai` backend path (`reason: :canceled`)
+  - `harness` backend path (`reason: :canceled`)
+- Verify canceled failures do not retry and terminate with failed lifecycle.
+- Verify failed lifecycle payload includes:
+  - `error_category: "canceled"`
+  - `retryable?: false`
+- Verify telemetry `llm.retry_by_category["canceled"]` remains unchanged for
+  non-retryable canceled failures.
+
+### Deliverables
+
+- Runtime retry matrix tests covering canceled non-retryable classification and
+  telemetry invariants.
+- Adapter normalization update for `jido_ai` canceled reason mapping.
+
+### Exit criteria
+
+- Canceled runtime failures are classified deterministically and never retried
+  across both built-in adapters in non-stream mode.
+
+### Completion notes
+
+- Updated `jido_ai` error normalization to classify canceled reasons:
+  - `lib/jido_conversation/llm/adapters/jido_ai.ex`
+- Added adapter normalization coverage:
+  - `test/jido_conversation/llm/adapters/jido_ai_test.exs`
+- Extended runtime retry policy matrix with canceled non-retryable coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+- Added explicit assertions for:
+  - no retry attempts on canceled-classified failures
+  - failed lifecycle payload category/retryable invariants
+    (`canceled`, `false`)
+  - no `canceled` retry counter increments in telemetry snapshot
 
 ## Cross-phase quality gates
 
