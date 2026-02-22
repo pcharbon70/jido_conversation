@@ -57,6 +57,7 @@ that can execute through:
 | Phase 30 | `completed` | Stream retry progress payload parity hardening | Stream retrying progress error-category/retryable invariants across retryable categories |
 | Phase 31 | `completed` | Telemetry retry-category parity hardening | Retry-category precedence/fallback invariants in telemetry aggregation |
 | Phase 32 | `completed` | Effect-manager LLM retry lifecycle parity hardening | Retrying progress payload classification and telemetry invariants in effect runtime tests |
+| Phase 33 | `completed` | Effect-manager LLM start-path retry parity hardening | Non-stream retrying progress payload classification and telemetry invariants in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1368,6 +1369,44 @@ that can execute through:
 ### Completion notes
 
 - Added retryable provider backend stub and recovery assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 33: Effect-manager LLM start-path retry parity hardening
+
+### Objectives
+
+- Extend effect runtime retry classification parity coverage to non-stream LLM
+  execution (`start/2`) paths.
+- Ensure retrying lifecycle payload invariants remain consistent between stream
+  and non-stream backend execution modes.
+
+### Tasks
+
+- Add non-stream effect manager retry test for retryable provider errors:
+  - first non-stream attempt returns retryable provider error
+  - second non-stream attempt recovers with completion
+- Assert retrying lifecycle payload includes:
+  - `status: "retrying"`
+  - `error_category: "provider"`
+  - `retryable?: true`
+- Assert provider retry-category telemetry increments exactly once for the
+  non-stream recovery path.
+
+### Deliverables
+
+- Extended effect manager runtime tests for non-stream LLM retry lifecycle
+  payload classification and telemetry invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify parity of retrying payload
+  classification and retry telemetry behavior across stream and non-stream LLM
+  backend execution paths.
+
+### Completion notes
+
+- Added non-stream retryable provider recovery assertions and stream-mode test
+  helper override in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
