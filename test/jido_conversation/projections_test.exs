@@ -1,9 +1,9 @@
-defmodule JidoConversation.ProjectionsTest do
+defmodule Jido.Conversation.ProjectionsTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Ingest.Adapters.Messaging
-  alias JidoConversation.Ingest.Adapters.Outbound
-  alias JidoConversation.Projections
+  alias Jido.Conversation.Ingest.Adapters.Messaging
+  alias Jido.Conversation.Ingest.Adapters.Outbound
+  alias Jido.Conversation.Projections
 
   test "timeline and llm_context projections can be built from conversation id" do
     conversation_id = unique_id("conversation")

@@ -1,9 +1,9 @@
-defmodule JidoConversation.Ingest.Adapters.Outbound do
+defmodule Jido.Conversation.Ingest.Adapters.Outbound do
   @moduledoc """
   Outbound projection adapter for `conv.out.*` stream events.
   """
 
-  alias JidoConversation.Ingest
+  alias Jido.Conversation.Ingest
 
   @type adapter_error ::
           {:invalid_output_type, term()}
@@ -19,8 +19,8 @@ defmodule JidoConversation.Ingest.Adapters.Outbound do
           map() | keyword(),
           keyword()
         ) ::
-          {:ok, JidoConversation.Ingest.Pipeline.ingest_result()}
-          | {:error, JidoConversation.Ingest.Pipeline.ingest_error() | adapter_error()}
+          {:ok, Jido.Conversation.Ingest.Pipeline.ingest_result()}
+          | {:error, Jido.Conversation.Ingest.Pipeline.ingest_error() | adapter_error()}
   def ingest_output(conversation_id, output_type, output_id, channel, payload \\ %{}, opts \\ [])
 
   def ingest_output(conversation_id, output_type, output_id, channel, payload, opts)
@@ -74,8 +74,8 @@ defmodule JidoConversation.Ingest.Adapters.Outbound do
           map() | keyword(),
           keyword()
         ) ::
-          {:ok, JidoConversation.Ingest.Pipeline.ingest_result()}
-          | {:error, JidoConversation.Ingest.Pipeline.ingest_error() | adapter_error()}
+          {:ok, Jido.Conversation.Ingest.Pipeline.ingest_result()}
+          | {:error, Jido.Conversation.Ingest.Pipeline.ingest_error() | adapter_error()}
   def emit_assistant_delta(
         conversation_id,
         output_id,
@@ -101,8 +101,8 @@ defmodule JidoConversation.Ingest.Adapters.Outbound do
           map() | keyword(),
           keyword()
         ) ::
-          {:ok, JidoConversation.Ingest.Pipeline.ingest_result()}
-          | {:error, JidoConversation.Ingest.Pipeline.ingest_error() | adapter_error()}
+          {:ok, Jido.Conversation.Ingest.Pipeline.ingest_result()}
+          | {:error, Jido.Conversation.Ingest.Pipeline.ingest_error() | adapter_error()}
   def emit_assistant_completed(
         conversation_id,
         output_id,
@@ -135,8 +135,8 @@ defmodule JidoConversation.Ingest.Adapters.Outbound do
           map() | keyword(),
           keyword()
         ) ::
-          {:ok, JidoConversation.Ingest.Pipeline.ingest_result()}
-          | {:error, JidoConversation.Ingest.Pipeline.ingest_error() | adapter_error()}
+          {:ok, Jido.Conversation.Ingest.Pipeline.ingest_result()}
+          | {:error, Jido.Conversation.Ingest.Pipeline.ingest_error() | adapter_error()}
   def emit_tool_status(conversation_id, output_id, channel, status, payload \\ %{}, opts \\ [])
       when is_binary(status) do
     payload =

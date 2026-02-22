@@ -1,4 +1,4 @@
-defmodule JidoConversation.Runtime.IngressSubscriber do
+defmodule Jido.Conversation.Runtime.IngressSubscriber do
   @moduledoc """
   Subscribes to conversation signals and forwards them to runtime partitions.
   """
@@ -7,11 +7,11 @@ defmodule JidoConversation.Runtime.IngressSubscriber do
 
   require Logger
 
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.Runtime.Coordinator
+  alias Jido.Conversation.Signal.Contract
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoConversation.Config
-  alias JidoConversation.Runtime.Coordinator
-  alias JidoConversation.Signal.Contract
 
   @retry_ms 1_000
 

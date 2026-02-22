@@ -4,7 +4,7 @@ Use this checklist when embedding `jido_conversation` in a host system.
 
 ## Configuration
 
-- Set `JidoConversation.EventSystem` explicitly per environment.
+- Set `Jido.Conversation.EventSystem` explicitly per environment.
 - Configure `llm.default_backend` and backend `module` values.
 - Tune `effect_runtime` max attempts, backoff, and timeout by class.
 
@@ -30,8 +30,8 @@ Use this checklist when embedding `jido_conversation` in a host system.
 
 ## Observability
 
-- Poll `JidoConversation.health/0` in host readiness checks.
-- Capture `JidoConversation.telemetry_snapshot/0` on intervals for trend
+- Poll `Jido.Conversation.health/0` in host readiness checks.
+- Capture `Jido.Conversation.telemetry_snapshot/0` on intervals for trend
   dashboards.
 - Watch `llm.retry_by_category` and lifecycle counters for backend instability.
 

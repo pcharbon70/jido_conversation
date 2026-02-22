@@ -8,7 +8,7 @@ For LLM adapter-specific extension rules, see:
 ## Add a new ingress event type
 
 1. Define/confirm stream namespace and payload requirements in
-   `JidoConversation.Signal.Contract`.
+   `Jido.Conversation.Signal.Contract`.
 2. Add or update adapter helpers under `lib/jido_conversation/ingest/adapters/`.
 3. Add reducer behavior (if state transition is needed).
 4. Add projection behavior (if user/model views must include it).
@@ -19,7 +19,7 @@ For LLM adapter-specific extension rules, see:
 
 ## Add reducer behavior safely
 
-When modifying `JidoConversation.Runtime.Reducer`:
+When modifying `Jido.Conversation.Runtime.Reducer`:
 
 - Keep it pure and deterministic.
 - Do not perform blocking I/O or process interaction.
@@ -40,7 +40,7 @@ To add another class:
 
 1. Extend reducer directive payload generation for the new class.
 2. Extend `EffectManager` class validation.
-3. Add policy defaults and validation in `JidoConversation.Config`.
+3. Add policy defaults and validation in `Jido.Conversation.Config`.
 4. Add lifecycle type mapping in effect manager/worker.
 5. Add tests for start/retry/timeout/cancel behavior.
 
@@ -49,7 +49,7 @@ To add another class:
 1. Implement projection module in `lib/jido_conversation/projections/`.
 2. Use `Ingest.conversation_events/1` as canonical source.
 3. Sort/filter consistently and document any options.
-4. Add facade function if needed from `JidoConversation`.
+4. Add facade function if needed from `Jido.Conversation`.
 5. Add parity tests using replay reconstruction where possible.
 
 ## Contract evolution guidance

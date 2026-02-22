@@ -23,20 +23,20 @@ Host applications own:
 
 ### 1. Runtime health check endpoint
 
-Expose `JidoConversation.health/0` through the host application's health route.
+Expose `Jido.Conversation.health/0` through the host application's health route.
 Treat `status: :degraded` as a failed dependency signal for readiness.
 
 ```elixir
 defmodule MyApp.ConversationHealth do
   def snapshot do
-    JidoConversation.health()
+    Jido.Conversation.health()
   end
 end
 ```
 
 ### 2. Metrics scrape/forwarder
 
-Poll `JidoConversation.telemetry_snapshot/0` on a short interval and forward to
+Poll `Jido.Conversation.telemetry_snapshot/0` on a short interval and forward to
 your metrics backend.
 
 Recommended fields:
@@ -89,7 +89,7 @@ Use host-level gates against SLO targets defined in
 ```elixir
 defmodule MyApp.ReleaseGate do
   def ready_for_promote? do
-    metrics = JidoConversation.telemetry_snapshot()
+    metrics = Jido.Conversation.telemetry_snapshot()
 
     metrics.dispatch_failure_count == 0 and
       metrics.dlq_count == 0 and
@@ -112,7 +112,7 @@ or automate policy.
 ## Host configuration patterns
 
 Set environment-specific runtime knobs in the host configuration for
-`JidoConversation.EventSystem`, especially:
+`Jido.Conversation.EventSystem`, especially:
 
 - `runtime_partitions`
 - `persistent_subscription.max_in_flight`

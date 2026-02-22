@@ -5,7 +5,7 @@ Use projections for product features and replay APIs for diagnostics.
 ## Timeline projection
 
 ```elixir
-timeline = JidoConversation.timeline("conv-123")
+timeline = Jido.Conversation.timeline("conv-123")
 ```
 
 Options:
@@ -19,7 +19,7 @@ status entries.
 ## LLM context projection
 
 ```elixir
-llm_context = JidoConversation.llm_context("conv-123")
+llm_context = Jido.Conversation.llm_context("conv-123")
 ```
 
 Options:
@@ -33,9 +33,9 @@ Use this projection when preparing prompt history for downstream model calls.
 ## Replay APIs
 
 ```elixir
-{:ok, records} = JidoConversation.Ingest.replay("conv.effect.llm.generation.**", 0)
-conversation_events = JidoConversation.Ingest.conversation_events("conv-123")
-trace = JidoConversation.Ingest.trace_chain("root-signal-id", :forward)
+{:ok, records} = Jido.Conversation.Ingest.replay("conv.effect.llm.generation.**", 0)
+conversation_events = Jido.Conversation.Ingest.conversation_events("conv-123")
+trace = Jido.Conversation.Ingest.trace_chain("root-signal-id", :forward)
 ```
 
 ## Typical debugging workflow

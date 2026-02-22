@@ -1,13 +1,13 @@
-defmodule JidoConversation.Ingest.AdaptersTest do
+defmodule Jido.Conversation.Ingest.AdaptersTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Ingest.Adapters.Control
-  alias JidoConversation.Ingest.Adapters.Llm
-  alias JidoConversation.Ingest.Adapters.Messaging
-  alias JidoConversation.Ingest.Adapters.Outbound
-  alias JidoConversation.Ingest.Adapters.Timer
-  alias JidoConversation.Ingest.Adapters.Tool
-  alias JidoConversation.Ingest.Pipeline
+  alias Jido.Conversation.Ingest.Adapters.Control
+  alias Jido.Conversation.Ingest.Adapters.Llm
+  alias Jido.Conversation.Ingest.Adapters.Messaging
+  alias Jido.Conversation.Ingest.Adapters.Outbound
+  alias Jido.Conversation.Ingest.Adapters.Timer
+  alias Jido.Conversation.Ingest.Adapters.Tool
+  alias Jido.Conversation.Ingest.Pipeline
 
   test "messaging adapter ingests conv.in message event" do
     conversation_id = unique_id("conversation")

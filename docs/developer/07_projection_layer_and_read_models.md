@@ -4,8 +4,8 @@ Projection modules build read views from recorded conversation events.
 
 ## Projection facade
 
-- `JidoConversation.Projections.timeline/2`
-- `JidoConversation.Projections.llm_context/2`
+- `Jido.Conversation.Projections.timeline/2`
+- `Jido.Conversation.Projections.llm_context/2`
 
 Both read events through `Ingest.conversation_events/1` and transform to stable
 consumer-oriented shapes.

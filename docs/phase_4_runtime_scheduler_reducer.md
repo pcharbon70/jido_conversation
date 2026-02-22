@@ -3,11 +3,11 @@
 ## Scope completed
 
 - Added deterministic scheduler core:
-  - `JidoConversation.Runtime.Scheduler`
+  - `Jido.Conversation.Runtime.Scheduler`
 - Added pure reducer core:
-  - `JidoConversation.Runtime.Reducer`
+  - `Jido.Conversation.Runtime.Reducer`
 - Upgraded partition runtime worker to execute scheduler + reducer loop:
-  - `JidoConversation.Runtime.PartitionWorker`
+  - `Jido.Conversation.Runtime.PartitionWorker`
 - Implemented queue-entry sequencing and deterministic dequeue policy:
   1. Causal readiness (`cause_id` must already be applied)
   2. Priority class selection (`P0..P3`)

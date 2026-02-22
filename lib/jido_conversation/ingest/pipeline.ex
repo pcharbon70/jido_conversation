@@ -1,4 +1,4 @@
-defmodule JidoConversation.Ingest.Pipeline do
+defmodule Jido.Conversation.Ingest.Pipeline do
   @moduledoc """
   Journal-first ingestion pipeline.
 
@@ -13,12 +13,12 @@ defmodule JidoConversation.Ingest.Pipeline do
 
   require Logger
 
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.Signal.Contract
   alias Jido.Signal
   alias Jido.Signal.Bus
   alias Jido.Signal.Bus.RecordedSignal
   alias Jido.Signal.Journal
-  alias JidoConversation.Config
-  alias JidoConversation.Signal.Contract
 
   @type dedupe_key :: {String.t(), String.t()}
   @type ingest_status :: :published | :duplicate

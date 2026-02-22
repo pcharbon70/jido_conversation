@@ -4,7 +4,7 @@ This guide focuses on `Signal.Contract` and `Ingest.Pipeline` internals.
 
 ## Contract normalization
 
-`JidoConversation.Signal.Contract` accepts `%Jido.Signal{}`, map, or keyword
+`Jido.Conversation.Signal.Contract` accepts `%Jido.Signal{}`, map, or keyword
 input and normalizes aliases before validation.
 
 Supported aliases:
@@ -26,7 +26,7 @@ Supported aliases:
 
 ## Ingest pipeline responsibilities
 
-`JidoConversation.Ingest.Pipeline` owns the ingestion write boundary:
+`Jido.Conversation.Ingest.Pipeline` owns the ingestion write boundary:
 
 - normalize + validate signal
 - apply dedupe policy
@@ -36,7 +36,7 @@ Supported aliases:
 
 ## Adapter layer
 
-Adapters in `JidoConversation.Ingest.Adapters.*` provide domain-oriented
+Adapters in `Jido.Conversation.Ingest.Adapters.*` provide domain-oriented
 helpers that produce valid canonical signal payloads for:
 
 - messaging

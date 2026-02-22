@@ -1,7 +1,7 @@
-defmodule JidoConversation.LLM.ResultTest do
+defmodule Jido.Conversation.LLM.ResultTest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.LLM.Result
+  alias Jido.Conversation.LLM.Result
 
   test "new/1 builds completed result" do
     assert {:ok, result} =

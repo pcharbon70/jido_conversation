@@ -5,7 +5,7 @@
 ### Timeline projection
 
 ```elixir
-timeline = JidoConversation.timeline("conv-123")
+timeline = Jido.Conversation.timeline("conv-123")
 ```
 
 Timeline options:
@@ -15,7 +15,7 @@ Timeline options:
 
 ```elixir
 timeline =
-  JidoConversation.timeline("conv-123",
+  Jido.Conversation.timeline("conv-123",
     coalesce_deltas: false,
     max_delta_chars: 120
   )
@@ -24,7 +24,7 @@ timeline =
 ### LLM context projection
 
 ```elixir
-llm_context = JidoConversation.llm_context("conv-123")
+llm_context = Jido.Conversation.llm_context("conv-123")
 ```
 
 LLM context options:
@@ -35,7 +35,7 @@ LLM context options:
 
 ```elixir
 llm_context =
-  JidoConversation.llm_context("conv-123",
+  Jido.Conversation.llm_context("conv-123",
     include_deltas: true,
     include_tool_status: true,
     max_messages: 60
@@ -44,12 +44,12 @@ llm_context =
 
 ## Replay and event queries
 
-Use `JidoConversation.Ingest` for advanced replay/query use cases.
+Use `Jido.Conversation.Ingest` for advanced replay/query use cases.
 
 ### Per-conversation journal events
 
 ```elixir
-events = JidoConversation.Ingest.conversation_events("conv-123")
+events = Jido.Conversation.Ingest.conversation_events("conv-123")
 ```
 
 This is the best source when you need full event history for a conversation.
@@ -57,15 +57,15 @@ This is the best source when you need full event history for a conversation.
 ### Causal chain tracing
 
 ```elixir
-upstream_chain = JidoConversation.Ingest.trace_chain("event-id", :backward)
-downstream_chain = JidoConversation.Ingest.trace_chain("event-id", :forward)
+upstream_chain = Jido.Conversation.Ingest.trace_chain("event-id", :backward)
+downstream_chain = Jido.Conversation.Ingest.trace_chain("event-id", :forward)
 ```
 
 ### Stream replay by path + time
 
 ```elixir
 start_ts = DateTime.utc_now() |> DateTime.to_unix() |> Kernel.-(300)
-{:ok, records} = JidoConversation.Ingest.replay("conv.out.**", start_ts)
+{:ok, records} = Jido.Conversation.Ingest.replay("conv.out.**", start_ts)
 ```
 
 Useful for stream diagnostics and short-window analysis.

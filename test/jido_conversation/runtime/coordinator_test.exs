@@ -1,7 +1,7 @@
-defmodule JidoConversation.Runtime.CoordinatorTest do
+defmodule Jido.Conversation.Runtime.CoordinatorTest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.Runtime.Coordinator
+  alias Jido.Conversation.Runtime.Coordinator
 
   test "partition_for_subject is deterministic for same subject" do
     count = 8

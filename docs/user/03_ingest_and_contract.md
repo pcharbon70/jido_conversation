@@ -29,7 +29,7 @@ Aliases:
 
 ```elixir
 {:ok, _result} =
-  JidoConversation.ingest(%{
+  Jido.Conversation.ingest(%{
     type: "conv.in.message.received",
     source: "/chat/ui",
     subject: "conv-123",
@@ -46,12 +46,12 @@ Aliases:
 
 Use adapters to reduce envelope mistakes:
 
-- `JidoConversation.Ingest.Adapters.Messaging.ingest_received/5`
-- `JidoConversation.Ingest.Adapters.Control.ingest_abort/4`
-- `JidoConversation.Ingest.Adapters.Timer.ingest_tick/4`
-- `JidoConversation.Ingest.Adapters.Llm.ingest_lifecycle/5`
-- `JidoConversation.Ingest.Adapters.Tool.ingest_lifecycle/5`
-- `JidoConversation.Ingest.Adapters.Outbound.*` helpers
+- `Jido.Conversation.Ingest.Adapters.Messaging.ingest_received/5`
+- `Jido.Conversation.Ingest.Adapters.Control.ingest_abort/4`
+- `Jido.Conversation.Ingest.Adapters.Timer.ingest_tick/4`
+- `Jido.Conversation.Ingest.Adapters.Llm.ingest_lifecycle/5`
+- `Jido.Conversation.Ingest.Adapters.Tool.ingest_lifecycle/5`
+- `Jido.Conversation.Ingest.Adapters.Outbound.*` helpers
 
 ## Causality and idempotency
 
@@ -61,6 +61,6 @@ Use adapters to reduce envelope mistakes:
 
 ## Replay/query APIs
 
-- `JidoConversation.Ingest.conversation_events/1`
-- `JidoConversation.Ingest.trace_chain/2`
-- `JidoConversation.Ingest.replay/3`
+- `Jido.Conversation.Ingest.conversation_events/1`
+- `Jido.Conversation.Ingest.trace_chain/2`
+- `Jido.Conversation.Ingest.replay/3`

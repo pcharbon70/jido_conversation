@@ -1,4 +1,4 @@
-defmodule JidoConversation.Runtime.Scheduler do
+defmodule Jido.Conversation.Runtime.Scheduler do
   @moduledoc """
   Deterministic scheduler for partition worker queues.
 

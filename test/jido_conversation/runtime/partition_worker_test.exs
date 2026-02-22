@@ -1,11 +1,12 @@
-defmodule JidoConversation.Runtime.PartitionWorkerTest do
+defmodule Jido.Conversation.Runtime.PartitionWorkerTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Ingest
-  alias JidoConversation.Runtime.Coordinator
-  alias JidoConversation.Runtime.EffectManager
-  alias JidoConversation.Runtime.IngressSubscriber
-  alias JidoConversation.Runtime.PartitionWorker
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.Runtime.Coordinator
+  alias Jido.Conversation.Runtime.EffectManager
+  alias Jido.Conversation.Runtime.IngressSubscriber
+  alias Jido.Conversation.Runtime.PartitionWorker
 
   setup do
     wait_for_ingress_subscriber!()
@@ -42,7 +43,7 @@ defmodule JidoConversation.Runtime.PartitionWorkerTest do
     partition_id =
       Coordinator.partition_for_subject(
         conversation_id,
-        JidoConversation.Config.runtime_partitions()
+        Config.runtime_partitions()
       )
 
     snapshot =

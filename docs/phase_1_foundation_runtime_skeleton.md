@@ -21,7 +21,7 @@
 ## Architectural notes
 
 - Journal adapter is configured via `Jido.Signal.Bus` options and app config.
-- Router bootstrap is centralized in `JidoConversation.Signal.Router`.
+- Router bootstrap is centralized in `Jido.Conversation.Signal.Router`.
 - Runtime reducer/scheduler behavior is intentionally minimal in phase 1 and is
   expanded in later phases.
 

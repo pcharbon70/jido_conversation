@@ -1,22 +1,22 @@
-defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
+defmodule Jido.Conversation.Runtime.LLMCancelTelemetryMatrixTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Ingest
-  alias JidoConversation.Runtime.Coordinator
-  alias JidoConversation.Runtime.EffectManager
-  alias JidoConversation.Runtime.IngressSubscriber
-  alias JidoConversation.Telemetry
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.Runtime.Coordinator
+  alias Jido.Conversation.Runtime.EffectManager
+  alias Jido.Conversation.Runtime.IngressSubscriber
+  alias Jido.Conversation.Telemetry
 
   @app :jido_conversation
-  @key JidoConversation.EventSystem
+  @key Jido.Conversation.EventSystem
 
   defmodule CancelTelemetryBackendStub do
-    @behaviour JidoConversation.LLM.Backend
+    @behaviour Jido.Conversation.LLM.Backend
 
-    alias JidoConversation.LLM.Error
-    alias JidoConversation.LLM.Event
-    alias JidoConversation.LLM.Request
-    alias JidoConversation.LLM.Result
+    alias Jido.Conversation.LLM.Error
+    alias Jido.Conversation.LLM.Event
+    alias Jido.Conversation.LLM.Request
+    alias Jido.Conversation.LLM.Result
 
     @impl true
     def capabilities do
@@ -169,8 +169,16 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
       assert llm_cancel_result_count(snapshot.cancel_results, "ok") >=
                llm_cancel_result_count(baseline.cancel_results, "ok") + 1
 
-      assert backend_lifecycle_count(snapshot.lifecycle_by_backend, Atom.to_string(backend), :canceled) >=
-               backend_lifecycle_count(baseline.lifecycle_by_backend, Atom.to_string(backend), :canceled) +
+      assert backend_lifecycle_count(
+               snapshot.lifecycle_by_backend,
+               Atom.to_string(backend),
+               :canceled
+             ) >=
+               backend_lifecycle_count(
+                 baseline.lifecycle_by_backend,
+                 Atom.to_string(backend),
+                 :canceled
+               ) +
                  1
     end)
   end
@@ -284,7 +292,8 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
     end)
   end
 
-  defp put_runtime_backend!(backend, opts) when backend in [:jido_ai, :harness] and is_list(opts) do
+  defp put_runtime_backend!(backend, opts)
+       when backend in [:jido_ai, :harness] and is_list(opts) do
     timeout_ms = 1_000
     include_execution_ref? = Keyword.get(opts, :include_execution_ref?, true)
     cancel_scenario = Keyword.get(opts, :cancel_scenario, :ok)
@@ -376,7 +385,8 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
     end
   end
 
-  defp llm_cancel_result_count(cancel_results, key) when is_map(cancel_results) and is_binary(key) do
+  defp llm_cancel_result_count(cancel_results, key)
+       when is_map(cancel_results) and is_binary(key) do
     Map.get(cancel_results, key, 0)
   end
 
