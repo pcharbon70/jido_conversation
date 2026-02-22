@@ -56,6 +56,7 @@ that can execute through:
 | Phase 29 | `completed` | Non-stream retry progress payload parity hardening | Retrying progress error-category/retryable invariants across retryable categories |
 | Phase 30 | `completed` | Stream retry progress payload parity hardening | Stream retrying progress error-category/retryable invariants across retryable categories |
 | Phase 31 | `completed` | Telemetry retry-category parity hardening | Retry-category precedence/fallback invariants in telemetry aggregation |
+| Phase 32 | `completed` | Effect-manager LLM retry lifecycle parity hardening | Retrying progress payload classification and telemetry invariants in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1333,6 +1334,41 @@ that can execute through:
 
 - Added retry-category precedence/fallback parity test:
   - `test/jido_conversation/telemetry_test.exs`
+
+## Phase 32: Effect-manager LLM retry lifecycle parity hardening
+
+### Objectives
+
+- Harden lower-level effect runtime coverage for LLM retry classification.
+- Ensure effect manager integration tests assert retrying lifecycle payload
+  classification invariants directly.
+
+### Tasks
+
+- Add retryable LLM backend stub behavior in effect manager tests:
+  - first attempt returns retryable provider error
+  - second attempt recovers with completion
+- Assert retrying lifecycle payload includes:
+  - `status: "retrying"`
+  - `error_category: "provider"`
+  - `retryable?: true`
+- Assert provider retry-category telemetry increments exactly once for the
+  recovery path.
+
+### Deliverables
+
+- Extended effect manager runtime coverage for retrying LLM lifecycle payload
+  classification and retry telemetry invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify retrying payload classification
+  consistency and provider retry telemetry behavior for retryable LLM failures.
+
+### Completion notes
+
+- Added retryable provider backend stub and recovery assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
 
