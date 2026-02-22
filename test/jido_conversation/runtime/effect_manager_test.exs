@@ -552,8 +552,10 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert snapshot.stream_chunks.delta >= baseline.stream_chunks.delta + 2
   end
 
-  test "non-retryable llm backend errors do not retry even when max_attempts is greater than one" do
+  test "non-retryable llm backend stream-path errors do not retry and keep retry telemetry unchanged" do
     put_runtime_llm_backend!(LLMNonRetryableBackendStub, self())
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
 
     conversation_id = unique_id("conversation")
     effect_id = unique_id("effect")
@@ -573,6 +575,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
       )
 
     assert_receive {:llm_non_retryable_stream, %Request{}}
+    refute_receive {:llm_non_retryable_stream, %Request{}}, 200
 
     assert {:ok, recorded} =
              eventually(fn ->
@@ -599,9 +602,24 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
              lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
            end)
 
-    assert Enum.any?(recorded, fn event ->
-             lifecycle_for(event) == "failed" and data_field(event, :retryable?, true) == false
-           end)
+    failed_event = Enum.find(recorded, &(lifecycle_for(&1) == "failed"))
+    assert failed_event
+    assert data_field(failed_event, :error_category, nil) == "config"
+    assert data_field(failed_event, :retryable?, true) == false
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.failed >= baseline.lifecycle_counts.failed + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.retry_by_category, "config", 0) ==
+             Map.get(baseline.retry_by_category, "config", 0)
   end
 
   test "non-retryable llm backend start-path errors do not retry and keep retry telemetry unchanged" do
