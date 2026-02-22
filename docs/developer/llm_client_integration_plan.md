@@ -60,6 +60,7 @@ that can execute through:
 | Phase 33 | `completed` | Effect-manager LLM start-path retry parity hardening | Non-stream retrying progress payload classification and telemetry invariants in effect runtime tests |
 | Phase 34 | `completed` | Effect-manager LLM start-path non-retry parity hardening | Non-stream non-retryable failed payload classification and retry telemetry invariants in effect runtime tests |
 | Phase 35 | `completed` | Effect-manager LLM stream-path non-retry parity hardening | Stream non-retryable failed payload classification and retry telemetry invariants in effect runtime tests |
+| Phase 36 | `completed` | Effect-manager LLM stream-path retry cardinality parity hardening | Stream retry-attempt bounds, retrying lifecycle cardinality, and failed-telemetry invariants in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1479,6 +1480,37 @@ that can execute through:
 ### Completion notes
 
 - Extended stream non-retryable config failure assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 36: Effect-manager LLM stream-path retry cardinality parity hardening
+
+### Objectives
+
+- Harden effect runtime retryable stream-path parity coverage for deterministic
+  attempt bounds and lifecycle cardinality.
+- Ensure successful retry recovery does not regress failed lifecycle telemetry.
+
+### Tasks
+
+- Extend retryable stream-path effect manager test to assert:
+  - stream retries stop at the expected bound for a single retryable failure
+  - exactly one retrying progress lifecycle is emitted
+  - started/completed lifecycle cardinality remains deterministic
+  - failed lifecycle telemetry does not increment on successful recovery
+
+### Deliverables
+
+- Hardened stream retry-path effect manager test assertions for attempt
+  cardinality, retrying lifecycle cardinality, and failed telemetry invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify deterministic stream retry attempt
+  bounds and no failed-telemetry regression when retryable failures recover.
+
+### Completion notes
+
+- Extended stream retryable provider failure assertions in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
