@@ -62,6 +62,7 @@ that can execute through:
 | Phase 35 | `completed` | Effect-manager LLM stream-path non-retry parity hardening | Stream non-retryable failed payload classification and retry telemetry invariants in effect runtime tests |
 | Phase 36 | `completed` | Effect-manager LLM stream-path retry cardinality parity hardening | Stream retry-attempt bounds, retrying lifecycle cardinality, and failed-telemetry invariants in effect runtime tests |
 | Phase 37 | `completed` | Effect-manager LLM start-path retry cardinality parity hardening | Non-stream retry-attempt bounds, retrying lifecycle cardinality, and failed-telemetry invariants in effect runtime tests |
+| Phase 38 | `completed` | Effect-manager LLM stream-path retry-attempt-start parity hardening | Stream retry-attempt-start lifecycle cardinality and attempt labeling invariants in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1544,6 +1545,38 @@ that can execute through:
 ### Completion notes
 
 - Extended non-stream retryable provider failure assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 38: Effect-manager LLM stream-path retry-attempt-start parity hardening
+
+### Objectives
+
+- Harden effect runtime retryable stream-path parity coverage for deterministic
+  retry-attempt-start lifecycle semantics.
+- Ensure the retry-attempt-start progress lifecycle is emitted exactly once and
+  with the expected attempt number.
+
+### Tasks
+
+- Extend retryable stream-path effect manager test to assert:
+  - a `retry_attempt_started` progress lifecycle is emitted
+  - `retry_attempt_started` carries `attempt: 2` for single retry recovery
+  - `retry_attempt_started` lifecycle cardinality is exactly one
+
+### Deliverables
+
+- Hardened stream retry-path effect manager test assertions for
+  retry-attempt-start lifecycle cardinality and attempt labeling invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify deterministic stream
+  retry-attempt-start lifecycle payload semantics and cardinality for retryable
+  recovery.
+
+### Completion notes
+
+- Extended stream retryable provider failure assertions in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
