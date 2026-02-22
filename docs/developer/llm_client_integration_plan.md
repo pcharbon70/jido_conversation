@@ -47,6 +47,7 @@ that can execute through:
 | Phase 20 | `completed` | Stream auth non-retryable runtime parity | Stream auth classification and retry telemetry invariants |
 | Phase 21 | `completed` | Unknown non-retryable runtime parity | Non-stream unknown classification and retry telemetry invariants |
 | Phase 22 | `completed` | Stream unknown non-retryable runtime parity | Stream unknown classification and retry telemetry invariants |
+| Phase 23 | `completed` | Config non-retryable runtime parity | Non-stream config classification and retry telemetry invariants |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -959,6 +960,46 @@ that can execute through:
     (`unknown`, `false`)
   - no `unknown` retry counter increments in telemetry snapshot for stream
     paths
+
+## Phase 23: Config non-retryable runtime parity
+
+### Objectives
+
+- Validate runtime config classification parity across non-stream execution
+  paths for built-in adapters.
+- Ensure config failures remain non-retryable and do not increment retry
+  category counters.
+
+### Tasks
+
+- Extend runtime retry matrix coverage with config failure scenarios for:
+  - `jido_ai` backend path (`ArgumentError` configuration failure)
+  - `harness` backend path (`ArgumentError` configuration failure)
+- Verify config failures do not retry and terminate with failed lifecycle.
+- Verify failed lifecycle payload includes:
+  - `error_category: "config"`
+  - `retryable?: false`
+- Verify telemetry `llm.retry_by_category["config"]` remains unchanged for
+  non-retryable config failures.
+
+### Deliverables
+
+- Runtime retry matrix tests covering config non-retryable classification and
+  telemetry invariants.
+
+### Exit criteria
+
+- Config runtime failures are classified deterministically and never retried
+  across both built-in adapters in non-stream mode.
+
+### Completion notes
+
+- Extended runtime retry policy matrix with config non-retryable coverage:
+  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+- Added explicit assertions for:
+  - no retry attempts on config-classified failures
+  - failed lifecycle payload category/retryable invariants (`config`, `false`)
+  - no `config` retry counter increments in telemetry snapshot
 
 ## Cross-phase quality gates
 
