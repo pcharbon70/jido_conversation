@@ -54,6 +54,7 @@ that can execute through:
 | Phase 27 | `completed` | Provider non-retryable runtime parity hardening | Non-stream provider failed payload classification parity + telemetry invariants |
 | Phase 28 | `completed` | Stream provider non-retryable runtime parity hardening | Stream provider failed payload classification parity + telemetry invariants |
 | Phase 29 | `completed` | Non-stream retry progress payload parity hardening | Retrying progress error-category/retryable invariants across retryable categories |
+| Phase 30 | `completed` | Stream retry progress payload parity hardening | Stream retrying progress error-category/retryable invariants across retryable categories |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1260,6 +1261,46 @@ that can execute through:
   payload category/retryable invariants:
   - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
 - Refactored non-stream provider retryable recovery tests to use the shared
+  retry-category helper path for consistent parity checks.
+
+## Phase 30: Stream retry progress payload parity hardening
+
+### Objectives
+
+- Harden stream retry-path payload parity assertions for built-in adapters.
+- Ensure retrying stream progress lifecycle payload explicitly carries expected
+  retry category and retryable classification across retryable categories.
+
+### Tasks
+
+- Update stream runtime retry matrix retry-path coverage to assert retrying
+  progress payload invariants for:
+  - provider retryable recovery path (`retryable_then_success`)
+  - timeout retryable recovery path (`timeout_then_success`)
+  - transport retryable recovery path (`transport_then_success`)
+- Assert retrying stream progress payload includes:
+  - `status: "retrying"`
+  - `error_category: <expected category>`
+  - `retryable?: true`
+- Keep terminal completion and retry telemetry increment assertions unchanged.
+
+### Deliverables
+
+- Updated stream runtime retry matrix helper assertions and retryable provider
+  path tests.
+
+### Exit criteria
+
+- Stream retryable runtime paths across both built-in adapters verify
+  deterministic retrying progress payload classification and retry category
+  telemetry increments.
+
+### Completion notes
+
+- Hardened stream retry helper assertions to validate retrying progress payload
+  category/retryable invariants:
+  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+- Refactored stream provider retryable recovery tests to use the shared
   retry-category helper path for consistent parity checks.
 
 ## Cross-phase quality gates
