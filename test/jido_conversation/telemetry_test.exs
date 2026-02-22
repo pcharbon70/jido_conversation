@@ -245,6 +245,85 @@ defmodule JidoConversation.TelemetryTest do
     assert llm.cancel_latency_ms.avg_ms > 0.0
   end
 
+  test "llm retry metrics prefer retry_category and fall back to error_category" do
+    baseline = Telemetry.snapshot().llm
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :retry],
+      %{count: 1, backoff_ms: 10},
+      %{
+        effect_id: "llm-retry-provider",
+        conversation_id: "c-1",
+        retry_category: "provider",
+        backend: "jido_ai"
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :retry],
+      %{count: 1, backoff_ms: 15},
+      %{
+        effect_id: "llm-retry-transport-fallback",
+        conversation_id: "c-1",
+        error_category: "transport",
+        backend: "jido_ai"
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :retry],
+      %{count: 1, backoff_ms: 20},
+      %{
+        effect_id: "llm-retry-prefer-retry-category",
+        conversation_id: "c-1",
+        retry_category: "timeout",
+        error_category: "provider",
+        backend: "harness"
+      }
+    )
+
+    :telemetry.execute(
+      [:jido_conversation, :runtime, :llm, :retry],
+      %{count: 1, backoff_ms: 25},
+      %{
+        effect_id: "llm-retry-empty-category",
+        conversation_id: "c-1",
+        retry_category: "   ",
+        backend: "harness"
+      }
+    )
+
+    llm =
+      eventually(fn ->
+        current = Telemetry.snapshot().llm
+
+        provider = Map.get(current.retry_by_category, "provider", 0)
+        transport = Map.get(current.retry_by_category, "transport", 0)
+        timeout = Map.get(current.retry_by_category, "timeout", 0)
+
+        base_provider = Map.get(baseline.retry_by_category, "provider", 0)
+        base_transport = Map.get(baseline.retry_by_category, "transport", 0)
+        base_timeout = Map.get(baseline.retry_by_category, "timeout", 0)
+
+        if provider >= base_provider + 1 and
+             transport >= base_transport + 1 and
+             timeout >= base_timeout + 1 do
+          {:ok, current}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(llm.retry_by_category, "provider", 0) ==
+             Map.get(baseline.retry_by_category, "provider", 0) + 1
+
+    assert Map.get(llm.retry_by_category, "transport", 0) ==
+             Map.get(baseline.retry_by_category, "transport", 0) + 1
+
+    assert Map.get(llm.retry_by_category, "timeout", 0) ==
+             Map.get(baseline.retry_by_category, "timeout", 0) + 1
+  end
+
   test "reset clears metrics to baseline" do
     partition_id = System.unique_integer([:positive, :monotonic]) + 2_000
 
