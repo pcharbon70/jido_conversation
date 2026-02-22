@@ -863,11 +863,25 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert retrying_event
     assert data_field(retrying_event, :error_category, nil) == "provider"
     assert data_field(retrying_event, :retryable?, false) == true
+
+    retry_attempt_started_event =
+      Enum.find(recorded, fn event ->
+        lifecycle_for(event) == "progress" and
+          data_field(event, :status, nil) == "retry_attempt_started"
+      end)
+
+    assert retry_attempt_started_event
+    assert to_integer(data_field(retry_attempt_started_event, :attempt, 0)) == 2
     assert Enum.count(recorded, &(lifecycle_for(&1) == "started")) == 1
     assert Enum.count(recorded, &(lifecycle_for(&1) == "completed")) == 1
 
     assert Enum.count(recorded, fn event ->
              lifecycle_for(event) == "progress" and data_field(event, :status, nil) == "retrying"
+           end) == 1
+
+    assert Enum.count(recorded, fn event ->
+             lifecycle_for(event) == "progress" and
+               data_field(event, :status, nil) == "retry_attempt_started"
            end) == 1
 
     assert Enum.any?(recorded, fn event ->
