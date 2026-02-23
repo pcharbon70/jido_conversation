@@ -152,7 +152,36 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
       :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", nil)
       assert_receive {:cancel_matrix_cancel_called, :ok, ^execution_ref}, @assert_timeout
 
-      assert_canceled_without_completion!(effect_id, replay_start)
+      canceled_event =
+        eventually(fn ->
+          case Ingest.replay("conv.effect.llm.generation.canceled", replay_start) do
+            {:ok, records} ->
+              records
+              |> Enum.find(fn record ->
+                effect_id_for(record) == effect_id and lifecycle_for(record) == "canceled"
+              end)
+              |> case do
+                nil -> :retry
+                event -> {:ok, event}
+              end
+
+            _other ->
+              :retry
+          end
+        end)
+
+      assert data_field(canceled_event, :reason, nil) == "user_abort"
+      assert data_field(canceled_event, :backend_cancel, nil) == "ok"
+      assert data_field(canceled_event, :backend, nil) == Atom.to_string(backend)
+      assert data_field(canceled_event, :model, nil) == "matrix-model"
+
+      expected_provider =
+        case backend do
+          :jido_ai -> "matrix-provider"
+          :harness -> "codex"
+        end
+
+      assert data_field(canceled_event, :provider, nil) == expected_provider
 
       snapshot =
         eventually(fn ->
@@ -182,6 +211,8 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
                  :canceled
                ) +
                  1
+
+      assert snapshot.retry_by_category == baseline.retry_by_category
     end)
   end
 
@@ -1111,29 +1142,6 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
         ]
       ]
     )
-  end
-
-  defp assert_canceled_without_completion!(effect_id, replay_start) do
-    events = eventually(fn -> canceled_effect_events(effect_id, replay_start) end)
-
-    assert Enum.any?(events, &(lifecycle_for(&1) == "canceled"))
-    refute Enum.any?(events, &(lifecycle_for(&1) == "completed"))
-  end
-
-  defp canceled_effect_events(effect_id, replay_start) do
-    case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
-      {:ok, records} ->
-        matches = Enum.filter(records, &(effect_id_for(&1) == effect_id))
-
-        if Enum.any?(matches, &(lifecycle_for(&1) == "canceled")) do
-          {:ok, matches}
-        else
-          :retry
-        end
-
-      _other ->
-        :retry
-    end
   end
 
   defp llm_cancel_result_count(cancel_results, key)

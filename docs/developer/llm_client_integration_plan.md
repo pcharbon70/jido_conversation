@@ -81,6 +81,7 @@ that can execute through:
 | Phase 54 | `completed` | Cancel-not-available cause-link matrix parity hardening | Cross-backend (`jido_ai`/`harness`) explicit `cause_id` trace-chain linkage and cancel-not-available telemetry/backend lifecycle attribution invariants in runtime matrix tests |
 | Phase 55 | `completed` | Cancel-not-available baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-not-available payload attribution and backend lifecycle telemetry invariants in runtime matrix tests |
 | Phase 56 | `completed` | Cancel-failed baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-failed payload attribution/error metadata and backend lifecycle telemetry invariants in runtime matrix tests |
+| Phase 57 | `completed` | Cancel-ok baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-ok payload attribution and backend lifecycle/retry-category telemetry invariants in runtime matrix tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2294,6 +2295,46 @@ that can execute through:
 
 - Extended baseline cancel-failed payload attribution/error metadata and
   backend lifecycle telemetry assertions in:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 57: Cancel-ok baseline attribution matrix parity hardening
+
+### Objectives
+
+- Harden baseline runtime cancellation parity coverage for successful backend
+  cancellation outcomes across built-in backends.
+- Ensure baseline cancel-ok assertions include lifecycle payload attribution
+  and retry-category telemetry invariants in addition to cancel result and
+  backend lifecycle counters.
+
+### Tasks
+
+- Extend baseline cancel-ok matrix test across `[:jido_ai, :harness]` to
+  assert canceled lifecycle payload includes:
+  - `reason: "user_abort"`
+  - `backend_cancel: "ok"`
+  - backend/provider/model attribution per backend config
+- Assert telemetry:
+  - `lifecycle_counts.canceled`, `cancel_latency_ms.count`, and
+    `cancel_results["ok"]` increment
+  - backend lifecycle telemetry increments for the resolved backend key
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened baseline cancel-ok matrix assertions for payload attribution and
+  backend lifecycle/retry-category telemetry invariants.
+
+### Exit criteria
+
+- Runtime matrix tests verify deterministic baseline cancel-ok payload
+  attribution and telemetry/back-end lifecycle parity across `jido_ai` and
+  `harness`.
+
+### Completion notes
+
+- Extended baseline cancel-ok payload attribution and backend lifecycle/
+  retry-category telemetry assertions in:
   - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Cross-phase quality gates
