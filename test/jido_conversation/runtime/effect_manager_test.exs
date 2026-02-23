@@ -1228,6 +1228,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert canceled_event.signal.id in trace_ids
     assert cause_signal.id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
 
     snapshot =
       eventually(fn ->
@@ -1310,6 +1311,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert canceled_event.signal.id in trace_ids
     refute invalid_cause_id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
 
     snapshot =
       eventually(fn ->
@@ -1391,6 +1393,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert canceled_event.signal.id in trace_ids
     assert cause_signal.id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
   end
 
   test "cancel_conversation falls back to uncoupled canceled lifecycle when cause_id is invalid" do
@@ -1446,6 +1449,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert canceled_event.signal.id in trace_ids
     refute invalid_cause_id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
 
     snapshot =
       eventually(fn ->
@@ -1559,6 +1563,40 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
         :retry
       end
     end)
+  end
+
+  defp assert_terminal_canceled_only!(effect_id, replay_start) do
+    terminal_events =
+      eventually(fn ->
+        case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+          {:ok, records} ->
+            terminal_events_for_effect(records, effect_id)
+
+          _other ->
+            :retry
+        end
+      end)
+
+    assert Enum.count(terminal_events, &(lifecycle_for(&1) == "canceled")) == 1
+    refute Enum.any?(terminal_events, &(lifecycle_for(&1) == "completed"))
+    refute Enum.any?(terminal_events, &(lifecycle_for(&1) == "failed"))
+  end
+
+  defp terminal_events_for_effect(records, effect_id) when is_list(records) do
+    records
+    |> Enum.filter(fn event ->
+      effect_id_for(event) == effect_id and
+        lifecycle_for(event) in ["completed", "failed", "canceled"]
+    end)
+    |> maybe_retry_terminal_events()
+  end
+
+  defp maybe_retry_terminal_events(terminal_events) when is_list(terminal_events) do
+    if Enum.any?(terminal_events, &(lifecycle_for(&1) == "canceled")) do
+      {:ok, terminal_events}
+    else
+      :retry
+    end
   end
 
   defp eventually(fun, attempts \\ 250)
