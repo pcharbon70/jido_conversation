@@ -748,7 +748,39 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
       :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", nil)
       assert_receive {:cancel_matrix_cancel_called, :failed, ^execution_ref}, @assert_timeout
 
-      assert_canceled_without_completion!(effect_id, replay_start)
+      canceled_event =
+        eventually(fn ->
+          case Ingest.replay("conv.effect.llm.generation.canceled", replay_start) do
+            {:ok, records} ->
+              records
+              |> Enum.find(fn record ->
+                effect_id_for(record) == effect_id and lifecycle_for(record) == "canceled"
+              end)
+              |> case do
+                nil -> :retry
+                event -> {:ok, event}
+              end
+
+            _other ->
+              :retry
+          end
+        end)
+
+      assert data_field(canceled_event, :reason, nil) == "user_abort"
+      assert data_field(canceled_event, :backend_cancel, nil) == "failed"
+      assert data_field(canceled_event, :backend_cancel_reason, nil) == "cancel failed"
+      assert data_field(canceled_event, :backend_cancel_category, nil) == "provider"
+      assert data_field(canceled_event, :backend_cancel_retryable?, nil) == true
+      assert data_field(canceled_event, :backend, nil) == Atom.to_string(backend)
+      assert data_field(canceled_event, :model, nil) == "matrix-model"
+
+      expected_provider =
+        case backend do
+          :jido_ai -> "matrix-provider"
+          :harness -> "codex"
+        end
+
+      assert data_field(canceled_event, :provider, nil) == expected_provider
 
       snapshot =
         eventually(fn ->
@@ -766,6 +798,19 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
 
       assert llm_cancel_result_count(snapshot.cancel_results, "failed") >=
                llm_cancel_result_count(baseline.cancel_results, "failed") + 1
+
+      assert backend_lifecycle_count(
+               snapshot.lifecycle_by_backend,
+               Atom.to_string(backend),
+               :canceled
+             ) >=
+               backend_lifecycle_count(
+                 baseline.lifecycle_by_backend,
+                 Atom.to_string(backend),
+                 :canceled
+               ) + 1
+
+      assert snapshot.retry_by_category == baseline.retry_by_category
     end)
   end
 
