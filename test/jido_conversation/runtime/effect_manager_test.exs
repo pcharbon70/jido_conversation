@@ -1245,6 +1245,9 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert Map.get(snapshot.cancel_results, "failed", 0) >=
              Map.get(baseline.cancel_results, "failed", 0) + 1
 
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
+
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
 
@@ -1296,6 +1299,11 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert data_field(canceled_event, :reason, nil) == "user_abort"
     assert data_field(canceled_event, :backend_cancel, nil) == "failed"
     assert data_field(canceled_event, :backend_cancel_reason, nil) == "cancel failed"
+    assert data_field(canceled_event, :backend_cancel_category, nil) == "provider"
+    assert data_field(canceled_event, :backend_cancel_retryable?, nil) == true
+    assert data_field(canceled_event, :backend, nil) == "jido_ai"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
 
     trace = Ingest.trace_chain(canceled_event.signal.id, :backward)
     trace_ids = Enum.map(trace, & &1.id)
@@ -1318,6 +1326,9 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert Map.get(snapshot.cancel_results, "failed", 0) >=
              Map.get(baseline.cancel_results, "failed", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
 
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
