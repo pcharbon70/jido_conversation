@@ -1152,18 +1152,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
       eventually(fn ->
         case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
           {:ok, records} ->
-            events_for_effect = Enum.filter(records, &(effect_id_for(&1) == effect_id))
-
-            terminal_events =
-              Enum.filter(events_for_effect, fn event ->
-                lifecycle_for(event) in ["completed", "failed", "canceled"]
-              end)
-
-            if Enum.any?(terminal_events, &(lifecycle_for(&1) == "canceled")) do
-              {:ok, terminal_events}
-            else
-              :retry
-            end
+            terminal_events_for_effect(records, effect_id)
 
           _other ->
             :retry
@@ -1173,6 +1162,23 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
     assert Enum.count(terminal_events, &(lifecycle_for(&1) == "canceled")) == 1
     refute Enum.any?(terminal_events, &(lifecycle_for(&1) == "completed"))
     refute Enum.any?(terminal_events, &(lifecycle_for(&1) == "failed"))
+  end
+
+  defp terminal_events_for_effect(records, effect_id) when is_list(records) do
+    records
+    |> Enum.filter(fn event ->
+      effect_id_for(event) == effect_id and
+        lifecycle_for(event) in ["completed", "failed", "canceled"]
+    end)
+    |> maybe_retry_terminal_events()
+  end
+
+  defp maybe_retry_terminal_events(terminal_events) when is_list(terminal_events) do
+    if Enum.any?(terminal_events, &(lifecycle_for(&1) == "canceled")) do
+      {:ok, terminal_events}
+    else
+      :retry
+    end
   end
 
   defp llm_cancel_result_count(cancel_results, key)
