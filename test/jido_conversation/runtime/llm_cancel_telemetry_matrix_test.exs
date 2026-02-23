@@ -182,6 +182,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
         end
 
       assert data_field(canceled_event, :provider, nil) == expected_provider
+      assert_terminal_canceled_only!(effect_id, replay_start)
 
       snapshot =
         eventually(fn ->
@@ -492,6 +493,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
         end
 
       assert data_field(canceled_event, :provider, nil) == expected_provider
+      assert_terminal_canceled_only!(effect_id, replay_start)
 
       snapshot =
         eventually(fn ->
@@ -812,6 +814,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
         end
 
       assert data_field(canceled_event, :provider, nil) == expected_provider
+      assert_terminal_canceled_only!(effect_id, replay_start)
 
       snapshot =
         eventually(fn ->
@@ -1142,6 +1145,34 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
         ]
       ]
     )
+  end
+
+  defp assert_terminal_canceled_only!(effect_id, replay_start) do
+    terminal_events =
+      eventually(fn ->
+        case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+          {:ok, records} ->
+            events_for_effect = Enum.filter(records, &(effect_id_for(&1) == effect_id))
+
+            terminal_events =
+              Enum.filter(events_for_effect, fn event ->
+                lifecycle_for(event) in ["completed", "failed", "canceled"]
+              end)
+
+            if Enum.any?(terminal_events, &(lifecycle_for(&1) == "canceled")) do
+              {:ok, terminal_events}
+            else
+              :retry
+            end
+
+          _other ->
+            :retry
+        end
+      end)
+
+    assert Enum.count(terminal_events, &(lifecycle_for(&1) == "canceled")) == 1
+    refute Enum.any?(terminal_events, &(lifecycle_for(&1) == "completed"))
+    refute Enum.any?(terminal_events, &(lifecycle_for(&1) == "failed"))
   end
 
   defp llm_cancel_result_count(cancel_results, key)
