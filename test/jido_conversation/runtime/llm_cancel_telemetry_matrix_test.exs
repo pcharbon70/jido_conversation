@@ -452,6 +452,122 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
     end)
   end
 
+  test "not_available cancel with explicit cause_id links canceled lifecycle across backends" do
+    Enum.each([:jido_ai, :harness], fn backend ->
+      :ok = Telemetry.reset()
+      baseline = Telemetry.snapshot().llm
+
+      put_runtime_backend!(backend,
+        include_execution_ref?: false,
+        cancel_scenario: :ok,
+        test_pid: self()
+      )
+
+      conversation_id = unique_id("cancel-na-cause-link-conversation-#{backend}")
+      effect_id = unique_id("cancel-na-cause-link-effect-#{backend}")
+      replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+      assert {:ok, %{signal: cause_signal}} =
+               Ingest.ingest(%{
+                 id: unique_id("cancel-na-cause-link-cause-#{backend}"),
+                 type: "conv.audit.policy.decision_recorded",
+                 source: "/tests/llm-cancel-telemetry-matrix",
+                 subject: conversation_id,
+                 data: %{
+                   audit_id: unique_id("cancel-na-cause-link-audit-#{backend}"),
+                   category: "policy",
+                   decision: "allow"
+                 },
+                 extensions: %{contract_major: 1}
+               })
+
+      :ok =
+        EffectManager.start_effect(
+          %{
+            effect_id: effect_id,
+            conversation_id: conversation_id,
+            class: :llm,
+            kind: "generation",
+            input: %{content: "cancel me without execution ref and explicit cause"},
+            policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 1_000}
+          },
+          nil
+        )
+
+      assert_receive {:cancel_matrix_stream_started, ^backend, nil}, @assert_timeout
+
+      :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", cause_signal.id)
+      refute_receive {:cancel_matrix_cancel_called, _, _}, 200
+
+      canceled_event =
+        eventually(fn ->
+          case Ingest.replay("conv.effect.llm.generation.canceled", replay_start) do
+            {:ok, records} ->
+              records
+              |> Enum.find(fn record ->
+                effect_id_for(record) == effect_id and lifecycle_for(record) == "canceled"
+              end)
+              |> case do
+                nil -> :retry
+                event -> {:ok, event}
+              end
+
+            _other ->
+              :retry
+          end
+        end)
+
+      assert data_field(canceled_event, :reason, nil) == "user_abort"
+      assert data_field(canceled_event, :backend_cancel, nil) == "not_available"
+      assert data_field(canceled_event, :backend, nil) == Atom.to_string(backend)
+      assert data_field(canceled_event, :model, nil) == "matrix-model"
+
+      expected_provider =
+        case backend do
+          :jido_ai -> "matrix-provider"
+          :harness -> "codex"
+        end
+
+      assert data_field(canceled_event, :provider, nil) == expected_provider
+
+      trace = Ingest.trace_chain(canceled_event.signal.id, :backward)
+      trace_ids = Enum.map(trace, & &1.id)
+
+      assert canceled_event.signal.id in trace_ids
+      assert cause_signal.id in trace_ids
+
+      snapshot =
+        eventually(fn ->
+          llm = Telemetry.snapshot().llm
+
+          if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+               llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
+               llm_cancel_result_count(llm.cancel_results, "not_available") >=
+                 llm_cancel_result_count(baseline.cancel_results, "not_available") + 1 do
+            {:ok, llm}
+          else
+            :retry
+          end
+        end)
+
+      assert llm_cancel_result_count(snapshot.cancel_results, "not_available") >=
+               llm_cancel_result_count(baseline.cancel_results, "not_available") + 1
+
+      assert backend_lifecycle_count(
+               snapshot.lifecycle_by_backend,
+               Atom.to_string(backend),
+               :canceled
+             ) >=
+               backend_lifecycle_count(
+                 baseline.lifecycle_by_backend,
+                 Atom.to_string(backend),
+                 :canceled
+               ) + 1
+
+      assert snapshot.retry_by_category == baseline.retry_by_category
+    end)
+  end
+
   test "cancel telemetry records failed result across backends when backend cancellation fails" do
     Enum.each([:jido_ai, :harness], fn backend ->
       :ok = Telemetry.reset()
