@@ -72,6 +72,7 @@ that can execute through:
 | Phase 45 | `completed` | Effect-manager LLM cancel invalid-cause fallback parity hardening | Invalid cancel `cause_id` uncoupled lifecycle tracing and cancel telemetry invariants in effect runtime tests |
 | Phase 46 | `completed` | Effect-manager LLM cancel-failed cause-link parity hardening | Cancel-failed explicit `cause_id` lifecycle linkage and failed-cancel telemetry invariants in effect runtime tests |
 | Phase 47 | `completed` | Effect-manager LLM cancel-failed invalid-cause fallback parity hardening | Cancel-failed invalid `cause_id` uncoupled lifecycle tracing and failed-cancel telemetry invariants in effect runtime tests |
+| Phase 48 | `completed` | Effect-manager LLM cancel-failed invalid-cause attribution parity hardening | Cancel-failed invalid `cause_id` attribution payload/category and backend lifecycle telemetry invariants in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1911,6 +1912,46 @@ that can execute through:
 ### Completion notes
 
 - Added failed-cancel invalid cause fallback tracing assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 48: Effect-manager LLM cancel-failed invalid-cause attribution parity hardening
+
+### Objectives
+
+- Harden effect runtime LLM cancellation parity coverage for attribution and
+  cancel-error category fields in invalid explicit `cause_id` failed-cancel
+  scenarios.
+- Ensure backend lifecycle telemetry attribution remains consistent for
+  failed-cancel invalid-cause fallback outcomes.
+
+### Tasks
+
+- Extend effect manager failed-cancel invalid-cause test to assert canceled
+  payload includes:
+  - `backend_cancel_category: "provider"`
+  - `backend_cancel_retryable?: true`
+  - `backend: "jido_ai"`
+  - `provider: "stub-provider"`
+  - `model: "stub-model"`
+- Assert backend lifecycle telemetry reflects canceled increments for the
+  resolved backend key (`"jido_ai"`).
+
+### Deliverables
+
+- Hardened failed-cancel invalid-cause effect manager assertions for
+  attribution/category payload fields and backend lifecycle telemetry
+  invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify deterministic failed-cancel
+  invalid-cause attribution/category payload fields and backend canceled
+  lifecycle telemetry increments.
+
+### Completion notes
+
+- Extended failed-cancel invalid-cause attribution/category and backend
+  lifecycle telemetry assertions in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
