@@ -74,6 +74,7 @@ that can execute through:
 | Phase 47 | `completed` | Effect-manager LLM cancel-failed invalid-cause fallback parity hardening | Cancel-failed invalid `cause_id` uncoupled lifecycle tracing and failed-cancel telemetry invariants in effect runtime tests |
 | Phase 48 | `completed` | Effect-manager LLM cancel-failed invalid-cause attribution parity hardening | Cancel-failed invalid `cause_id` attribution payload/category and backend lifecycle telemetry invariants in effect runtime tests |
 | Phase 49 | `completed` | Cancel-failed invalid-cause fallback matrix parity hardening | Cross-backend (`jido_ai`/`harness`) invalid `cause_id` fallback tracing and failed-cancel telemetry/backend attribution invariants in runtime matrix tests |
+| Phase 50 | `completed` | Cancel-failed cause-link matrix parity hardening | Cross-backend (`jido_ai`/`harness`) explicit `cause_id` trace-chain linkage and failed-cancel telemetry/backend attribution invariants in runtime matrix tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1994,6 +1995,48 @@ that can execute through:
 
 - Added cross-backend failed-cancel invalid cause fallback tracing and
   telemetry attribution assertions in:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 50: Cancel-failed cause-link matrix parity hardening
+
+### Objectives
+
+- Harden runtime cancellation parity coverage for failed backend cancellation
+  with explicit valid `cause_id` values across both built-in backends.
+- Ensure failed-cancel lifecycle records remain traceable to explicit causes
+  while preserving failed-cancel telemetry and backend attribution invariants
+  for `jido_ai` and `harness`.
+
+### Tasks
+
+- Add runtime matrix coverage for failed-cancel explicit `cause_id` linkage
+  across `[:jido_ai, :harness]` to assert:
+  - backend cancel failure path remains invoked
+  - canceled lifecycle payload includes failed-cancel error metadata
+  - canceled lifecycle payload includes backend/provider/model attribution per
+    backend config
+  - backward trace chain includes canceled signal id and explicit cause signal
+    id
+  - telemetry `lifecycle_counts.canceled`, `cancel_latency_ms.count`, and
+    `cancel_results["failed"]` increment
+  - backend lifecycle telemetry increments for the resolved backend key
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened cancel telemetry matrix coverage for cross-backend failed-cancel
+  explicit cause-link tracing and telemetry attribution invariants.
+
+### Exit criteria
+
+- Runtime matrix tests verify deterministic explicit cause linkage semantics
+  and failed-cancel telemetry/back-end attribution parity across `jido_ai` and
+  `harness`.
+
+### Completion notes
+
+- Added cross-backend failed-cancel explicit cause-link tracing and telemetry
+  attribution assertions in:
   - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Cross-phase quality gates
