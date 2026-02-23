@@ -83,6 +83,7 @@ that can execute through:
 | Phase 56 | `completed` | Cancel-failed baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-failed payload attribution/error metadata and backend lifecycle telemetry invariants in runtime matrix tests |
 | Phase 57 | `completed` | Cancel-ok baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-ok payload attribution and backend lifecycle/retry-category telemetry invariants in runtime matrix tests |
 | Phase 58 | `completed` | Cancel baseline terminal-exclusivity matrix parity hardening | Cross-backend baseline cancel scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime matrix tests |
+| Phase 59 | `completed` | Cancel cause-variant terminal-exclusivity matrix parity hardening | Cross-backend cause-link/invalid-cause cancel scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime matrix tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2375,6 +2376,44 @@ that can execute through:
 
 - Added shared terminal-exclusivity helper and applied it to baseline cancel
   matrix tests in:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 59: Cancel cause-variant terminal-exclusivity matrix parity hardening
+
+### Objectives
+
+- Harden runtime cancellation parity coverage by enforcing terminal lifecycle
+  exclusivity semantics across cancel cause variants.
+- Ensure cause-link and invalid-cause cancel scenarios emit exactly one
+  terminal `canceled` lifecycle and never regress to terminal `completed` or
+  `failed` events for the same effect.
+
+### Tasks
+
+- Apply shared terminal-exclusivity assertion helper to cancel cause-variant
+  matrix scenarios across `[:jido_ai, :harness]`:
+  - cancel-ok explicit `cause_id`
+  - cancel-ok invalid `cause_id` fallback
+  - cancel-not-available explicit `cause_id`
+  - cancel-not-available invalid `cause_id` fallback
+  - cancel-failed explicit `cause_id`
+  - cancel-failed invalid `cause_id` fallback
+
+### Deliverables
+
+- Hardened cause-variant cancel matrix assertions for terminal lifecycle
+  exclusivity invariants across built-in backends.
+
+### Exit criteria
+
+- Runtime matrix tests verify deterministic terminal exclusivity semantics for
+  cause-link and invalid-cause cancel outcomes, preventing terminal-state
+  regressions across `jido_ai` and `harness`.
+
+### Completion notes
+
+- Applied shared terminal-exclusivity helper to cause-variant cancel matrix
+  tests in:
   - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Cross-phase quality gates
