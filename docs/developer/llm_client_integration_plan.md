@@ -82,6 +82,7 @@ that can execute through:
 | Phase 55 | `completed` | Cancel-not-available baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-not-available payload attribution and backend lifecycle telemetry invariants in runtime matrix tests |
 | Phase 56 | `completed` | Cancel-failed baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-failed payload attribution/error metadata and backend lifecycle telemetry invariants in runtime matrix tests |
 | Phase 57 | `completed` | Cancel-ok baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-ok payload attribution and backend lifecycle/retry-category telemetry invariants in runtime matrix tests |
+| Phase 58 | `completed` | Cancel baseline terminal-exclusivity matrix parity hardening | Cross-backend baseline cancel scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime matrix tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2335,6 +2336,45 @@ that can execute through:
 
 - Extended baseline cancel-ok payload attribution and backend lifecycle/
   retry-category telemetry assertions in:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 58: Cancel baseline terminal-exclusivity matrix parity hardening
+
+### Objectives
+
+- Harden baseline runtime cancellation parity coverage by enforcing terminal
+  lifecycle exclusivity semantics across built-in backends.
+- Ensure baseline cancel scenarios emit exactly one terminal `canceled`
+  lifecycle and never regress to `completed` or `failed` terminal events for
+  the same effect.
+
+### Tasks
+
+- Add shared terminal-exclusivity assertion helper in cancel telemetry matrix
+  tests to validate:
+  - exactly one `canceled` terminal lifecycle for target effect
+  - no terminal `completed`
+  - no terminal `failed`
+- Apply helper to baseline matrix scenarios across `[:jido_ai, :harness]`:
+  - cancel-ok baseline test
+  - cancel-not-available baseline test
+  - cancel-failed baseline test
+
+### Deliverables
+
+- Hardened baseline cancel matrix assertions for terminal lifecycle
+  exclusivity invariants across built-in backends.
+
+### Exit criteria
+
+- Runtime matrix tests verify deterministic terminal exclusivity semantics for
+  baseline cancel outcomes, preventing terminal-state regressions across
+  `jido_ai` and `harness`.
+
+### Completion notes
+
+- Added shared terminal-exclusivity helper and applied it to baseline cancel
+  matrix tests in:
   - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Cross-phase quality gates
