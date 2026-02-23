@@ -71,6 +71,7 @@ that can execute through:
 | Phase 44 | `completed` | Effect-manager LLM cancel cause-link parity hardening | Explicit cancel `cause_id` lifecycle linkage and backward trace-chain invariants in effect runtime tests |
 | Phase 45 | `completed` | Effect-manager LLM cancel invalid-cause fallback parity hardening | Invalid cancel `cause_id` uncoupled lifecycle tracing and cancel telemetry invariants in effect runtime tests |
 | Phase 46 | `completed` | Effect-manager LLM cancel-failed cause-link parity hardening | Cancel-failed explicit `cause_id` lifecycle linkage and failed-cancel telemetry invariants in effect runtime tests |
+| Phase 47 | `completed` | Effect-manager LLM cancel-failed invalid-cause fallback parity hardening | Cancel-failed invalid `cause_id` uncoupled lifecycle tracing and failed-cancel telemetry invariants in effect runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -1872,6 +1873,44 @@ that can execute through:
 ### Completion notes
 
 - Added failed-cancel explicit cause-link tracing assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 47: Effect-manager LLM cancel-failed invalid-cause fallback parity hardening
+
+### Objectives
+
+- Harden effect runtime LLM cancellation parity coverage for invalid explicit
+  `cause_id` values when backend cancellation returns failure.
+- Ensure canceled lifecycle ingestion falls back to uncoupled trace linkage
+  while preserving failed-cancel telemetry invariants.
+
+### Tasks
+
+- Add effect manager cancellation test for failed backend cancel with invalid
+  explicit `cause_id` to assert:
+  - backend cancel failure path remains invoked
+  - canceled lifecycle is emitted for the target effect with
+    `backend_cancel: "failed"`
+  - backward trace chain from canceled lifecycle includes canceled signal id
+  - backward trace chain does not include invalid cancel `cause_id`
+  - telemetry `lifecycle_counts.canceled` and `cancel_results["failed"]`
+    increment
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened effect manager cancellation test assertions for failed-cancel
+  invalid cause fallback tracing and cancel telemetry invariants.
+
+### Exit criteria
+
+- Effect runtime integration tests verify deterministic invalid-cause fallback
+  tracing semantics for failed-cancel lifecycle events and consistent
+  failed-cancel telemetry updates without retry drift.
+
+### Completion notes
+
+- Added failed-cancel invalid cause fallback tracing assertions in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates

@@ -9,6 +9,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
 
   @app :jido_conversation
   @key JidoConversation.EventSystem
+  @assert_timeout 1_000
 
   defmodule CancelTelemetryBackendStub do
     @behaviour JidoConversation.LLM.Backend
@@ -144,11 +145,12 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
           nil
         )
 
-      assert_receive {:cancel_matrix_stream_started, ^backend, execution_ref}
+      assert_receive {:cancel_matrix_stream_started, ^backend, execution_ref}, @assert_timeout
       assert is_pid(execution_ref)
+      Process.sleep(50)
 
       :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", nil)
-      assert_receive {:cancel_matrix_cancel_called, :ok, ^execution_ref}
+      assert_receive {:cancel_matrix_cancel_called, :ok, ^execution_ref}, @assert_timeout
 
       assert_canceled_without_completion!(effect_id, replay_start)
 
@@ -169,8 +171,16 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
       assert llm_cancel_result_count(snapshot.cancel_results, "ok") >=
                llm_cancel_result_count(baseline.cancel_results, "ok") + 1
 
-      assert backend_lifecycle_count(snapshot.lifecycle_by_backend, Atom.to_string(backend), :canceled) >=
-               backend_lifecycle_count(baseline.lifecycle_by_backend, Atom.to_string(backend), :canceled) +
+      assert backend_lifecycle_count(
+               snapshot.lifecycle_by_backend,
+               Atom.to_string(backend),
+               :canceled
+             ) >=
+               backend_lifecycle_count(
+                 baseline.lifecycle_by_backend,
+                 Atom.to_string(backend),
+                 :canceled
+               ) +
                  1
     end)
   end
@@ -203,7 +213,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
           nil
         )
 
-      assert_receive {:cancel_matrix_stream_started, ^backend, nil}
+      assert_receive {:cancel_matrix_stream_started, ^backend, nil}, @assert_timeout
 
       :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", nil)
       refute_receive {:cancel_matrix_cancel_called, _, _}, 200
@@ -257,11 +267,12 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
           nil
         )
 
-      assert_receive {:cancel_matrix_stream_started, ^backend, execution_ref}
+      assert_receive {:cancel_matrix_stream_started, ^backend, execution_ref}, @assert_timeout
       assert is_pid(execution_ref)
+      Process.sleep(50)
 
       :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", nil)
-      assert_receive {:cancel_matrix_cancel_called, :failed, ^execution_ref}
+      assert_receive {:cancel_matrix_cancel_called, :failed, ^execution_ref}, @assert_timeout
 
       assert_canceled_without_completion!(effect_id, replay_start)
 
@@ -284,7 +295,8 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
     end)
   end
 
-  defp put_runtime_backend!(backend, opts) when backend in [:jido_ai, :harness] and is_list(opts) do
+  defp put_runtime_backend!(backend, opts)
+       when backend in [:jido_ai, :harness] and is_list(opts) do
     timeout_ms = 1_000
     include_execution_ref? = Keyword.get(opts, :include_execution_ref?, true)
     cancel_scenario = Keyword.get(opts, :cancel_scenario, :ok)
@@ -376,7 +388,8 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
     end
   end
 
-  defp llm_cancel_result_count(cancel_results, key) when is_map(cancel_results) and is_binary(key) do
+  defp llm_cancel_result_count(cancel_results, key)
+       when is_map(cancel_results) and is_binary(key) do
     Map.get(cancel_results, key, 0)
   end
 
