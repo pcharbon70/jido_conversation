@@ -292,6 +292,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
 
       assert canceled_event.signal.id in trace_ids
       assert cause_signal.id in trace_ids
+      assert_terminal_canceled_only!(effect_id, replay_start)
 
       snapshot =
         eventually(fn ->
@@ -397,6 +398,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
 
       assert canceled_event.signal.id in trace_ids
       refute invalid_cause_id in trace_ids
+      assert_terminal_canceled_only!(effect_id, replay_start)
 
       snapshot =
         eventually(fn ->
@@ -610,6 +612,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
 
       assert canceled_event.signal.id in trace_ids
       assert cause_signal.id in trace_ids
+      assert_terminal_canceled_only!(effect_id, replay_start)
 
       snapshot =
         eventually(fn ->
@@ -713,6 +716,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
 
       assert canceled_event.signal.id in trace_ids
       refute invalid_cause_id in trace_ids
+      assert_terminal_canceled_only!(effect_id, replay_start)
 
       snapshot =
         eventually(fn ->
@@ -936,6 +940,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
 
       assert canceled_event.signal.id in trace_ids
       assert cause_signal.id in trace_ids
+      assert_terminal_canceled_only!(effect_id, replay_start)
 
       snapshot =
         eventually(fn ->
@@ -1044,6 +1049,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
 
       assert canceled_event.signal.id in trace_ids
       refute invalid_cause_id in trace_ids
+      assert_terminal_canceled_only!(effect_id, replay_start)
 
       snapshot =
         eventually(fn ->
