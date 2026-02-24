@@ -90,6 +90,7 @@ that can execute through:
 | Phase 63 | `completed` | Effect-manager harness baseline cancel-ok parity hardening | Effect-manager baseline cancel-ok scenario on `harness` backend enforces payload attribution, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
 | Phase 64 | `completed` | Effect-manager harness baseline cancel-not-available parity hardening | Effect-manager baseline cancel-not-available scenario on `harness` backend enforces payload attribution, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
 | Phase 65 | `completed` | Effect-manager harness baseline cancel-failed parity hardening | Effect-manager baseline cancel-failed scenario on `harness` backend enforces failed-cancel payload attribution, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
+| Phase 66 | `completed` | Effect-manager harness cancel-ok cause-link parity hardening | Effect-manager cancel-ok explicit `cause_id` scenario on `harness` backend enforces trace linkage, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2686,6 +2687,52 @@ that can execute through:
 ### Completion notes
 
 - Added harness baseline cancel-failed parity test in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 66: Effect-manager harness cancel-ok cause-link parity hardening
+
+### Objectives
+
+- Extend effect-manager harness cancellation parity coverage to explicit
+  `cause_id` linkage for successful backend cancel outcomes.
+- Ensure harness cancel-ok cause-linked flows preserve deterministic trace
+  linkage semantics, terminal lifecycle exclusivity, and cancel telemetry
+  invariants.
+
+### Tasks
+
+- Add effect-manager harness cancel-ok explicit `cause_id` test to assert:
+  - request dispatch resolves to `backend: :harness`
+  - backend cancel callback is invoked with active execution reference
+  - canceled lifecycle payload includes:
+    - `reason: "user_abort"`
+    - `backend_cancel: "ok"`
+    - `backend: "harness"`
+    - backend/provider/model attribution
+  - backward trace chain includes:
+    - canceled lifecycle signal id
+    - explicit cancel cause signal id
+  - terminal lifecycle exclusivity (`canceled` only, no `completed`/`failed`)
+  - telemetry updates:
+    - `lifecycle_counts.canceled`
+    - `cancel_latency_ms.count`
+    - `cancel_results["ok"]`
+    - backend lifecycle `:canceled` for `harness`
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened effect-manager cancel-ok cause-link coverage for `harness` backend.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic harness cancel-ok
+  cause-link semantics with expected trace linkage/attribution/telemetry and no
+  terminal-state regressions.
+
+### Completion notes
+
+- Added harness cancel-ok explicit cause-link parity test in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
