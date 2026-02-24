@@ -1002,6 +1002,81 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
 
+  test "cancel_conversation records ok cancel result on harness backend when execution_ref is available" do
+    put_runtime_llm_backend_for!(:harness, LLMCancellableBackendStub, self())
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "please run on harness"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 5_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_cancellable_stream, %Request{backend: :harness}, execution_ref}
+    assert is_pid(execution_ref)
+    Process.sleep(50)
+
+    :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", nil)
+    assert_receive {:llm_cancellable_cancel_called, :ok, ^execution_ref}
+
+    canceled_event =
+      eventually(fn ->
+        case Ingest.replay("conv.effect.llm.generation.canceled", replay_start) do
+          {:ok, events} ->
+            events
+            |> Enum.find(&(effect_id_for(&1) == effect_id and lifecycle_for(&1) == "canceled"))
+            |> case do
+              nil -> :retry
+              event -> {:ok, event}
+            end
+
+          _other ->
+            :retry
+        end
+      end)
+
+    assert data_field(canceled_event, :reason, nil) == "user_abort"
+    assert data_field(canceled_event, :backend_cancel, nil) == "ok"
+    assert data_field(canceled_event, :backend, nil) == "harness"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
+    assert_terminal_canceled_only!(effect_id, replay_start)
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
+             Map.get(llm.cancel_results, "ok", 0) >=
+               Map.get(baseline.cancel_results, "ok", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.cancel_results, "ok", 0) >=
+             Map.get(baseline.cancel_results, "ok", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "harness", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "harness", :canceled) + 1
+
+    assert snapshot.retry_by_category == baseline.retry_by_category
+  end
+
   test "cancel_conversation records not_available cancel result when execution_ref is missing" do
     put_runtime_llm_backend!(LLMCancellableBackendStub, self(), true,
       include_execution_ref?: false
@@ -1077,6 +1152,181 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert Map.get(snapshot.cancel_results, "not_available", 0) >=
              Map.get(baseline.cancel_results, "not_available", 0) + 1
+
+    assert snapshot.retry_by_category == baseline.retry_by_category
+  end
+
+  test "cancel_conversation links canceled lifecycle to explicit cause_id when execution_ref is missing" do
+    put_runtime_llm_backend!(LLMCancellableBackendStub, self(), true,
+      include_execution_ref?: false
+    )
+
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    assert {:ok, %{signal: cause_signal}} =
+             Ingest.ingest(%{
+               id: unique_id("cause"),
+               type: "conv.audit.policy.decision_recorded",
+               source: "/tests/effect-manager",
+               subject: conversation_id,
+               data: %{audit_id: unique_id("audit"), category: "policy", decision: "allow"},
+               extensions: %{contract_major: 1}
+             })
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "please run without execution ref and explicit cause"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 5_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_cancellable_stream, %Request{}, nil}
+    Process.sleep(50)
+
+    :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", cause_signal.id)
+    refute_receive {:llm_cancellable_cancel_called, _, _execution_ref}, 200
+
+    canceled_events =
+      eventually(fn ->
+        case Ingest.replay("conv.effect.llm.generation.canceled", replay_start) do
+          {:ok, events} ->
+            matches = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+            if matches == [], do: :retry, else: {:ok, matches}
+
+          _other ->
+            :retry
+        end
+      end)
+
+    assert Enum.count(canceled_events, &(lifecycle_for(&1) == "canceled")) == 1
+    canceled_event = Enum.find(canceled_events, &(lifecycle_for(&1) == "canceled"))
+    assert canceled_event
+    assert data_field(canceled_event, :reason, nil) == "user_abort"
+    assert data_field(canceled_event, :backend_cancel, nil) == "not_available"
+    assert data_field(canceled_event, :backend, nil) == "jido_ai"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
+
+    trace = Ingest.trace_chain(canceled_event.signal.id, :backward)
+    trace_ids = Enum.map(trace, & &1.id)
+
+    assert canceled_event.signal.id in trace_ids
+    assert cause_signal.id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
+             Map.get(llm.cancel_results, "not_available", 0) >=
+               Map.get(baseline.cancel_results, "not_available", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.cancel_results, "not_available", 0) >=
+             Map.get(baseline.cancel_results, "not_available", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
+
+    assert snapshot.retry_by_category == baseline.retry_by_category
+  end
+
+  test "cancel_conversation falls back to uncoupled canceled lifecycle when cause_id is invalid and execution_ref is missing" do
+    put_runtime_llm_backend!(LLMCancellableBackendStub, self(), true,
+      include_execution_ref?: false
+    )
+
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+    invalid_cause_id = unique_id("unknown-cause")
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "please run without execution ref and invalid cause"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 5_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_cancellable_stream, %Request{}, nil}
+    Process.sleep(50)
+
+    :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", invalid_cause_id)
+    refute_receive {:llm_cancellable_cancel_called, _, _execution_ref}, 200
+
+    canceled_events =
+      eventually(fn ->
+        case Ingest.replay("conv.effect.llm.generation.canceled", replay_start) do
+          {:ok, events} ->
+            matches = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+            if matches == [], do: :retry, else: {:ok, matches}
+
+          _other ->
+            :retry
+        end
+      end)
+
+    assert Enum.count(canceled_events, &(lifecycle_for(&1) == "canceled")) == 1
+    canceled_event = Enum.find(canceled_events, &(lifecycle_for(&1) == "canceled"))
+    assert canceled_event
+    assert data_field(canceled_event, :reason, nil) == "user_abort"
+    assert data_field(canceled_event, :backend_cancel, nil) == "not_available"
+    assert data_field(canceled_event, :backend, nil) == "jido_ai"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
+
+    trace = Ingest.trace_chain(canceled_event.signal.id, :backward)
+    trace_ids = Enum.map(trace, & &1.id)
+
+    assert canceled_event.signal.id in trace_ids
+    refute invalid_cause_id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
+             Map.get(llm.cancel_results, "not_available", 0) >=
+               Map.get(baseline.cancel_results, "not_available", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.cancel_results, "not_available", 0) >=
+             Map.get(baseline.cancel_results, "not_available", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
 
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
@@ -1221,19 +1471,28 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert Enum.count(canceled_events, &(lifecycle_for(&1) == "canceled")) == 1
     canceled_event = Enum.find(canceled_events, &(lifecycle_for(&1) == "canceled"))
     assert canceled_event
+    assert data_field(canceled_event, :reason, nil) == "user_abort"
     assert data_field(canceled_event, :backend_cancel, nil) == "failed"
+    assert data_field(canceled_event, :backend_cancel_reason, nil) == "cancel failed"
+    assert data_field(canceled_event, :backend_cancel_category, nil) == "provider"
+    assert data_field(canceled_event, :backend_cancel_retryable?, nil) == true
+    assert data_field(canceled_event, :backend, nil) == "jido_ai"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
 
     trace = Ingest.trace_chain(canceled_event.signal.id, :backward)
     trace_ids = Enum.map(trace, & &1.id)
 
     assert canceled_event.signal.id in trace_ids
     assert cause_signal.id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
 
     snapshot =
       eventually(fn ->
         llm = Telemetry.snapshot().llm
 
         if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
              Map.get(llm.cancel_results, "failed", 0) >=
                Map.get(baseline.cancel_results, "failed", 0) + 1 do
           {:ok, llm}
@@ -1245,11 +1504,100 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert Map.get(snapshot.cancel_results, "failed", 0) >=
              Map.get(baseline.cancel_results, "failed", 0) + 1
 
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
+
+    assert snapshot.retry_by_category == baseline.retry_by_category
+  end
+
+  test "cancel_conversation falls back to uncoupled canceled lifecycle when cause_id is invalid and backend cancel fails" do
+    put_runtime_llm_backend!(LLMCancellableBackendStub, self(), true, cancel_scenario: :failed)
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+    invalid_cause_id = unique_id("unknown-cause")
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "please run with failed cancel and invalid cause"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 5_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_cancellable_stream, %Request{}, execution_ref}
+    assert is_pid(execution_ref)
+    Process.sleep(50)
+
+    :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", invalid_cause_id)
+    assert_receive {:llm_cancellable_cancel_called, :failed, ^execution_ref}
+
+    canceled_events =
+      eventually(fn ->
+        case Ingest.replay("conv.effect.llm.generation.canceled", replay_start) do
+          {:ok, events} ->
+            matches = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+            if matches == [], do: :retry, else: {:ok, matches}
+
+          _other ->
+            :retry
+        end
+      end)
+
+    assert Enum.count(canceled_events, &(lifecycle_for(&1) == "canceled")) == 1
+    canceled_event = Enum.find(canceled_events, &(lifecycle_for(&1) == "canceled"))
+    assert canceled_event
+    assert data_field(canceled_event, :reason, nil) == "user_abort"
+    assert data_field(canceled_event, :backend_cancel, nil) == "failed"
+    assert data_field(canceled_event, :backend_cancel_reason, nil) == "cancel failed"
+    assert data_field(canceled_event, :backend_cancel_category, nil) == "provider"
+    assert data_field(canceled_event, :backend_cancel_retryable?, nil) == true
+    assert data_field(canceled_event, :backend, nil) == "jido_ai"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
+
+    trace = Ingest.trace_chain(canceled_event.signal.id, :backward)
+    trace_ids = Enum.map(trace, & &1.id)
+
+    assert canceled_event.signal.id in trace_ids
+    refute invalid_cause_id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
+             Map.get(llm.cancel_results, "failed", 0) >=
+               Map.get(baseline.cancel_results, "failed", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.cancel_results, "failed", 0) >=
+             Map.get(baseline.cancel_results, "failed", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
+
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
 
   test "cancel_conversation links canceled lifecycle to explicit cause_id when provided" do
     put_runtime_llm_backend!(LLMCancellableBackendStub, self())
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
 
     conversation_id = unique_id("conversation")
     effect_id = unique_id("effect")
@@ -1300,12 +1648,40 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert Enum.count(canceled_events, &(lifecycle_for(&1) == "canceled")) == 1
     canceled_event = Enum.find(canceled_events, &(lifecycle_for(&1) == "canceled"))
     assert canceled_event
+    assert data_field(canceled_event, :reason, nil) == "user_abort"
+    assert data_field(canceled_event, :backend_cancel, nil) == "ok"
+    assert data_field(canceled_event, :backend, nil) == "jido_ai"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
 
     trace = Ingest.trace_chain(canceled_event.signal.id, :backward)
     trace_ids = Enum.map(trace, & &1.id)
 
     assert canceled_event.signal.id in trace_ids
     assert cause_signal.id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
+             Map.get(llm.cancel_results, "ok", 0) >=
+               Map.get(baseline.cancel_results, "ok", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.cancel_results, "ok", 0) >=
+             Map.get(baseline.cancel_results, "ok", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
+
+    assert snapshot.retry_by_category == baseline.retry_by_category
   end
 
   test "cancel_conversation falls back to uncoupled canceled lifecycle when cause_id is invalid" do
@@ -1355,18 +1731,23 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert canceled_event
     assert data_field(canceled_event, :reason, nil) == "user_abort"
     assert data_field(canceled_event, :backend_cancel, nil) == "ok"
+    assert data_field(canceled_event, :backend, nil) == "jido_ai"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
 
     trace = Ingest.trace_chain(canceled_event.signal.id, :backward)
     trace_ids = Enum.map(trace, & &1.id)
 
     assert canceled_event.signal.id in trace_ids
     refute invalid_cause_id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
 
     snapshot =
       eventually(fn ->
         llm = Telemetry.snapshot().llm
 
         if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
              Map.get(llm.cancel_results, "ok", 0) >=
                Map.get(baseline.cancel_results, "ok", 0) + 1 do
           {:ok, llm}
@@ -1377,6 +1758,9 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert Map.get(snapshot.cancel_results, "ok", 0) >=
              Map.get(baseline.cancel_results, "ok", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
 
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
@@ -1550,6 +1934,40 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     end)
   end
 
+  defp assert_terminal_canceled_only!(effect_id, replay_start) do
+    terminal_events =
+      eventually(fn ->
+        case Ingest.replay("conv.effect.llm.generation.**", replay_start) do
+          {:ok, records} ->
+            terminal_events_for_effect(records, effect_id)
+
+          _other ->
+            :retry
+        end
+      end)
+
+    assert Enum.count(terminal_events, &(lifecycle_for(&1) == "canceled")) == 1
+    refute Enum.any?(terminal_events, &(lifecycle_for(&1) == "completed"))
+    refute Enum.any?(terminal_events, &(lifecycle_for(&1) == "failed"))
+  end
+
+  defp terminal_events_for_effect(records, effect_id) when is_list(records) do
+    records
+    |> Enum.filter(fn event ->
+      effect_id_for(event) == effect_id and
+        lifecycle_for(event) in ["completed", "failed", "canceled"]
+    end)
+    |> maybe_retry_terminal_events()
+  end
+
+  defp maybe_retry_terminal_events(terminal_events) when is_list(terminal_events) do
+    if Enum.any?(terminal_events, &(lifecycle_for(&1) == "canceled")) do
+      {:ok, terminal_events}
+    else
+      :retry
+    end
+  end
+
   defp eventually(fun, attempts \\ 250)
 
   defp eventually(_fun, 0), do: raise("condition not met within timeout")
@@ -1621,23 +2039,39 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
   defp put_runtime_llm_backend!(module, test_pid, stream? \\ true, backend_opts \\ [])
        when is_atom(module) and is_pid(test_pid) and is_boolean(stream?) and is_list(backend_opts) do
+    put_runtime_llm_backend_for!(:jido_ai, module, test_pid, stream?, backend_opts)
+  end
+
+  defp put_runtime_llm_backend_for!(default_backend, module, test_pid, stream? \\ true, backend_opts \\ [])
+       when default_backend in [:jido_ai, :harness] and is_atom(module) and is_pid(test_pid) and
+              is_boolean(stream?) and is_list(backend_opts) do
+    selected_backend_cfg = [
+      module: module,
+      stream?: stream?,
+      timeout_ms: 1_000,
+      provider: "stub-provider",
+      model: "stub-model",
+      options: [test_pid: test_pid] ++ backend_opts
+    ]
+
+    empty_backend_cfg = [module: nil, stream?: stream?, options: []]
+
+    jido_ai_cfg =
+      if default_backend == :jido_ai, do: selected_backend_cfg, else: empty_backend_cfg
+
+    harness_cfg =
+      if default_backend == :harness, do: selected_backend_cfg, else: empty_backend_cfg
+
     Application.put_env(@app, @key,
       llm: [
-        default_backend: :jido_ai,
+        default_backend: default_backend,
         default_stream?: stream?,
         default_timeout_ms: 1_000,
         default_provider: "stub-provider",
         default_model: "stub-model",
         backends: [
-          jido_ai: [
-            module: module,
-            stream?: stream?,
-            timeout_ms: 1_000,
-            provider: "stub-provider",
-            model: "stub-model",
-            options: [test_pid: test_pid] ++ backend_opts
-          ],
-          harness: [module: nil, stream?: stream?, options: []]
+          jido_ai: jido_ai_cfg,
+          harness: harness_cfg
         ]
       ]
     )

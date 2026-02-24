@@ -4,7 +4,7 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 
 ## Current status
 
-- Phases 0-47 complete:
+- Phases 0-63 complete:
   - architecture baseline through reliability hardening
   - replay-vs-live determinism parity hardening
 - Post-phase hardening complete:
@@ -49,6 +49,22 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
   - effect-manager LLM invalid cancel cause fallback lifecycle tracing parity hardening
   - effect-manager LLM cancel-failed explicit cause-link lifecycle tracing parity hardening
   - effect-manager LLM cancel-failed invalid cause fallback lifecycle tracing parity hardening
+  - effect-manager LLM cancel-failed invalid cause attribution/category telemetry parity hardening
+  - cancel-failed invalid cause fallback tracing/telemetry matrix parity across built-in backends
+  - cancel-failed explicit cause-link tracing/telemetry matrix parity across built-in backends
+  - cancel-ok explicit cause-link tracing/telemetry matrix parity across built-in backends
+  - cancel-ok invalid cause fallback tracing/telemetry matrix parity across built-in backends
+  - cancel-not-available invalid cause fallback tracing/telemetry matrix parity across built-in backends
+  - cancel-not-available explicit cause-link tracing/telemetry matrix parity across built-in backends
+  - cancel-not-available baseline payload attribution/telemetry matrix parity across built-in backends
+  - cancel-failed baseline payload attribution/error metadata telemetry parity across built-in backends
+  - cancel-ok baseline payload attribution/telemetry matrix parity across built-in backends
+  - cancel baseline terminal-exclusivity matrix parity across built-in backends
+  - cancel cause-variant terminal-exclusivity matrix parity across built-in backends
+  - effect-manager cancel cause-variant terminal-exclusivity parity hardening
+  - effect-manager cancel cause-variant telemetry parity hardening
+  - effect-manager cancel-not-available cause-variant parity hardening
+  - effect-manager harness baseline cancel-ok parity hardening
 
 ## Library scope
 
