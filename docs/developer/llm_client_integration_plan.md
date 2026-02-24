@@ -85,6 +85,7 @@ that can execute through:
 | Phase 58 | `completed` | Cancel baseline terminal-exclusivity matrix parity hardening | Cross-backend baseline cancel scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime matrix tests |
 | Phase 59 | `completed` | Cancel cause-variant terminal-exclusivity matrix parity hardening | Cross-backend cause-link/invalid-cause cancel scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime matrix tests |
 | Phase 60 | `completed` | Effect-manager cancel cause-variant terminal-exclusivity parity hardening | Effect-manager cancel cause-link/invalid-cause scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime tests |
+| Phase 61 | `completed` | Effect-manager cancel cause-variant telemetry parity hardening | Effect-manager cancel cause-link/invalid-cause scenarios enforce cancel latency/result, backend lifecycle attribution, and retry-category telemetry invariants in runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2455,6 +2456,47 @@ that can execute through:
 
 - Added a shared terminal-exclusivity helper and applied it to effect-manager
   cancel cause-variant tests in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 61: Effect-manager cancel cause-variant telemetry parity hardening
+
+### Objectives
+
+- Harden effect-manager cancellation parity coverage by enforcing telemetry
+  invariants across cancel cause variants.
+- Ensure cause-link and invalid-cause cancel scenarios preserve deterministic
+  cancel latency/result counters, backend lifecycle attribution, and retry
+  category stability.
+
+### Tasks
+
+- Extend effect-manager cancel cause-variant tests to assert lifecycle payload
+  attribution for explicit and invalid `cause_id` scenarios:
+  - `reason`
+  - `backend_cancel`
+  - backend/provider/model attribution
+  - failed-cancel error metadata for failed-cancel explicit cause path
+- Harden telemetry assertions across cause-variant tests:
+  - `cancel_latency_ms.count` increments for `ok` and `failed` outcomes
+  - `cancel_results["ok"|"failed"]` increments
+  - backend lifecycle `:canceled` increments for `jido_ai`
+  - `retry_by_category` remains unchanged
+
+### Deliverables
+
+- Hardened effect-manager cause-variant cancel tests for lifecycle payload
+  attribution and cancel telemetry invariants.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic cause-variant cancel
+  telemetry semantics (latency/result/backend lifecycle/retry stability),
+  preventing attribution and counter regressions.
+
+### Completion notes
+
+- Extended effect-manager cause-variant cancel payload and telemetry assertions
+  in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
