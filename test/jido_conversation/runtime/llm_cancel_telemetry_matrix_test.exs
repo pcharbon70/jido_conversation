@@ -529,7 +529,7 @@ defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
     end)
   end
 
-  test "not_available cancel with explicit cause_id links canceled lifecycle across backends" do
+  test "not_available cancel with explicit cause_id links canceled lifecycle across backends (legacy path)" do
     Enum.each([:jido_ai, :harness], fn backend ->
       :ok = Telemetry.reset()
       baseline = Telemetry.snapshot().llm
