@@ -84,6 +84,7 @@ that can execute through:
 | Phase 57 | `completed` | Cancel-ok baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-ok payload attribution and backend lifecycle/retry-category telemetry invariants in runtime matrix tests |
 | Phase 58 | `completed` | Cancel baseline terminal-exclusivity matrix parity hardening | Cross-backend baseline cancel scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime matrix tests |
 | Phase 59 | `completed` | Cancel cause-variant terminal-exclusivity matrix parity hardening | Cross-backend cause-link/invalid-cause cancel scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime matrix tests |
+| Phase 60 | `completed` | Effect-manager cancel cause-variant terminal-exclusivity parity hardening | Effect-manager cancel cause-link/invalid-cause scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2415,6 +2416,46 @@ that can execute through:
 - Applied shared terminal-exclusivity helper to cause-variant cancel matrix
   tests in:
   - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 60: Effect-manager cancel cause-variant terminal-exclusivity parity hardening
+
+### Objectives
+
+- Harden effect-manager cancellation parity coverage by enforcing terminal
+  lifecycle exclusivity semantics across cancel cause variants.
+- Ensure effect-manager cause-link and invalid-cause cancel scenarios emit
+  exactly one terminal `canceled` lifecycle and never regress to terminal
+  `completed` or `failed` events for the same effect.
+
+### Tasks
+
+- Add a shared terminal-exclusivity assertion helper in effect-manager runtime
+  tests for LLM generation effects to validate:
+  - exactly one `canceled` terminal lifecycle for the target effect
+  - no terminal `completed`
+  - no terminal `failed`
+- Apply the helper to effect-manager cancel cause-variant scenarios:
+  - cancel-ok explicit `cause_id`
+  - cancel-ok invalid `cause_id` fallback
+  - cancel-failed explicit `cause_id`
+  - cancel-failed invalid `cause_id` fallback
+
+### Deliverables
+
+- Hardened effect-manager cause-variant cancel assertions for terminal
+  lifecycle exclusivity invariants.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic terminal exclusivity
+  semantics for cause-link and invalid-cause cancel outcomes, preventing
+  terminal-state regressions.
+
+### Completion notes
+
+- Added a shared terminal-exclusivity helper and applied it to effect-manager
+  cancel cause-variant tests in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
 
