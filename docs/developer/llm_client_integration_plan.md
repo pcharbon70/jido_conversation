@@ -77,7 +77,17 @@ that can execute through:
 | Phase 50 | `completed` | Cancel-failed cause-link matrix parity hardening | Cross-backend (`jido_ai`/`harness`) explicit `cause_id` trace-chain linkage and failed-cancel telemetry/backend attribution invariants in runtime matrix tests |
 | Phase 51 | `completed` | Cancel-ok cause-link matrix parity hardening | Cross-backend (`jido_ai`/`harness`) explicit `cause_id` trace-chain linkage and cancel-ok telemetry/backend lifecycle invariants in runtime matrix tests |
 | Phase 52 | `completed` | Cancel-ok invalid-cause fallback matrix parity hardening | Cross-backend (`jido_ai`/`harness`) invalid `cause_id` fallback tracing and cancel-ok telemetry/backend lifecycle attribution invariants in runtime matrix tests |
-| Phase 53 | `completed` | Cancel-not-available cause-link matrix parity hardening | Cross-backend (`jido_ai`/`harness`) explicit `cause_id` trace-chain linkage and cancel-not-available telemetry/backend lifecycle attribution invariants in runtime matrix tests |
+| Phase 53 | `completed` | Cancel-not-available invalid-cause fallback matrix parity hardening | Cross-backend (`jido_ai`/`harness`) invalid `cause_id` fallback tracing and cancel-not-available telemetry/backend lifecycle attribution invariants in runtime matrix tests |
+| Phase 54 | `completed` | Cancel-not-available cause-link matrix parity hardening | Cross-backend (`jido_ai`/`harness`) explicit `cause_id` trace-chain linkage and cancel-not-available telemetry/backend lifecycle attribution invariants in runtime matrix tests |
+| Phase 55 | `completed` | Cancel-not-available baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-not-available payload attribution and backend lifecycle telemetry invariants in runtime matrix tests |
+| Phase 56 | `completed` | Cancel-failed baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-failed payload attribution/error metadata and backend lifecycle telemetry invariants in runtime matrix tests |
+| Phase 57 | `completed` | Cancel-ok baseline attribution matrix parity hardening | Cross-backend (`jido_ai`/`harness`) baseline cancel-ok payload attribution and backend lifecycle/retry-category telemetry invariants in runtime matrix tests |
+| Phase 58 | `completed` | Cancel baseline terminal-exclusivity matrix parity hardening | Cross-backend baseline cancel scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime matrix tests |
+| Phase 59 | `completed` | Cancel cause-variant terminal-exclusivity matrix parity hardening | Cross-backend cause-link/invalid-cause cancel scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime matrix tests |
+| Phase 60 | `completed` | Effect-manager cancel cause-variant terminal-exclusivity parity hardening | Effect-manager cancel cause-link/invalid-cause scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime tests |
+| Phase 61 | `completed` | Effect-manager cancel cause-variant telemetry parity hardening | Effect-manager cancel cause-link/invalid-cause scenarios enforce cancel latency/result, backend lifecycle attribution, and retry-category telemetry invariants in runtime tests |
+| Phase 62 | `completed` | Effect-manager cancel-not-available cause-variant parity hardening | Effect-manager cancel-not-available explicit/invalid `cause_id` scenarios enforce trace linkage/fallback, terminal exclusivity, and cancel telemetry invariants in runtime tests |
+| Phase 63 | `completed` | Effect-manager harness baseline cancel-ok parity hardening | Effect-manager baseline cancel-ok scenario on `harness` backend enforces payload attribution, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2125,7 +2135,50 @@ that can execute through:
   attribution assertions in:
   - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
-## Phase 53: Cancel-not-available cause-link matrix parity hardening
+## Phase 53: Cancel-not-available invalid-cause fallback matrix parity hardening
+
+### Objectives
+
+- Harden runtime cancellation parity coverage for not-available backend cancel
+  outcomes (missing execution ref) with invalid explicit `cause_id` values
+  across built-in backends.
+- Ensure uncoupled trace fallback semantics while preserving
+  cancel-not-available telemetry and backend attribution/lifecycle invariants
+  for `jido_ai` and `harness`.
+
+### Tasks
+
+- Add runtime matrix coverage for cancel-not-available invalid `cause_id`
+  fallback across `[:jido_ai, :harness]` to assert:
+  - backend cancel callback is not invoked
+  - canceled lifecycle payload includes `backend_cancel: "not_available"` and
+    backend/provider/model attribution per backend config
+  - backward trace chain includes canceled signal id and excludes invalid
+    `cause_id`
+  - telemetry `lifecycle_counts.canceled`, `cancel_latency_ms.count`, and
+    `cancel_results["not_available"]` increment
+  - backend lifecycle telemetry increments for the resolved backend key
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened cancel telemetry matrix coverage for cross-backend
+  cancel-not-available invalid-cause fallback tracing and telemetry
+  invariants.
+
+### Exit criteria
+
+- Runtime matrix tests verify deterministic invalid-cause fallback semantics
+  for cancel-not-available outcomes and telemetry/back-end lifecycle
+  attribution parity across `jido_ai` and `harness`.
+
+### Completion notes
+
+- Added cross-backend cancel-not-available invalid cause fallback tracing and
+  telemetry attribution assertions in:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 54: Cancel-not-available cause-link matrix parity hardening
 
 ### Objectives
 
@@ -2166,6 +2219,381 @@ that can execute through:
 - Added cross-backend cancel-not-available explicit cause-link tracing and
   telemetry attribution assertions in:
   - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 55: Cancel-not-available baseline attribution matrix parity hardening
+
+### Objectives
+
+- Harden baseline runtime cancellation parity coverage for not-available
+  backend cancel outcomes (missing execution ref) across built-in backends.
+- Ensure baseline cancel-not-available assertions include lifecycle payload
+  attribution and backend lifecycle telemetry invariants in addition to cancel
+  result counters.
+
+### Tasks
+
+- Extend baseline cancel-not-available matrix test across
+  `[:jido_ai, :harness]` to assert:
+  - canceled lifecycle payload includes:
+    - `reason: "user_abort"`
+    - `backend_cancel: "not_available"`
+    - backend/provider/model attribution per backend config
+  - telemetry `lifecycle_counts.canceled`, `cancel_latency_ms.count`, and
+    `cancel_results["not_available"]` increment
+  - backend lifecycle telemetry increments for the resolved backend key
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened baseline cancel-not-available matrix assertions for payload
+  attribution and backend lifecycle telemetry invariants.
+
+### Exit criteria
+
+- Runtime matrix tests verify deterministic baseline cancel-not-available
+  payload attribution and telemetry/back-end lifecycle parity across
+  `jido_ai` and `harness`.
+
+### Completion notes
+
+- Extended baseline cancel-not-available payload attribution and backend
+  lifecycle telemetry assertions in:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 56: Cancel-failed baseline attribution matrix parity hardening
+
+### Objectives
+
+- Harden baseline runtime cancellation parity coverage for failed backend
+  cancellation outcomes across built-in backends.
+- Ensure baseline cancel-failed assertions include lifecycle payload
+  attribution/error metadata and backend lifecycle telemetry invariants in
+  addition to cancel result counters.
+
+### Tasks
+
+- Extend baseline cancel-failed matrix test across `[:jido_ai, :harness]` to
+  assert canceled lifecycle payload includes:
+  - `reason: "user_abort"`
+  - `backend_cancel: "failed"`
+  - `backend_cancel_reason: "cancel failed"`
+  - `backend_cancel_category: "provider"`
+  - `backend_cancel_retryable?: true`
+  - backend/provider/model attribution per backend config
+- Assert telemetry:
+  - `lifecycle_counts.canceled`, `cancel_latency_ms.count`, and
+    `cancel_results["failed"]` increment
+  - backend lifecycle telemetry increments for the resolved backend key
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened baseline cancel-failed matrix assertions for payload
+  attribution/error metadata and backend lifecycle telemetry invariants.
+
+### Exit criteria
+
+- Runtime matrix tests verify deterministic baseline cancel-failed payload
+  attribution/error metadata and telemetry/back-end lifecycle parity across
+  `jido_ai` and `harness`.
+
+### Completion notes
+
+- Extended baseline cancel-failed payload attribution/error metadata and
+  backend lifecycle telemetry assertions in:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 57: Cancel-ok baseline attribution matrix parity hardening
+
+### Objectives
+
+- Harden baseline runtime cancellation parity coverage for successful backend
+  cancellation outcomes across built-in backends.
+- Ensure baseline cancel-ok assertions include lifecycle payload attribution
+  and retry-category telemetry invariants in addition to cancel result and
+  backend lifecycle counters.
+
+### Tasks
+
+- Extend baseline cancel-ok matrix test across `[:jido_ai, :harness]` to
+  assert canceled lifecycle payload includes:
+  - `reason: "user_abort"`
+  - `backend_cancel: "ok"`
+  - backend/provider/model attribution per backend config
+- Assert telemetry:
+  - `lifecycle_counts.canceled`, `cancel_latency_ms.count`, and
+    `cancel_results["ok"]` increment
+  - backend lifecycle telemetry increments for the resolved backend key
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened baseline cancel-ok matrix assertions for payload attribution and
+  backend lifecycle/retry-category telemetry invariants.
+
+### Exit criteria
+
+- Runtime matrix tests verify deterministic baseline cancel-ok payload
+  attribution and telemetry/back-end lifecycle parity across `jido_ai` and
+  `harness`.
+
+### Completion notes
+
+- Extended baseline cancel-ok payload attribution and backend lifecycle/
+  retry-category telemetry assertions in:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 58: Cancel baseline terminal-exclusivity matrix parity hardening
+
+### Objectives
+
+- Harden baseline runtime cancellation parity coverage by enforcing terminal
+  lifecycle exclusivity semantics across built-in backends.
+- Ensure baseline cancel scenarios emit exactly one terminal `canceled`
+  lifecycle and never regress to `completed` or `failed` terminal events for
+  the same effect.
+
+### Tasks
+
+- Add shared terminal-exclusivity assertion helper in cancel telemetry matrix
+  tests to validate:
+  - exactly one `canceled` terminal lifecycle for target effect
+  - no terminal `completed`
+  - no terminal `failed`
+- Apply helper to baseline matrix scenarios across `[:jido_ai, :harness]`:
+  - cancel-ok baseline test
+  - cancel-not-available baseline test
+  - cancel-failed baseline test
+
+### Deliverables
+
+- Hardened baseline cancel matrix assertions for terminal lifecycle
+  exclusivity invariants across built-in backends.
+
+### Exit criteria
+
+- Runtime matrix tests verify deterministic terminal exclusivity semantics for
+  baseline cancel outcomes, preventing terminal-state regressions across
+  `jido_ai` and `harness`.
+
+### Completion notes
+
+- Added shared terminal-exclusivity helper and applied it to baseline cancel
+  matrix tests in:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 59: Cancel cause-variant terminal-exclusivity matrix parity hardening
+
+### Objectives
+
+- Harden runtime cancellation parity coverage by enforcing terminal lifecycle
+  exclusivity semantics across cancel cause variants.
+- Ensure cause-link and invalid-cause cancel scenarios emit exactly one
+  terminal `canceled` lifecycle and never regress to terminal `completed` or
+  `failed` events for the same effect.
+
+### Tasks
+
+- Apply shared terminal-exclusivity assertion helper to cancel cause-variant
+  matrix scenarios across `[:jido_ai, :harness]`:
+  - cancel-ok explicit `cause_id`
+  - cancel-ok invalid `cause_id` fallback
+  - cancel-not-available explicit `cause_id`
+  - cancel-not-available invalid `cause_id` fallback
+  - cancel-failed explicit `cause_id`
+  - cancel-failed invalid `cause_id` fallback
+
+### Deliverables
+
+- Hardened cause-variant cancel matrix assertions for terminal lifecycle
+  exclusivity invariants across built-in backends.
+
+### Exit criteria
+
+- Runtime matrix tests verify deterministic terminal exclusivity semantics for
+  cause-link and invalid-cause cancel outcomes, preventing terminal-state
+  regressions across `jido_ai` and `harness`.
+
+### Completion notes
+
+- Applied shared terminal-exclusivity helper to cause-variant cancel matrix
+  tests in:
+  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+
+## Phase 60: Effect-manager cancel cause-variant terminal-exclusivity parity hardening
+
+### Objectives
+
+- Harden effect-manager cancellation parity coverage by enforcing terminal
+  lifecycle exclusivity semantics across cancel cause variants.
+- Ensure effect-manager cause-link and invalid-cause cancel scenarios emit
+  exactly one terminal `canceled` lifecycle and never regress to terminal
+  `completed` or `failed` events for the same effect.
+
+### Tasks
+
+- Add a shared terminal-exclusivity assertion helper in effect-manager runtime
+  tests for LLM generation effects to validate:
+  - exactly one `canceled` terminal lifecycle for the target effect
+  - no terminal `completed`
+  - no terminal `failed`
+- Apply the helper to effect-manager cancel cause-variant scenarios:
+  - cancel-ok explicit `cause_id`
+  - cancel-ok invalid `cause_id` fallback
+  - cancel-failed explicit `cause_id`
+  - cancel-failed invalid `cause_id` fallback
+
+### Deliverables
+
+- Hardened effect-manager cause-variant cancel assertions for terminal
+  lifecycle exclusivity invariants.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic terminal exclusivity
+  semantics for cause-link and invalid-cause cancel outcomes, preventing
+  terminal-state regressions.
+
+### Completion notes
+
+- Added a shared terminal-exclusivity helper and applied it to effect-manager
+  cancel cause-variant tests in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 61: Effect-manager cancel cause-variant telemetry parity hardening
+
+### Objectives
+
+- Harden effect-manager cancellation parity coverage by enforcing telemetry
+  invariants across cancel cause variants.
+- Ensure cause-link and invalid-cause cancel scenarios preserve deterministic
+  cancel latency/result counters, backend lifecycle attribution, and retry
+  category stability.
+
+### Tasks
+
+- Extend effect-manager cancel cause-variant tests to assert lifecycle payload
+  attribution for explicit and invalid `cause_id` scenarios:
+  - `reason`
+  - `backend_cancel`
+  - backend/provider/model attribution
+  - failed-cancel error metadata for failed-cancel explicit cause path
+- Harden telemetry assertions across cause-variant tests:
+  - `cancel_latency_ms.count` increments for `ok` and `failed` outcomes
+  - `cancel_results["ok"|"failed"]` increments
+  - backend lifecycle `:canceled` increments for `jido_ai`
+  - `retry_by_category` remains unchanged
+
+### Deliverables
+
+- Hardened effect-manager cause-variant cancel tests for lifecycle payload
+  attribution and cancel telemetry invariants.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic cause-variant cancel
+  telemetry semantics (latency/result/backend lifecycle/retry stability),
+  preventing attribution and counter regressions.
+
+### Completion notes
+
+- Extended effect-manager cause-variant cancel payload and telemetry assertions
+  in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 62: Effect-manager cancel-not-available cause-variant parity hardening
+
+### Objectives
+
+- Harden effect-manager cancellation parity coverage for not-available backend
+  cancel outcomes when execution references are missing.
+- Ensure explicit and invalid `cause_id` paths preserve deterministic trace
+  linkage/fallback semantics, terminal lifecycle exclusivity, and cancel
+  telemetry invariants.
+
+### Tasks
+
+- Add effect-manager not-available cancel tests for cause variants:
+  - explicit valid `cause_id` (trace chain links to cause)
+  - invalid `cause_id` fallback (trace chain excludes invalid cause)
+- Assert runtime behavior invariants in both tests:
+  - backend cancel callback is not invoked
+  - canceled lifecycle payload includes:
+    - `reason: "user_abort"`
+    - `backend_cancel: "not_available"`
+    - backend/provider/model attribution
+  - terminal lifecycle exclusivity (`canceled` only, no `completed`/`failed`)
+  - telemetry updates:
+    - `lifecycle_counts.canceled`
+    - `cancel_latency_ms.count`
+    - `cancel_results["not_available"]`
+    - backend lifecycle `:canceled` for `jido_ai`
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened effect-manager not-available cancel cause-variant tests for tracing,
+  terminal lifecycle, payload attribution, and telemetry invariants.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic not-available cause-variant
+  cancel semantics and telemetry/back-end lifecycle parity without terminal
+  regressions.
+
+### Completion notes
+
+- Added explicit/invalid `cause_id` not-available cancel coverage and telemetry
+  assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 63: Effect-manager harness baseline cancel-ok parity hardening
+
+### Objectives
+
+- Extend effect-manager baseline cancel parity coverage to include the
+  `harness` backend path.
+- Ensure baseline `ok` cancellation semantics remain deterministic for
+  `harness` across payload attribution, terminal lifecycle exclusivity, and
+  telemetry invariants.
+
+### Tasks
+
+- Add effect-manager baseline cancel-ok test for `harness` backend to assert:
+  - request dispatch resolves to `backend: :harness`
+  - backend cancel callback receives active execution reference
+  - canceled lifecycle payload includes:
+    - `reason: "user_abort"`
+    - `backend_cancel: "ok"`
+    - `backend: "harness"`
+    - backend/provider/model attribution
+  - terminal lifecycle exclusivity (`canceled` only, no `completed`/`failed`)
+  - telemetry updates:
+    - `lifecycle_counts.canceled`
+    - `cancel_latency_ms.count`
+    - `cancel_results["ok"]`
+    - backend lifecycle `:canceled` for `harness`
+  - retry-category telemetry remains unchanged
+- Refactor effect-manager test backend config helper to support selecting
+  runtime default backend (`:jido_ai` or `:harness`) while preserving existing
+  jido_ai test behavior.
+
+### Deliverables
+
+- Hardened effect-manager baseline cancel-ok coverage for `harness` backend.
+- Backend-selectable runtime config helper for effect-manager LLM tests.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic baseline cancel-ok
+  semantics on `harness` backend with expected attribution/telemetry and no
+  terminal-state regressions.
+
+### Completion notes
+
+- Added harness baseline cancel-ok parity test and backend-selectable test
+  runtime config helper in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
 
