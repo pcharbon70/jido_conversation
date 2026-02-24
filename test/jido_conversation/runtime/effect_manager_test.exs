@@ -982,12 +982,17 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert canceled_event
     assert data_field(canceled_event, :reason, nil) == "user_abort"
     assert data_field(canceled_event, :backend_cancel, nil) == "ok"
+    assert data_field(canceled_event, :backend, nil) == "jido_ai"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
+    assert_terminal_canceled_only!(effect_id, replay_start)
 
     snapshot =
       eventually(fn ->
         llm = Telemetry.snapshot().llm
 
         if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
              Map.get(llm.cancel_results, "ok", 0) >=
                Map.get(baseline.cancel_results, "ok", 0) + 1 do
           {:ok, llm}
@@ -998,6 +1003,9 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert Map.get(snapshot.cancel_results, "ok", 0) >=
              Map.get(baseline.cancel_results, "ok", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
 
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
@@ -1060,6 +1068,10 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert canceled_event
     assert data_field(canceled_event, :reason, nil) == "user_abort"
     assert data_field(canceled_event, :backend_cancel, nil) == "not_available"
+    assert data_field(canceled_event, :backend, nil) == "jido_ai"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
+    assert_terminal_canceled_only!(effect_id, replay_start)
 
     snapshot =
       eventually(fn ->
@@ -1077,6 +1089,9 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
 
     assert Map.get(snapshot.cancel_results, "not_available", 0) >=
              Map.get(baseline.cancel_results, "not_available", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "jido_ai", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "jido_ai", :canceled) + 1
 
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
@@ -1318,6 +1333,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert data_field(canceled_event, :backend, nil) == "jido_ai"
     assert data_field(canceled_event, :provider, nil) == "stub-provider"
     assert data_field(canceled_event, :model, nil) == "stub-model"
+    assert_terminal_canceled_only!(effect_id, replay_start)
 
     snapshot =
       eventually(fn ->

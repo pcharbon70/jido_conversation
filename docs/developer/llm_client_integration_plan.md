@@ -87,6 +87,7 @@ that can execute through:
 | Phase 60 | `completed` | Effect-manager cancel cause-variant terminal-exclusivity parity hardening | Effect-manager cancel cause-link/invalid-cause scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime tests |
 | Phase 61 | `completed` | Effect-manager cancel cause-variant telemetry parity hardening | Effect-manager cancel cause-link/invalid-cause scenarios enforce cancel latency/result, backend lifecycle attribution, and retry-category telemetry invariants in runtime tests |
 | Phase 62 | `completed` | Effect-manager cancel-not-available cause-variant parity hardening | Effect-manager cancel-not-available explicit/invalid `cause_id` scenarios enforce trace linkage/fallback, terminal exclusivity, and cancel telemetry invariants in runtime tests |
+| Phase 63 | `completed` | Effect-manager baseline cancel telemetry/terminal parity hardening | Effect-manager baseline cancel outcomes (`ok`/`not_available`/`failed`) enforce terminal exclusivity plus cancel attribution and backend lifecycle telemetry invariants in runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2544,6 +2545,50 @@ that can execute through:
 
 - Added explicit/invalid `cause_id` not-available cancel coverage and telemetry
   assertions in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 63: Effect-manager baseline cancel telemetry/terminal parity hardening
+
+### Objectives
+
+- Harden effect-manager baseline cancellation coverage across non-cause
+  cancel outcomes.
+- Ensure baseline cancel paths (`ok`, `not_available`, `failed`) enforce
+  terminal lifecycle exclusivity and deterministic attribution/telemetry
+  invariants.
+
+### Tasks
+
+- Extend baseline cancel tests to assert canceled payload attribution for
+  `ok` and `not_available` outcomes:
+  - `backend`
+  - `provider`
+  - `model`
+- Harden baseline telemetry assertions:
+  - include `cancel_latency_ms.count` increment for `ok` path
+  - include backend lifecycle `:canceled` increment for `ok` and
+    `not_available` paths
+- Apply shared terminal-exclusivity helper to baseline cancel paths:
+  - `ok`
+  - `not_available`
+  - `failed`
+
+### Deliverables
+
+- Hardened effect-manager baseline cancel tests for terminal exclusivity,
+  payload attribution, cancel latency/result counters, and backend lifecycle
+  telemetry invariants.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic baseline cancel semantics
+  and telemetry parity across `ok`/`not_available`/`failed` outcomes without
+  terminal-state regressions.
+
+### Completion notes
+
+- Extended baseline cancel payload/telemetry assertions and terminal
+  exclusivity helper usage in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
