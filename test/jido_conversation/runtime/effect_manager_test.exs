@@ -1077,6 +1077,83 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
 
+  test "cancel_conversation records not_available cancel result on harness backend when execution_ref is missing" do
+    put_runtime_llm_backend_for!(:harness, LLMCancellableBackendStub, self(), true,
+      include_execution_ref?: false
+    )
+
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "please run on harness without execution ref"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 5_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_cancellable_stream, %Request{backend: :harness}, nil}
+    Process.sleep(50)
+
+    :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", nil)
+    refute_receive {:llm_cancellable_cancel_called, _, _execution_ref}, 200
+
+    canceled_event =
+      eventually(fn ->
+        case Ingest.replay("conv.effect.llm.generation.canceled", replay_start) do
+          {:ok, events} ->
+            events
+            |> Enum.find(&(effect_id_for(&1) == effect_id and lifecycle_for(&1) == "canceled"))
+            |> case do
+              nil -> :retry
+              event -> {:ok, event}
+            end
+
+          _other ->
+            :retry
+        end
+      end)
+
+    assert data_field(canceled_event, :reason, nil) == "user_abort"
+    assert data_field(canceled_event, :backend_cancel, nil) == "not_available"
+    assert data_field(canceled_event, :backend, nil) == "harness"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
+    assert_terminal_canceled_only!(effect_id, replay_start)
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
+             Map.get(llm.cancel_results, "not_available", 0) >=
+               Map.get(baseline.cancel_results, "not_available", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.cancel_results, "not_available", 0) >=
+             Map.get(baseline.cancel_results, "not_available", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "harness", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "harness", :canceled) + 1
+
+    assert snapshot.retry_by_category == baseline.retry_by_category
+  end
+
   test "cancel_conversation records not_available cancel result when execution_ref is missing" do
     put_runtime_llm_backend!(LLMCancellableBackendStub, self(), true,
       include_execution_ref?: false
@@ -1510,7 +1587,7 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
 
-  test "cancel_conversation falls back to uncoupled canceled lifecycle when cause_id is invalid and backend cancel fails" do
+  test "cancel_conversation falls back to uncoupled canceled lifecycle when cause_id is invalid and backend cancel fails (legacy path)" do
     put_runtime_llm_backend!(LLMCancellableBackendStub, self(), true, cancel_scenario: :failed)
     :ok = Telemetry.reset()
     baseline = Telemetry.snapshot().llm
