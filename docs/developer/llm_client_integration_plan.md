@@ -86,6 +86,7 @@ that can execute through:
 | Phase 59 | `completed` | Cancel cause-variant terminal-exclusivity matrix parity hardening | Cross-backend cause-link/invalid-cause cancel scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime matrix tests |
 | Phase 60 | `completed` | Effect-manager cancel cause-variant terminal-exclusivity parity hardening | Effect-manager cancel cause-link/invalid-cause scenarios enforce single terminal `canceled` lifecycle with no `completed`/`failed` regression in runtime tests |
 | Phase 61 | `completed` | Effect-manager cancel cause-variant telemetry parity hardening | Effect-manager cancel cause-link/invalid-cause scenarios enforce cancel latency/result, backend lifecycle attribution, and retry-category telemetry invariants in runtime tests |
+| Phase 62 | `completed` | Effect-manager cancel-not-available cause-variant parity hardening | Effect-manager cancel-not-available explicit/invalid `cause_id` scenarios enforce trace linkage/fallback, terminal exclusivity, and cancel telemetry invariants in runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2497,6 +2498,52 @@ that can execute through:
 
 - Extended effect-manager cause-variant cancel payload and telemetry assertions
   in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 62: Effect-manager cancel-not-available cause-variant parity hardening
+
+### Objectives
+
+- Harden effect-manager cancellation parity coverage for not-available backend
+  cancel outcomes when execution references are missing.
+- Ensure explicit and invalid `cause_id` paths preserve deterministic trace
+  linkage/fallback semantics, terminal lifecycle exclusivity, and cancel
+  telemetry invariants.
+
+### Tasks
+
+- Add effect-manager not-available cancel tests for cause variants:
+  - explicit valid `cause_id` (trace chain links to cause)
+  - invalid `cause_id` fallback (trace chain excludes invalid cause)
+- Assert runtime behavior invariants in both tests:
+  - backend cancel callback is not invoked
+  - canceled lifecycle payload includes:
+    - `reason: "user_abort"`
+    - `backend_cancel: "not_available"`
+    - backend/provider/model attribution
+  - terminal lifecycle exclusivity (`canceled` only, no `completed`/`failed`)
+  - telemetry updates:
+    - `lifecycle_counts.canceled`
+    - `cancel_latency_ms.count`
+    - `cancel_results["not_available"]`
+    - backend lifecycle `:canceled` for `jido_ai`
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened effect-manager not-available cancel cause-variant tests for tracing,
+  terminal lifecycle, payload attribution, and telemetry invariants.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic not-available cause-variant
+  cancel semantics and telemetry/back-end lifecycle parity without terminal
+  regressions.
+
+### Completion notes
+
+- Added explicit/invalid `cause_id` not-available cancel coverage and telemetry
+  assertions in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates

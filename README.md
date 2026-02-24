@@ -4,7 +4,7 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 
 ## Current status
 
-- Phases 0-61 complete:
+- Phases 0-62 complete:
   - architecture baseline through reliability hardening
   - replay-vs-live determinism parity hardening
 - Post-phase hardening complete:
@@ -63,6 +63,7 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
   - cancel cause-variant terminal-exclusivity matrix parity across built-in backends
   - effect-manager cancel cause-variant terminal-exclusivity parity hardening
   - effect-manager cancel cause-variant telemetry parity hardening
+  - effect-manager cancel-not-available cause-variant parity hardening
 
 ## Library scope
 
