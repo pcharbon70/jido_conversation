@@ -88,6 +88,7 @@ that can execute through:
 | Phase 61 | `completed` | Effect-manager cancel cause-variant telemetry parity hardening | Effect-manager cancel cause-link/invalid-cause scenarios enforce cancel latency/result, backend lifecycle attribution, and retry-category telemetry invariants in runtime tests |
 | Phase 62 | `completed` | Effect-manager cancel-not-available cause-variant parity hardening | Effect-manager cancel-not-available explicit/invalid `cause_id` scenarios enforce trace linkage/fallback, terminal exclusivity, and cancel telemetry invariants in runtime tests |
 | Phase 63 | `completed` | Effect-manager harness baseline cancel-ok parity hardening | Effect-manager baseline cancel-ok scenario on `harness` backend enforces payload attribution, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
+| Phase 64 | `completed` | Effect-manager harness baseline cancel-not-available parity hardening | Effect-manager baseline cancel-not-available scenario on `harness` backend enforces payload attribution, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2593,6 +2594,51 @@ that can execute through:
 
 - Added harness baseline cancel-ok parity test and backend-selectable test
   runtime config helper in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 64: Effect-manager harness baseline cancel-not-available parity hardening
+
+### Objectives
+
+- Extend effect-manager baseline cancel parity coverage for `harness` to the
+  missing-execution-reference path.
+- Ensure baseline `not_available` cancellation semantics remain deterministic
+  for `harness` across payload attribution, terminal lifecycle exclusivity,
+  and telemetry invariants.
+
+### Tasks
+
+- Add effect-manager baseline cancel-not-available test for `harness` backend
+  (missing `execution_ref`) to assert:
+  - request dispatch resolves to `backend: :harness`
+  - backend cancel callback is not invoked
+  - canceled lifecycle payload includes:
+    - `reason: "user_abort"`
+    - `backend_cancel: "not_available"`
+    - `backend: "harness"`
+    - backend/provider/model attribution
+  - terminal lifecycle exclusivity (`canceled` only, no `completed`/`failed`)
+  - telemetry updates:
+    - `lifecycle_counts.canceled`
+    - `cancel_latency_ms.count`
+    - `cancel_results["not_available"]`
+    - backend lifecycle `:canceled` for `harness`
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened effect-manager baseline cancel-not-available coverage for
+  `harness` backend.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic baseline
+  cancel-not-available semantics on `harness` backend with expected
+  attribution/telemetry and no terminal-state regressions.
+
+### Completion notes
+
+- Added harness baseline cancel-not-available parity test in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
