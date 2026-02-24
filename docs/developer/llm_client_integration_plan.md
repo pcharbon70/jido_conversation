@@ -96,6 +96,7 @@ that can execute through:
 | Phase 69 | `completed` | Effect-manager harness cancel-not-available invalid-cause fallback parity hardening | Effect-manager cancel-not-available invalid `cause_id` scenario on `harness` backend enforces uncoupled trace fallback, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
 | Phase 70 | `completed` | Effect-manager harness cancel-failed cause-link parity hardening | Effect-manager cancel-failed explicit `cause_id` scenario on `harness` backend enforces trace linkage, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
 | Phase 71 | `completed` | Effect-manager harness cancel-failed invalid-cause fallback parity hardening | Effect-manager cancel-failed invalid `cause_id` scenario on `harness` backend enforces uncoupled trace fallback, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
+| Phase 72 | `completed` | Effect-manager jido_ai cancel-failed invalid-cause coverage consolidation | Effect-manager jido_ai cancel-failed invalid `cause_id` coverage consolidates duplicate legacy-path tests into one canonical runtime case with full attribution, terminal exclusivity, and cancel telemetry/backend lifecycle invariants |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -2977,6 +2978,51 @@ that can execute through:
 ### Completion notes
 
 - Added harness cancel-failed invalid-cause fallback parity test in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 72: Effect-manager jido_ai cancel-failed invalid-cause coverage consolidation
+
+### Objectives
+
+- Consolidate duplicate jido_ai effect-manager invalid-cause failed-cancel
+  runtime coverage into one canonical scenario.
+- Preserve full parity assertions while removing legacy duplicate-path test
+  maintenance overhead.
+
+### Tasks
+
+- Remove duplicated legacy-path test that overlaps jido_ai failed-cancel
+  invalid-cause runtime behavior.
+- Harden canonical jido_ai failed-cancel invalid-cause test to assert:
+  - failed-cancel attribution payload:
+    - `backend_cancel`, `backend_cancel_reason`
+    - `backend_cancel_category`, `backend_cancel_retryable?`
+    - `backend`, `provider`, `model`
+  - uncoupled backward trace fallback (invalid explicit cause excluded)
+  - terminal lifecycle exclusivity (`canceled` only)
+  - telemetry updates:
+    - `lifecycle_counts.canceled`
+    - `cancel_latency_ms.count`
+    - `cancel_results["failed"]`
+    - backend lifecycle `:canceled` for `jido_ai`
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Canonicalized jido_ai failed-cancel invalid-cause runtime test coverage with
+  duplicate legacy-path coverage removed.
+
+### Exit criteria
+
+- Effect-manager runtime tests keep deterministic jido_ai failed-cancel
+  invalid-cause fallback semantics and full attribution/telemetry assertions
+  with reduced duplicate test surface.
+
+### Completion notes
+
+- Removed duplicated legacy-path jido_ai failed-cancel invalid-cause test in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+- Hardened canonical jido_ai failed-cancel invalid-cause test in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
