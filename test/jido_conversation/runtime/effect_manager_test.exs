@@ -1246,6 +1246,89 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     assert snapshot.retry_by_category == baseline.retry_by_category
   end
 
+  test "cancel_conversation falls back to uncoupled canceled lifecycle when cause_id is invalid on harness backend and execution_ref is missing" do
+    put_runtime_llm_backend_for!(:harness, LLMCancellableBackendStub, self(), true,
+      include_execution_ref?: false
+    )
+
+    :ok = Telemetry.reset()
+    baseline = Telemetry.snapshot().llm
+
+    conversation_id = unique_id("conversation")
+    effect_id = unique_id("effect")
+    replay_start = DateTime.utc_now() |> DateTime.to_unix()
+    invalid_cause_id = unique_id("unknown-cause")
+
+    :ok =
+      EffectManager.start_effect(
+        %{
+          effect_id: effect_id,
+          conversation_id: conversation_id,
+          class: :llm,
+          kind: "generation",
+          input: %{content: "please run on harness without execution ref and invalid cause"},
+          policy: %{max_attempts: 1, backoff_ms: 5, timeout_ms: 5_000}
+        },
+        nil
+      )
+
+    assert_receive {:llm_cancellable_stream, %Request{backend: :harness}, nil}
+    Process.sleep(50)
+
+    :ok = EffectManager.cancel_conversation(conversation_id, "user_abort", invalid_cause_id)
+    refute_receive {:llm_cancellable_cancel_called, _, _execution_ref}, 200
+
+    canceled_events =
+      eventually(fn ->
+        case Ingest.replay("conv.effect.llm.generation.canceled", replay_start) do
+          {:ok, events} ->
+            matches = Enum.filter(events, &(effect_id_for(&1) == effect_id))
+            if matches == [], do: :retry, else: {:ok, matches}
+
+          _other ->
+            :retry
+        end
+      end)
+
+    assert Enum.count(canceled_events, &(lifecycle_for(&1) == "canceled")) == 1
+    canceled_event = Enum.find(canceled_events, &(lifecycle_for(&1) == "canceled"))
+    assert canceled_event
+    assert data_field(canceled_event, :reason, nil) == "user_abort"
+    assert data_field(canceled_event, :backend_cancel, nil) == "not_available"
+    assert data_field(canceled_event, :backend, nil) == "harness"
+    assert data_field(canceled_event, :provider, nil) == "stub-provider"
+    assert data_field(canceled_event, :model, nil) == "stub-model"
+
+    trace = Ingest.trace_chain(canceled_event.signal.id, :backward)
+    trace_ids = Enum.map(trace, & &1.id)
+
+    assert canceled_event.signal.id in trace_ids
+    refute invalid_cause_id in trace_ids
+    assert_terminal_canceled_only!(effect_id, replay_start)
+
+    snapshot =
+      eventually(fn ->
+        llm = Telemetry.snapshot().llm
+
+        if llm.lifecycle_counts.canceled >= baseline.lifecycle_counts.canceled + 1 and
+             llm.cancel_latency_ms.count >= baseline.cancel_latency_ms.count + 1 and
+             Map.get(llm.cancel_results, "not_available", 0) >=
+               Map.get(baseline.cancel_results, "not_available", 0) + 1 do
+          {:ok, llm}
+        else
+          :retry
+        end
+      end)
+
+    assert Map.get(snapshot.cancel_results, "not_available", 0) >=
+             Map.get(baseline.cancel_results, "not_available", 0) + 1
+
+    assert backend_lifecycle_count(snapshot.lifecycle_by_backend, "harness", :canceled) >=
+             backend_lifecycle_count(baseline.lifecycle_by_backend, "harness", :canceled) + 1
+
+    assert snapshot.retry_by_category == baseline.retry_by_category
+  end
+
   test "cancel_conversation records failed cancel result on harness backend when backend cancellation fails" do
     put_runtime_llm_backend_for!(:harness, LLMCancellableBackendStub, self(), true,
       cancel_scenario: :failed
@@ -2472,7 +2555,13 @@ defmodule JidoConversation.Runtime.EffectManagerTest do
     put_runtime_llm_backend_for!(:jido_ai, module, test_pid, stream?, backend_opts)
   end
 
-  defp put_runtime_llm_backend_for!(default_backend, module, test_pid, stream? \\ true, backend_opts \\ [])
+  defp put_runtime_llm_backend_for!(
+         default_backend,
+         module,
+         test_pid,
+         stream? \\ true,
+         backend_opts \\ []
+       )
        when default_backend in [:jido_ai, :harness] and is_atom(module) and is_pid(test_pid) and
               is_boolean(stream?) and is_list(backend_opts) do
     selected_backend_cfg = [
