@@ -97,6 +97,7 @@ that can execute through:
 | Phase 70 | `completed` | Effect-manager harness cancel-failed cause-link parity hardening | Effect-manager cancel-failed explicit `cause_id` scenario on `harness` backend enforces trace linkage, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
 | Phase 71 | `completed` | Effect-manager harness cancel-failed invalid-cause fallback parity hardening | Effect-manager cancel-failed invalid `cause_id` scenario on `harness` backend enforces uncoupled trace fallback, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
 | Phase 72 | `completed` | Effect-manager jido_ai cancel-failed invalid-cause coverage consolidation | Effect-manager jido_ai cancel-failed invalid `cause_id` coverage consolidates duplicate legacy-path tests into one canonical runtime case with full attribution, terminal exclusivity, and cancel telemetry/backend lifecycle invariants |
+| Phase 73 | `completed` | Effect-manager jido_ai baseline cancel-ok parity hardening | Effect-manager baseline cancel-ok scenario on `jido_ai` backend enforces payload attribution, terminal exclusivity, and cancel telemetry/backend lifecycle invariants in runtime tests |
 
 ## Phase 0: Architecture and contract baseline
 
@@ -3023,6 +3024,48 @@ that can execute through:
 - Removed duplicated legacy-path jido_ai failed-cancel invalid-cause test in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 - Hardened canonical jido_ai failed-cancel invalid-cause test in:
+  - `test/jido_conversation/runtime/effect_manager_test.exs`
+
+## Phase 73: Effect-manager jido_ai baseline cancel-ok parity hardening
+
+### Objectives
+
+- Raise baseline jido_ai cancel-ok effect-manager runtime coverage to the same
+  parity bar used in harness baseline cancel tests.
+- Ensure baseline jido_ai cancel-ok flows preserve deterministic terminal
+  lifecycle exclusivity and attribution/telemetry invariants.
+
+### Tasks
+
+- Harden the baseline jido_ai cancel-ok effect-manager runtime test to assert:
+  - active cancel execution reference is a pid
+  - canceled lifecycle payload includes:
+    - `reason: "user_abort"`
+    - `backend_cancel: "ok"`
+    - `backend: "jido_ai"`
+    - backend/provider/model attribution
+  - terminal lifecycle exclusivity (`canceled` only, no `completed`/`failed`)
+  - telemetry updates:
+    - `lifecycle_counts.canceled`
+    - `cancel_latency_ms.count`
+    - `cancel_results["ok"]`
+    - backend lifecycle `:canceled` for `jido_ai`
+  - retry-category telemetry remains unchanged
+
+### Deliverables
+
+- Hardened effect-manager baseline cancel-ok parity coverage for `jido_ai`
+  backend.
+
+### Exit criteria
+
+- Effect-manager runtime tests verify deterministic jido_ai baseline
+  cancel-ok semantics with expected attribution/telemetry and no terminal-state
+  regressions.
+
+### Completion notes
+
+- Hardened jido_ai baseline cancel-ok parity test in:
   - `test/jido_conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
