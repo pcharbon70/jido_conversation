@@ -2,6 +2,7 @@ defmodule JidoConversation.Signal.ContractTest do
   use ExUnit.Case, async: true
 
   alias Jido.Signal
+  alias JidoConversation.ConversationRef
   alias JidoConversation.Signal.Contract
 
   test "normalizes valid map input into a signal" do
@@ -35,6 +36,22 @@ defmodule JidoConversation.Signal.ContractTest do
 
     assert {:ok, signal} = Contract.normalize(attrs)
     assert signal.subject == "conversation-456"
+    assert signal.extensions["contract_major"] == 1
+  end
+
+  test "normalizes project_id and conversation_id aliases into canonical subject" do
+    attrs = %{
+      type: "conv.in.message.received",
+      source: "/messaging/slack",
+      project_id: "project-1",
+      conversation_id: "conversation-456",
+      data: %{"message_id" => "msg-2", "ingress" => "slack"},
+      contract_major: 1
+    }
+
+    assert {:ok, signal} = Contract.normalize(attrs)
+    assert signal.subject == ConversationRef.subject("project-1", "conversation-456")
+    assert signal.extensions["project_id"] == "project-1"
     assert signal.extensions["contract_major"] == 1
   end
 

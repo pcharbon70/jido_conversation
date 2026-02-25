@@ -18,6 +18,7 @@ defmodule JidoConversation.Ingest.Pipeline do
   alias Jido.Signal.Bus.RecordedSignal
   alias Jido.Signal.Journal
   alias JidoConversation.Config
+  alias JidoConversation.ConversationRef
   alias JidoConversation.Signal.Contract
 
   @type dedupe_key :: {String.t(), String.t()}
@@ -56,6 +57,14 @@ defmodule JidoConversation.Ingest.Pipeline do
   @spec conversation_events(String.t()) :: [Signal.t()]
   def conversation_events(conversation_id) when is_binary(conversation_id) do
     GenServer.call(__MODULE__, {:conversation_events, conversation_id})
+  end
+
+  @spec conversation_events(String.t(), String.t()) :: [Signal.t()]
+  def conversation_events(project_id, conversation_id)
+      when is_binary(project_id) and is_binary(conversation_id) do
+    project_id
+    |> ConversationRef.subject(conversation_id)
+    |> conversation_events()
   end
 
   @spec trace_chain(String.t(), :forward | :backward) :: [Signal.t()]
