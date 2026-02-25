@@ -37,6 +37,16 @@ defmodule JidoConversation do
   end
 
   @doc """
+  Builds a user-facing timeline projection for a project-scoped conversation.
+  """
+  @spec timeline(String.t(), String.t(), keyword()) :: [
+          JidoConversation.Projections.Timeline.timeline_entry()
+        ]
+  def timeline(project_id, conversation_id, opts) do
+    Projections.timeline(project_id, conversation_id, opts)
+  end
+
+  @doc """
   Builds an LLM context projection for a conversation.
   """
   @spec llm_context(String.t(), keyword()) :: [
@@ -44,6 +54,16 @@ defmodule JidoConversation do
         ]
   def llm_context(conversation_id, opts \\ []) do
     Projections.llm_context(conversation_id, opts)
+  end
+
+  @doc """
+  Builds an LLM context projection for a project-scoped conversation.
+  """
+  @spec llm_context(String.t(), String.t(), keyword()) :: [
+          JidoConversation.Projections.LlmContext.context_message()
+        ]
+  def llm_context(project_id, conversation_id, opts) do
+    Projections.llm_context(project_id, conversation_id, opts)
   end
 
   @doc """

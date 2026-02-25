@@ -3,6 +3,7 @@ defmodule JidoConversation.Ingest do
   Public API for journal-first event ingestion and queries.
   """
 
+  alias JidoConversation.ConversationRef
   alias JidoConversation.Ingest.Pipeline
 
   @spec ingest(JidoConversation.Signal.Contract.input(), keyword()) ::
@@ -15,6 +16,14 @@ defmodule JidoConversation.Ingest do
   @spec conversation_events(String.t()) :: [Jido.Signal.t()]
   def conversation_events(conversation_id) do
     Pipeline.conversation_events(conversation_id)
+  end
+
+  @spec conversation_events(String.t(), String.t()) :: [Jido.Signal.t()]
+  def conversation_events(project_id, conversation_id)
+      when is_binary(project_id) and is_binary(conversation_id) do
+    project_id
+    |> ConversationRef.subject(conversation_id)
+    |> conversation_events()
   end
 
   @spec trace_chain(String.t(), :forward | :backward) :: [Jido.Signal.t()]

@@ -14,11 +14,27 @@ defmodule JidoConversation.Projections do
     |> Timeline.from_events(opts)
   end
 
+  @spec timeline(String.t(), String.t(), keyword()) :: [Timeline.timeline_entry()]
+  def timeline(project_id, conversation_id, opts)
+      when is_binary(project_id) and is_binary(conversation_id) and is_list(opts) do
+    project_id
+    |> Ingest.conversation_events(conversation_id)
+    |> Timeline.from_events(opts)
+  end
+
   @spec llm_context(String.t(), keyword()) :: [LlmContext.context_message()]
   def llm_context(conversation_id, opts \\ [])
       when is_binary(conversation_id) and is_list(opts) do
     conversation_id
     |> Ingest.conversation_events()
+    |> LlmContext.from_events(opts)
+  end
+
+  @spec llm_context(String.t(), String.t(), keyword()) :: [LlmContext.context_message()]
+  def llm_context(project_id, conversation_id, opts)
+      when is_binary(project_id) and is_binary(conversation_id) and is_list(opts) do
+    project_id
+    |> Ingest.conversation_events(conversation_id)
     |> LlmContext.from_events(opts)
   end
 end

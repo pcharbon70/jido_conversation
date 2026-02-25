@@ -9,6 +9,7 @@ defmodule JidoConversation.Signal.Contract do
   """
 
   alias Jido.Signal
+  alias JidoConversation.ConversationRef
 
   @supported_contract_majors [1]
 
@@ -49,6 +50,8 @@ defmodule JidoConversation.Signal.Contract do
 
   Supported aliases:
   - `conversation_id` -> `subject`
+  - `project_id` + `conversation_id` -> canonical project-scoped `subject`
+  - `project_id` -> `extensions.project_id`
   - top-level `contract_major` -> `extensions.contract_major`
   """
   @spec normalize(input()) :: {:ok, Signal.t()} | {:error, validation_error() | String.t()}
@@ -111,7 +114,7 @@ defmodule JidoConversation.Signal.Contract do
   defp normalize_attrs(attrs) do
     attrs
     |> stringify_keys()
-    |> normalize_subject_alias()
+    |> normalize_subject_aliases()
     |> normalize_contract_major_alias()
   end
 
@@ -119,17 +122,57 @@ defmodule JidoConversation.Signal.Contract do
     Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
   end
 
-  defp normalize_subject_alias(attrs) do
+  defp normalize_subject_aliases(attrs) do
+    {project_id, attrs} = Map.pop(attrs, "project_id")
     {conversation_id, attrs} = Map.pop(attrs, "conversation_id")
 
-    case {Map.get(attrs, "subject"), conversation_id} do
-      {nil, subject} when is_binary(subject) and byte_size(subject) > 0 ->
-        Map.put(attrs, "subject", subject)
+    attrs =
+      case {Map.get(attrs, "subject"), project_id, conversation_id} do
+        {nil, project_id, conversation_id} ->
+          cond do
+            present_binary?(project_id) and present_binary?(conversation_id) ->
+              Map.put(attrs, "subject", ConversationRef.subject(project_id, conversation_id))
 
-      _ ->
+            present_binary?(conversation_id) ->
+              Map.put(attrs, "subject", conversation_id)
+
+            true ->
+              attrs
+          end
+
+        _ ->
+          attrs
+      end
+
+    put_project_id_extension(attrs, project_id)
+  end
+
+  defp put_project_id_extension(attrs, project_id)
+       when is_binary(project_id) do
+    if present_binary?(project_id) do
+      extensions =
         attrs
+        |> Map.get("extensions", %{})
+        |> normalize_project_extensions(project_id)
+
+      Map.put(attrs, "extensions", extensions)
+    else
+      attrs
     end
   end
+
+  defp put_project_id_extension(attrs, _project_id), do: attrs
+
+  defp normalize_project_extensions(extensions, project_id) when is_map(extensions) do
+    extensions =
+      extensions
+      |> stringify_keys()
+      |> Map.put_new("project_id", project_id)
+
+    extensions
+  end
+
+  defp normalize_project_extensions(_extensions, project_id), do: %{"project_id" => project_id}
 
   defp normalize_contract_major_alias(attrs) do
     {top_level_major, attrs} = Map.pop(attrs, "contract_major")
@@ -227,6 +270,9 @@ defmodule JidoConversation.Signal.Contract do
   defp value_for(map, key) do
     Map.get(map, key) || Map.get(map, to_string(key))
   end
+
+  defp present_binary?(value) when is_binary(value), do: String.trim(value) != ""
+  defp present_binary?(_), do: false
 
   defp present?(nil), do: false
   defp present?(""), do: false

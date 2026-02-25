@@ -1,6 +1,7 @@
 defmodule JidoConversation.Ingest.PipelineTest do
   use ExUnit.Case, async: false
 
+  alias JidoConversation.ConversationRef
   alias JidoConversation.Ingest.Pipeline
 
   test "ingest persists to journal and publishes to bus" do
@@ -48,6 +49,49 @@ defmodule JidoConversation.Ingest.PipelineTest do
     conversation_events = Pipeline.conversation_events(conversation_id)
     assert Enum.count(conversation_events, &(&1.id == signal_id)) == 1
     assert Enum.count(conversation_events, &(&1.type == "conv.in.message.received")) == 1
+  end
+
+  test "conversation_events/2 isolates same conversation id across projects" do
+    project_a = unique_id("project")
+    project_b = unique_id("project")
+    conversation_id = unique_id("conversation")
+    signal_id_a = unique_id("signal-a")
+    signal_id_b = unique_id("signal-b")
+
+    subject_a = ConversationRef.subject(project_a, conversation_id)
+    subject_b = ConversationRef.subject(project_b, conversation_id)
+
+    attrs_a = %{
+      id: signal_id_a,
+      type: "conv.in.message.received",
+      source: "/messaging/web",
+      subject: subject_a,
+      data: %{message_id: unique_id("msg-a"), ingress: "web"},
+      extensions: %{contract_major: 1, project_id: project_a}
+    }
+
+    attrs_b = %{
+      id: signal_id_b,
+      type: "conv.in.message.received",
+      source: "/messaging/web",
+      subject: subject_b,
+      data: %{message_id: unique_id("msg-b"), ingress: "web"},
+      extensions: %{contract_major: 1, project_id: project_b}
+    }
+
+    assert {:ok, %{status: :published}} = Pipeline.ingest(attrs_a)
+    assert {:ok, %{status: :published}} = Pipeline.ingest(attrs_b)
+
+    project_a_events = Pipeline.conversation_events(project_a, conversation_id)
+    project_b_events = Pipeline.conversation_events(project_b, conversation_id)
+
+    project_a_ids = Enum.map(project_a_events, & &1.id)
+    project_b_ids = Enum.map(project_b_events, & &1.id)
+
+    assert signal_id_a in project_a_ids
+    assert signal_id_b in project_b_ids
+    refute signal_id_b in project_a_ids
+    refute signal_id_a in project_b_ids
   end
 
   test "cause_id links derived events for chain tracing" do
