@@ -3,15 +3,15 @@ defmodule Jido.Conversation.Actions.RequestCancel do
   Marks a conversation as canceled.
   """
 
-  {:nowarn_function,
-   [
-     run: 2,
-     on_error: 4,
-     on_before_validate_params: 1,
-     on_after_validate_params: 1,
-     on_before_validate_output: 1,
-     on_after_validate_output: 1
-   ]}
+  @dialyzer {:no_contracts,
+             [
+               run: 2,
+               on_error: 4,
+               on_before_validate_params: 1,
+               on_after_validate_params: 1,
+               on_before_validate_output: 1,
+               on_after_validate_output: 1
+             ]}
 
   use Jido.Action,
     name: "conversation_request_cancel",
