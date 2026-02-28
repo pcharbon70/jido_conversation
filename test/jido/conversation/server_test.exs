@@ -190,6 +190,27 @@ defmodule Jido.Conversation.ServerTest do
     assert derived.skills.enabled == ["web_search", "code_exec"]
   end
 
+  test "configure_llm/3 updates derived state" do
+    {:ok, server} = Server.start_link(conversation_id: "server-conv-llm")
+
+    assert {:ok, _conversation, _directives} =
+             Server.configure_llm(server, :jido_ai,
+               provider: "anthropic",
+               model: "claude-test",
+               options: %{temperature: 0.2}
+             )
+
+    conversation = Server.conversation(server)
+    derived = Conversation.derived_state(conversation)
+
+    assert derived.llm == %{
+             backend: :jido_ai,
+             provider: "anthropic",
+             model: "claude-test",
+             options: %{temperature: 0.2}
+           }
+  end
+
   test "record_assistant_message/3 updates derived state" do
     {:ok, server} = Server.start_link(conversation_id: "server-conv-assistant")
 

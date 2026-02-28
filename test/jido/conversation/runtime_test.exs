@@ -182,6 +182,26 @@ defmodule Jido.Conversation.RuntimeTest do
     assert :ok = Runtime.stop_conversation("runtime-conv-assistant")
   end
 
+  test "configure_llm/3 auto-starts and updates derived state" do
+    assert {:ok, _conversation, _directives} =
+             Runtime.configure_llm("runtime-conv-llm", :jido_ai,
+               provider: "anthropic",
+               model: "claude-test",
+               options: %{temperature: 0.2}
+             )
+
+    assert {:ok, derived} = Runtime.derived_state("runtime-conv-llm")
+
+    assert derived.llm == %{
+             backend: :jido_ai,
+             provider: "anthropic",
+             model: "claude-test",
+             options: %{temperature: 0.2}
+           }
+
+    assert :ok = Runtime.stop_conversation("runtime-conv-llm")
+  end
+
   test "llm_context/2 returns managed in-memory context" do
     assert {:ok, _conversation, _directives} =
              Runtime.send_user_message("runtime-conv-context", "runtime context hello")
@@ -339,6 +359,7 @@ defmodule Jido.Conversation.RuntimeTest do
     assert {:error, :invalid_locator} = Runtime.messages({"", "conv"})
     assert {:error, :invalid_locator} = Runtime.thread_entries({"", "conv"})
     assert {:error, :invalid_locator} = Runtime.llm_context({"", "conv"})
+    assert {:error, :invalid_locator} = Runtime.configure_llm("", :jido_ai)
     assert {:error, :invalid_locator} = Runtime.record_assistant_message("", "bad locator")
     assert {:error, :invalid_locator} = Runtime.cancel_generation({"project", ""})
 
