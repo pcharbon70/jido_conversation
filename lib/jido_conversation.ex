@@ -85,6 +85,17 @@ defmodule JidoConversation do
   end
 
   @doc """
+  Returns append-only in-memory thread journal entries from a managed conversation process.
+
+  This gives direct access to the raw journal used to derive conversation state.
+  """
+  @spec conversation_thread_entries(conversation_locator()) ::
+          {:ok, [Jido.Thread.Entry.t()]} | {:error, :invalid_locator | :not_found}
+  def conversation_thread_entries(locator) do
+    ConversationRuntime.thread_entries(locator)
+  end
+
+  @doc """
   Returns the in-memory LLM context from a managed conversation process.
 
   This is different from `llm_context/2`, which reads projection data from the

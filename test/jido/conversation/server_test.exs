@@ -231,6 +231,27 @@ defmodule Jido.Conversation.ServerTest do
              end)
   end
 
+  test "thread_entries/1 returns in-memory append-only journal entries" do
+    {:ok, server} = Server.start_link(conversation_id: "server-conv-thread")
+
+    assert {:ok, _conversation, _directives} =
+             Server.send_user_message(server, "thread hello")
+
+    assert {:ok, _conversation, _directives} =
+             Server.record_assistant_message(server, "thread reply")
+
+    message_payloads =
+      server
+      |> Server.thread_entries()
+      |> Enum.filter(&(&1.kind == :message))
+      |> Enum.map(& &1.payload)
+
+    assert message_payloads == [
+             %{content: "thread hello", metadata: %{}, role: "user"},
+             %{content: "thread reply", metadata: %{}, role: "assistant"}
+           ]
+  end
+
   test "generation errors are reported without mutating assistant messages" do
     {:ok, server} = Server.start_link(conversation_id: "server-conv-3")
 
