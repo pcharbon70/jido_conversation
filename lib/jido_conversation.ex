@@ -85,6 +85,18 @@ defmodule JidoConversation do
   end
 
   @doc """
+  Returns the in-memory LLM context from a managed conversation process.
+
+  This is different from `llm_context/2`, which reads projection data from the
+  journal/event stream.
+  """
+  @spec conversation_llm_context(conversation_locator(), keyword()) ::
+          {:ok, [map()]} | {:error, :invalid_locator | :not_found}
+  def conversation_llm_context(locator, opts \\ []) when is_list(opts) do
+    ConversationRuntime.llm_context(locator, opts)
+  end
+
+  @doc """
   Sends a user message through the managed runtime API.
 
   If the conversation process does not exist yet, it is created automatically.

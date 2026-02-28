@@ -50,6 +50,14 @@ defmodule Jido.Conversation.Runtime do
     end
   end
 
+  @spec llm_context(locator(), keyword()) ::
+          {:ok, [map()]} | {:error, :invalid_locator | :not_found}
+  def llm_context(locator, opts \\ []) when is_list(opts) do
+    with {:ok, pid} <- fetch_server(locator) do
+      {:ok, Server.llm_context(pid, opts)}
+    end
+  end
+
   @spec send_user_message(locator(), String.t(), keyword()) ::
           {:ok, Conversation.t(), [struct()]} | {:error, term()}
   def send_user_message(locator, content, opts \\ []) when is_binary(content) and is_list(opts) do

@@ -160,6 +160,30 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "managed facade exposes in-memory conversation llm context" do
+    conversation_id = "facade-conv-context"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "facade context hello")
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.record_assistant_message(conversation_id, "facade context reply")
+
+    assert {:ok, context} = JidoConversation.conversation_llm_context(conversation_id)
+
+    assert Enum.map(context, &{&1.role, &1.content}) == [
+             {:user, "facade context hello"},
+             {:assistant, "facade context reply"}
+           ]
+
+    assert {:ok, limited} =
+             JidoConversation.conversation_llm_context(conversation_id, max_messages: 1)
+
+    assert Enum.map(limited, &{&1.role, &1.content}) == [{:assistant, "facade context reply"}]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "managed facade supports generation and cancellation" do
     conversation_id = "facade-conv-generate"
 
@@ -299,6 +323,7 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
 
   test "managed facade validates locators" do
     assert {:error, :invalid_locator} = JidoConversation.conversation("")
+    assert {:error, :invalid_locator} = JidoConversation.conversation_llm_context("")
     assert {:error, :invalid_locator} = JidoConversation.record_assistant_message("", "bad")
     assert {:error, :invalid_locator} = JidoConversation.cancel_generation({"project", ""})
     assert {:error, :not_found} = JidoConversation.conversation("missing-facade-conv")
