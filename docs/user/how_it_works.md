@@ -63,4 +63,11 @@ Every signal must satisfy:
 - `JidoConversation.timeline/2`
 - `JidoConversation.llm_context/2`
 - `JidoConversation.health/0`
+- `JidoConversation.start_conversation/1`
+- `JidoConversation.ensure_conversation/1`
+- `JidoConversation.send_user_message/3`
+- `JidoConversation.generate_assistant_reply/2`
+- `JidoConversation.cancel_generation/2`
+- `JidoConversation.derived_state/1`
+- `JidoConversation.conversation_timeline/1`
 - `JidoConversation.telemetry_snapshot/0`
