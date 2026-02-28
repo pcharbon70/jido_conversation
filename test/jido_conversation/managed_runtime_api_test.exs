@@ -766,6 +766,40 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "await_generation/3 can be retried after no-cancel timeout to get final result" do
+    conversation_id = "facade-conv-await-timeout-no-cancel-reawait"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "please wait")
+
+    assert {:ok, generation_ref} =
+             JidoConversation.generate_assistant_reply(conversation_id,
+               llm: %{backend: :facade_slow_stub},
+               llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+               backend_opts: [test_pid: self(), sleep_ms: 200]
+             )
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+
+    assert {:error, :timeout} =
+             JidoConversation.await_generation(conversation_id, generation_ref,
+               timeout_ms: 10,
+               cancel_on_timeout?: false
+             )
+
+    assert {:ok, %LLMResult{} = result} =
+             JidoConversation.await_generation(conversation_id, generation_ref, timeout_ms: 1_000)
+
+    assert result.text == "facade slow reply"
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert derived.status == :responding
+    assert derived.cancel_reason == nil
+    assert Enum.map(derived.messages, & &1.content) == ["please wait", "facade slow reply"]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "await_generation/3 returns backend errors" do
     conversation_id = "facade-conv-await-error"
 
