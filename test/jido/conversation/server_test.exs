@@ -206,6 +206,31 @@ defmodule Jido.Conversation.ServerTest do
     assert derived.status == :responding
   end
 
+  test "llm_context/2 returns in-memory conversation context" do
+    {:ok, server} = Server.start_link(conversation_id: "server-conv-context")
+
+    assert {:ok, _conversation, _directives} =
+             Server.send_user_message(server, "context hello")
+
+    assert {:ok, _conversation, _directives} =
+             Server.record_assistant_message(server, "context reply")
+
+    assert [
+             %{role: :user, content: "context hello"},
+             %{role: :assistant, content: "context reply"}
+           ] =
+             Enum.map(Server.llm_context(server), fn message ->
+               %{role: message.role, content: message.content}
+             end)
+
+    assert [
+             %{role: :assistant, content: "context reply"}
+           ] =
+             Enum.map(Server.llm_context(server, max_messages: 1), fn message ->
+               %{role: message.role, content: message.content}
+             end)
+  end
+
   test "generation errors are reported without mutating assistant messages" do
     {:ok, server} = Server.start_link(conversation_id: "server-conv-3")
 

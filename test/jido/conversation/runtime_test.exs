@@ -182,6 +182,26 @@ defmodule Jido.Conversation.RuntimeTest do
     assert :ok = Runtime.stop_conversation("runtime-conv-assistant")
   end
 
+  test "llm_context/2 returns managed in-memory context" do
+    assert {:ok, _conversation, _directives} =
+             Runtime.send_user_message("runtime-conv-context", "runtime context hello")
+
+    assert {:ok, _conversation, _directives} =
+             Runtime.record_assistant_message("runtime-conv-context", "runtime context reply")
+
+    assert {:ok, context} = Runtime.llm_context("runtime-conv-context")
+
+    assert Enum.map(context, &{&1.role, &1.content}) == [
+             {:user, "runtime context hello"},
+             {:assistant, "runtime context reply"}
+           ]
+
+    assert {:ok, limited} = Runtime.llm_context("runtime-conv-context", max_messages: 1)
+    assert Enum.map(limited, &{&1.role, &1.content}) == [{:assistant, "runtime context reply"}]
+
+    assert :ok = Runtime.stop_conversation("runtime-conv-context")
+  end
+
   test "generate_assistant_reply/2 routes through managed runtime by locator" do
     assert {:ok, _conversation, _directives} =
              Runtime.send_user_message("runtime-conv-generate", "hello runtime")
@@ -234,6 +254,7 @@ defmodule Jido.Conversation.RuntimeTest do
   test "read and cancel APIs return locator errors" do
     assert {:error, :invalid_locator} = Runtime.conversation("")
     assert {:error, :invalid_locator} = Runtime.derived_state({"", "conv"})
+    assert {:error, :invalid_locator} = Runtime.llm_context({"", "conv"})
     assert {:error, :invalid_locator} = Runtime.record_assistant_message("", "bad locator")
     assert {:error, :invalid_locator} = Runtime.cancel_generation({"project", ""})
 

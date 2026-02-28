@@ -83,6 +83,9 @@ through managed runtime processes:
 {:ok, _conversation, _directives} =
   JidoConversation.record_assistant_message("conv-123", "Hello from external runtime")
 
+{:ok, context} =
+  JidoConversation.conversation_llm_context("conv-123", max_messages: 10)
+
 {:ok, generation_ref} =
   JidoConversation.generate_assistant_reply("conv-123")
 

@@ -47,6 +47,11 @@ defmodule Jido.Conversation.Server do
     GenServer.call(server, :timeline)
   end
 
+  @spec llm_context(GenServer.server(), keyword()) :: [map()]
+  def llm_context(server, opts \\ []) when is_list(opts) do
+    GenServer.call(server, {:llm_context, opts})
+  end
+
   @spec send_user_message(GenServer.server(), String.t(), keyword()) ::
           {:ok, Conversation.t(), [struct()]} | {:error, term()}
   def send_user_message(server, content, opts \\ []) when is_binary(content) and is_list(opts) do
@@ -97,6 +102,11 @@ defmodule Jido.Conversation.Server do
   @impl true
   def handle_call(:derived_state, _from, state) do
     {:reply, Conversation.derived_state(state.conversation), state}
+  end
+
+  @impl true
+  def handle_call({:llm_context, opts}, _from, state) do
+    {:reply, Conversation.llm_context(state.conversation, opts), state}
   end
 
   @impl true
