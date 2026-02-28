@@ -7,8 +7,6 @@ defmodule Jido.Conversation.Agent do
   in `:__thread__`.
   """
 
-  {:no_contracts, [__agent_metadata__: 0, actions: 0, plugin_specs: 0]}
-
   use Jido.Agent,
     name: "conversation_agent",
     description: "Event-sourced conversation agent",
@@ -26,6 +24,7 @@ defmodule Jido.Conversation.Agent do
 
   alias Jido.Conversation.Actions.ConfigureLlm
   alias Jido.Conversation.Actions.ReceiveUserMessage
+  alias Jido.Conversation.Actions.RecordAssistantMessage
   alias Jido.Conversation.Actions.RequestCancel
   alias Jido.Thread.Agent, as: ThreadAgent
 
@@ -47,16 +46,11 @@ defmodule Jido.Conversation.Agent do
   end
 
   defp append_command_entry(agent, {ReceiveUserMessage, params}) when is_map(params) do
-    content = params[:content] || params["content"]
+    append_message_entry(agent, params, "user")
+  end
 
-    ThreadAgent.append(agent, %{
-      kind: :message,
-      payload: %{
-        role: "user",
-        content: content,
-        metadata: params[:metadata] || params["metadata"] || %{}
-      }
-    })
+  defp append_command_entry(agent, {RecordAssistantMessage, params}) when is_map(params) do
+    append_message_entry(agent, params, "assistant")
   end
 
   defp append_command_entry(agent, {RequestCancel, params}) when is_map(params) do
@@ -78,12 +72,26 @@ defmodule Jido.Conversation.Agent do
         event: "llm_configured",
         backend: params[:backend] || params["backend"],
         provider: params[:provider] || params["provider"],
-        model: params[:model] || params["model"]
+        model: params[:model] || params["model"],
+        options: params[:options] || params["options"] || %{}
       }
     })
   end
 
   defp append_command_entry(agent, _action), do: agent
+
+  defp append_message_entry(agent, params, role) do
+    content = params[:content] || params["content"]
+
+    ThreadAgent.append(agent, %{
+      kind: :message,
+      payload: %{
+        role: role,
+        content: content,
+        metadata: params[:metadata] || params["metadata"] || %{}
+      }
+    })
+  end
 
   defp action_name({module, _params}) when is_atom(module), do: Atom.to_string(module)
   defp action_name(module) when is_atom(module), do: Atom.to_string(module)

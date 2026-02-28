@@ -6,8 +6,12 @@ defmodule Jido.Conversation do
   alias Jido.Agent
   alias Jido.Conversation.Actions.ConfigureLlm
   alias Jido.Conversation.Actions.ReceiveUserMessage
+  alias Jido.Conversation.Actions.RecordAssistantMessage
   alias Jido.Conversation.Actions.RequestCancel
   alias Jido.Conversation.Agent, as: ConversationAgent
+  alias Jido.Conversation.Projections.LlmContext
+  alias Jido.Conversation.Projections.Timeline
+  alias Jido.Conversation.Reducer
   alias Jido.Thread
   alias Jido.Thread.Agent, as: ThreadAgent
 
@@ -25,12 +29,14 @@ defmodule Jido.Conversation do
       |> Map.put_new(:conversation_id, conversation_id)
       |> Map.put_new(:metadata, normalize_map(Map.get(opts_map, :metadata, %{})))
 
-    agent = ConversationAgent.new(id: conversation_id, state: state)
+    conversation = ConversationAgent.new(id: conversation_id, state: state)
 
-    ThreadAgent.ensure(agent,
+    conversation
+    |> ThreadAgent.ensure(
       id: "conv_thread_" <> conversation_id,
       metadata: %{conversation_id: conversation_id}
     )
+    |> sync_state_from_thread()
   end
 
   @spec send_user_message(t(), String.t(), keyword()) :: {:ok, t(), [struct()]} | {:error, term()}
@@ -44,6 +50,21 @@ defmodule Jido.Conversation do
       }
 
       run_action(conversation, {ReceiveUserMessage, params})
+    end
+  end
+
+  @spec record_assistant_message(t(), String.t(), keyword()) ::
+          {:ok, t(), [struct()]} | {:error, term()}
+  def record_assistant_message(%Agent{} = conversation, content, opts \\ []) when is_list(opts) do
+    if blank?(content) do
+      {:error, :empty_message}
+    else
+      params = %{
+        content: content,
+        metadata: normalize_map(Keyword.get(opts, :metadata, %{}))
+      }
+
+      run_action(conversation, {RecordAssistantMessage, params})
     end
   end
 
@@ -78,12 +99,46 @@ defmodule Jido.Conversation do
     end
   end
 
+  @spec derived_state(t()) :: Reducer.derived_state()
+  def derived_state(%Agent{} = conversation) do
+    Reducer.derive(thread_entries(conversation), default_llm: default_llm(conversation))
+  end
+
+  @spec timeline(t()) :: [Timeline.entry()]
+  def timeline(%Agent{} = conversation) do
+    conversation
+    |> thread_entries()
+    |> Timeline.from_entries()
+  end
+
+  @spec llm_context(t(), keyword()) :: [LlmContext.message()]
+  def llm_context(%Agent{} = conversation, opts \\ []) do
+    conversation
+    |> thread_entries()
+    |> LlmContext.from_entries(opts)
+  end
+
   @spec state(t()) :: map()
   def state(%Agent{} = conversation), do: conversation.state
 
   defp run_action(%Agent{} = conversation, action) do
     {next_conversation, directives} = ConversationAgent.cmd(conversation, action)
-    {:ok, next_conversation, directives}
+    {:ok, sync_state_from_thread(next_conversation), directives}
+  end
+
+  defp sync_state_from_thread(%Agent{} = conversation) do
+    derived = derived_state(conversation)
+    %Agent{conversation | state: Map.merge(conversation.state, derived)}
+  end
+
+  defp default_llm(%Agent{} = conversation) do
+    conversation.state
+    |> Map.get(:llm, %{})
+    |> normalize_map()
+    |> Map.put_new(:backend, :jido_ai)
+    |> Map.put_new(:provider, nil)
+    |> Map.put_new(:model, nil)
+    |> Map.put_new(:options, %{})
   end
 
   defp conversation_id_from_opts(opts_map) do
