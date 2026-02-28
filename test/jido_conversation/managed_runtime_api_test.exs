@@ -473,6 +473,31 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "send_and_generate/3 timeout honors custom cancel reason" do
+    conversation_id = "facade-conv-turn-timeout-custom-cancel-reason"
+    cancel_reason = "turn_timeout"
+
+    assert {:error, :timeout} =
+             JidoConversation.send_and_generate(conversation_id, "please wait",
+               generation_opts: [
+                 llm: %{backend: :facade_slow_stub},
+                 llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+                 backend_opts: [test_pid: self(), sleep_ms: 2_000]
+               ],
+               await_opts: [timeout_ms: 10, cancel_reason: cancel_reason]
+             )
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+    assert_receive {:jido_conversation, {:generation_canceled, _generation_ref, ^cancel_reason}}
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert derived.status == :canceled
+    assert derived.cancel_reason == cancel_reason
+    assert Enum.map(derived.messages, & &1.content) == ["please wait"]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "send_and_generate/3 timeout can leave generation running when configured" do
     conversation_id = "facade-conv-turn-timeout-no-cancel"
 
