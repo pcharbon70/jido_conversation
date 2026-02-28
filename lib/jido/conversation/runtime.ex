@@ -50,6 +50,14 @@ defmodule Jido.Conversation.Runtime do
     end
   end
 
+  @spec thread_entries(locator()) ::
+          {:ok, [Jido.Thread.Entry.t()]} | {:error, :invalid_locator | :not_found}
+  def thread_entries(locator) do
+    with {:ok, pid} <- fetch_server(locator) do
+      {:ok, Server.thread_entries(pid)}
+    end
+  end
+
   @spec llm_context(locator(), keyword()) ::
           {:ok, [map()]} | {:error, :invalid_locator | :not_found}
   def llm_context(locator, opts \\ []) when is_list(opts) do

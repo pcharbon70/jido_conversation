@@ -75,5 +75,6 @@ Every signal must satisfy:
 - `JidoConversation.cancel_generation/2`
 - `JidoConversation.derived_state/1`
 - `JidoConversation.conversation_timeline/1`
+- `JidoConversation.conversation_thread_entries/1`
 - `JidoConversation.conversation_llm_context/2`
 - `JidoConversation.telemetry_snapshot/0`

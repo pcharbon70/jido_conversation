@@ -47,6 +47,11 @@ defmodule Jido.Conversation.Server do
     GenServer.call(server, :timeline)
   end
 
+  @spec thread_entries(GenServer.server()) :: [Jido.Thread.Entry.t()]
+  def thread_entries(server) do
+    GenServer.call(server, :thread_entries)
+  end
+
   @spec llm_context(GenServer.server(), keyword()) :: [map()]
   def llm_context(server, opts \\ []) when is_list(opts) do
     GenServer.call(server, {:llm_context, opts})
@@ -112,6 +117,11 @@ defmodule Jido.Conversation.Server do
   @impl true
   def handle_call(:timeline, _from, state) do
     {:reply, Conversation.timeline(state.conversation), state}
+  end
+
+  @impl true
+  def handle_call(:thread_entries, _from, state) do
+    {:reply, Conversation.thread_entries(state.conversation), state}
   end
 
   @impl true
