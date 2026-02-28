@@ -163,6 +163,25 @@ defmodule Jido.Conversation.RuntimeTest do
     assert :ok = Runtime.stop_conversation("runtime-conv-auto")
   end
 
+  test "record_assistant_message/3 auto-starts and updates conversation" do
+    assert Runtime.whereis("runtime-conv-assistant") == nil
+
+    assert {:ok, _conversation, _directives} =
+             Runtime.send_user_message("runtime-conv-assistant", "hello from runtime")
+
+    assert {:ok, conversation, _directives} =
+             Runtime.record_assistant_message("runtime-conv-assistant", "runtime assistant reply")
+
+    derived = Conversation.derived_state(conversation)
+
+    assert Enum.map(derived.messages, & &1.content) == [
+             "hello from runtime",
+             "runtime assistant reply"
+           ]
+
+    assert :ok = Runtime.stop_conversation("runtime-conv-assistant")
+  end
+
   test "generate_assistant_reply/2 routes through managed runtime by locator" do
     assert {:ok, _conversation, _directives} =
              Runtime.send_user_message("runtime-conv-generate", "hello runtime")
@@ -215,6 +234,7 @@ defmodule Jido.Conversation.RuntimeTest do
   test "read and cancel APIs return locator errors" do
     assert {:error, :invalid_locator} = Runtime.conversation("")
     assert {:error, :invalid_locator} = Runtime.derived_state({"", "conv"})
+    assert {:error, :invalid_locator} = Runtime.record_assistant_message("", "bad locator")
     assert {:error, :invalid_locator} = Runtime.cancel_generation({"project", ""})
 
     assert {:error, :not_found} = Runtime.conversation("missing-runtime-conv")

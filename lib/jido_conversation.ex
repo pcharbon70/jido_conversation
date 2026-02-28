@@ -96,6 +96,18 @@ defmodule JidoConversation do
   end
 
   @doc """
+  Records an assistant message through the managed runtime API.
+
+  If the conversation process does not exist yet, it is created automatically.
+  """
+  @spec record_assistant_message(conversation_locator(), String.t(), keyword()) ::
+          {:ok, Conversation.t(), [struct()]} | {:error, term()}
+  def record_assistant_message(locator, content, opts \\ [])
+      when is_binary(content) and is_list(opts) do
+    ConversationRuntime.record_assistant_message(locator, content, opts)
+  end
+
+  @doc """
   Configures backend/provider/model settings for a managed conversation.
 
   If the conversation process does not exist yet, it is created automatically.

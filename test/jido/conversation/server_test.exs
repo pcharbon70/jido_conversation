@@ -153,6 +153,9 @@ defmodule Jido.Conversation.ServerTest do
              Server.send_user_message(server, "new input while running")
 
     assert {:error, :generation_in_progress} =
+             Server.record_assistant_message(server, "assistant while running")
+
+    assert {:error, :generation_in_progress} =
              Server.configure_llm(server, :jido_ai, provider: "anthropic")
 
     assert {:error, :generation_in_progress} =
@@ -185,6 +188,22 @@ defmodule Jido.Conversation.ServerTest do
     derived = Conversation.derived_state(conversation)
 
     assert derived.skills.enabled == ["web_search", "code_exec"]
+  end
+
+  test "record_assistant_message/3 updates derived state" do
+    {:ok, server} = Server.start_link(conversation_id: "server-conv-assistant")
+
+    assert {:ok, _conversation, _directives} =
+             Server.send_user_message(server, "hello there")
+
+    assert {:ok, _conversation, _directives} =
+             Server.record_assistant_message(server, "hi from managed")
+
+    conversation = Server.conversation(server)
+    derived = Conversation.derived_state(conversation)
+
+    assert Enum.map(derived.messages, & &1.content) == ["hello there", "hi from managed"]
+    assert derived.status == :responding
   end
 
   test "generation errors are reported without mutating assistant messages" do
