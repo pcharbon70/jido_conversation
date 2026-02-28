@@ -107,6 +107,17 @@ defmodule JidoConversation do
   end
 
   @doc """
+  Configures enabled skill identifiers for a managed conversation.
+
+  If the conversation process does not exist yet, it is created automatically.
+  """
+  @spec configure_skills(conversation_locator(), [String.t() | atom()]) ::
+          {:ok, Conversation.t(), [struct()]} | {:error, term()}
+  def configure_skills(locator, enabled) when is_list(enabled) do
+    ConversationRuntime.configure_skills(locator, enabled)
+  end
+
+  @doc """
   Starts asynchronous assistant generation for a managed conversation.
 
   If the conversation process does not exist yet, it is created automatically.

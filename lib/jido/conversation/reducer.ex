@@ -12,7 +12,8 @@ defmodule Jido.Conversation.Reducer do
           cancel_reason: String.t() | nil,
           last_user_message: String.t() | nil,
           messages: [map()],
-          llm: map()
+          llm: map(),
+          skills: %{enabled: [String.t()]}
         }
 
   @default_llm %{backend: :jido_ai, provider: nil, model: nil, options: %{}}
@@ -36,7 +37,8 @@ defmodule Jido.Conversation.Reducer do
       cancel_reason: nil,
       last_user_message: nil,
       messages: [],
-      llm: default_llm
+      llm: default_llm,
+      skills: %{enabled: []}
     }
   end
 
@@ -79,6 +81,10 @@ defmodule Jido.Conversation.Reducer do
 
         %{state | llm: deep_merge(state.llm, compact_map(llm))}
 
+      "skills_configured" ->
+        enabled = normalize_skill_list(get_field(entry.payload, :enabled))
+        %{state | skills: %{enabled: enabled}}
+
       _other ->
         state
     end
@@ -115,6 +121,19 @@ defmodule Jido.Conversation.Reducer do
   end
 
   defp get_field(_map, _key), do: nil
+
+  defp normalize_skill_list(value) when is_list(value) do
+    value
+    |> Enum.map(fn
+      skill when is_atom(skill) -> Atom.to_string(skill)
+      skill when is_binary(skill) -> String.trim(skill)
+      _other -> ""
+    end)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
+  end
+
+  defp normalize_skill_list(_value), do: []
 
   defp normalize_map(value) when is_map(value), do: value
   defp normalize_map(_), do: %{}

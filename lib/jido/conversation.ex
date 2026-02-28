@@ -5,6 +5,7 @@ defmodule Jido.Conversation do
 
   alias Jido.Agent
   alias Jido.Conversation.Actions.ConfigureLlm
+  alias Jido.Conversation.Actions.ConfigureSkills
   alias Jido.Conversation.Actions.ReceiveUserMessage
   alias Jido.Conversation.Actions.RecordAssistantMessage
   alias Jido.Conversation.Actions.RequestCancel
@@ -87,6 +88,12 @@ defmodule Jido.Conversation do
     run_action(conversation, {ConfigureLlm, params})
   end
 
+  @spec configure_skills(t(), [String.t() | atom()]) :: {:ok, t(), [struct()]}
+  def configure_skills(%Agent{} = conversation, enabled) when is_list(enabled) do
+    params = %{enabled: normalize_skills(enabled)}
+    run_action(conversation, {ConfigureSkills, params})
+  end
+
   @spec generate_assistant_reply(t(), keyword()) ::
           {:ok, t(), JidoConversation.LLM.Result.t()} | {:error, JidoConversation.LLM.Error.t()}
   def generate_assistant_reply(%Agent{} = conversation, opts \\ []) when is_list(opts) do
@@ -155,6 +162,17 @@ defmodule Jido.Conversation do
   defp normalize_opts(opts) when is_list(opts), do: Map.new(opts)
   defp normalize_opts(opts) when is_map(opts), do: opts
   defp normalize_opts(_), do: %{}
+
+  defp normalize_skills(enabled) when is_list(enabled) do
+    enabled
+    |> Enum.map(fn
+      skill when is_atom(skill) -> Atom.to_string(skill)
+      skill when is_binary(skill) -> String.trim(skill)
+      _other -> ""
+    end)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
+  end
 
   defp normalize_map(value) when is_map(value), do: value
   defp normalize_map(_), do: %{}

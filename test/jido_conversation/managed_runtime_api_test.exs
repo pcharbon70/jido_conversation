@@ -125,6 +125,22 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(locator)
   end
 
+  test "managed facade configures skills" do
+    conversation_id = "facade-conv-skills"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.configure_skills(conversation_id, [
+               "web_search",
+               :code_exec,
+               "web_search"
+             ])
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert derived.skills.enabled == ["web_search", "code_exec"]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "managed facade supports generation and cancellation" do
     conversation_id = "facade-conv-generate"
 

@@ -80,6 +80,27 @@ defmodule Jido.ConversationTest do
     assert derived.llm.options == %{temperature: 0.2}
   end
 
+  test "configure_skills/2 updates derived skills and timeline" do
+    conversation = Conversation.new(conversation_id: "conv-5-skills")
+
+    assert {:ok, conversation, _directives} =
+             Conversation.configure_skills(conversation, [
+               "web_search",
+               :code_exec,
+               "  ",
+               "web_search"
+             ])
+
+    derived = Conversation.derived_state(conversation)
+    assert derived.skills.enabled == ["web_search", "code_exec"]
+
+    timeline = Conversation.timeline(conversation)
+
+    assert Enum.any?(timeline, fn entry ->
+             entry.kind == :status and entry.metadata[:event] == "skills_configured"
+           end)
+  end
+
   test "send_user_message/3 rejects empty content" do
     conversation = Conversation.new(conversation_id: "conv-6")
 

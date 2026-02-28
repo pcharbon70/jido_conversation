@@ -65,6 +65,18 @@ defmodule Jido.Conversation.Projections.Timeline do
           metadata: %{event: "llm_configured", backend: backend, provider: provider, model: model}
         }
 
+      "skills_configured" ->
+        enabled = get_field(entry.payload, :enabled) || []
+
+        %{
+          entry_id: entry.id,
+          seq: entry.seq,
+          role: :system,
+          kind: :status,
+          content: "Skills configured",
+          metadata: %{event: "skills_configured", enabled: enabled}
+        }
+
       _other ->
         nil
     end
