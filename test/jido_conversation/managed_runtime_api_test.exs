@@ -380,6 +380,51 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "managed facade enforces generation_in_progress for concurrent mutating commands" do
+    conversation_id = "facade-conv-concurrency-guards"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "please wait")
+
+    assert {:ok, generation_ref} =
+             JidoConversation.generate_assistant_reply(conversation_id,
+               llm: %{backend: :facade_slow_stub},
+               llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+               backend_opts: [test_pid: self(), sleep_ms: 2_000]
+             )
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+
+    assert {:error, :generation_in_progress} =
+             JidoConversation.send_user_message(conversation_id, "blocked")
+
+    assert {:error, :generation_in_progress} =
+             JidoConversation.record_assistant_message(conversation_id, "blocked")
+
+    assert {:error, :generation_in_progress} =
+             JidoConversation.configure_llm(conversation_id, :jido_ai,
+               provider: "anthropic",
+               model: "claude-test"
+             )
+
+    assert {:error, :generation_in_progress} =
+             JidoConversation.configure_skills(conversation_id, ["web_search"])
+
+    assert {:error, :generation_in_progress} =
+             JidoConversation.generate_assistant_reply(conversation_id,
+               llm: %{backend: :facade_slow_stub},
+               llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+               backend_opts: [test_pid: self(), sleep_ms: 2_000]
+             )
+
+    assert :ok = JidoConversation.cancel_generation(conversation_id, "concurrency_guard_cancel")
+
+    assert_receive {:jido_conversation,
+                    {:generation_canceled, ^generation_ref, "concurrency_guard_cancel"}}
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "send_and_generate/3 runs a full managed turn" do
     conversation_id = "facade-conv-turn"
 
