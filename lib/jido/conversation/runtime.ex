@@ -66,6 +66,14 @@ defmodule Jido.Conversation.Runtime do
     end
   end
 
+  @spec configure_skills(locator(), [String.t() | atom()]) ::
+          {:ok, Conversation.t(), [struct()]} | {:error, term()}
+  def configure_skills(locator, enabled) when is_list(enabled) do
+    with {:ok, pid} <- ensure_server(locator) do
+      Server.configure_skills(pid, enabled)
+    end
+  end
+
   @spec generate_assistant_reply(locator(), keyword()) ::
           {:ok, reference()} | {:error, :invalid_locator | :generation_in_progress | term()}
   def generate_assistant_reply(locator, opts \\ []) when is_list(opts) do

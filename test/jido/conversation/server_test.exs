@@ -156,6 +156,9 @@ defmodule Jido.Conversation.ServerTest do
              Server.configure_llm(server, :jido_ai, provider: "anthropic")
 
     assert {:error, :generation_in_progress} =
+             Server.configure_skills(server, ["web_search"])
+
+    assert {:error, :generation_in_progress} =
              Server.generate_assistant_reply(server, llm: %{backend: :slow_stub})
 
     assert :ok = Server.cancel_generation(server, "user_cancel")
@@ -170,6 +173,18 @@ defmodule Jido.Conversation.ServerTest do
     assert Enum.map(derived.messages, & &1.content) == ["please wait"]
     assert derived.status == :canceled
     assert derived.cancel_reason == "user_cancel"
+  end
+
+  test "configure_skills/2 updates derived state" do
+    {:ok, server} = Server.start_link(conversation_id: "server-conv-skills")
+
+    assert {:ok, _conversation, _directives} =
+             Server.configure_skills(server, ["web_search", :code_exec, "web_search"])
+
+    conversation = Server.conversation(server)
+    derived = Conversation.derived_state(conversation)
+
+    assert derived.skills.enabled == ["web_search", "code_exec"]
   end
 
   test "generation errors are reported without mutating assistant messages" do

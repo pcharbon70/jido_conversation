@@ -23,6 +23,7 @@ defmodule Jido.Conversation.Agent do
     strategy: {Jido.Agent.Strategy.Direct, thread?: true}
 
   alias Jido.Conversation.Actions.ConfigureLlm
+  alias Jido.Conversation.Actions.ConfigureSkills
   alias Jido.Conversation.Actions.ReceiveUserMessage
   alias Jido.Conversation.Actions.RecordAssistantMessage
   alias Jido.Conversation.Actions.RequestCancel
@@ -74,6 +75,16 @@ defmodule Jido.Conversation.Agent do
         provider: params[:provider] || params["provider"],
         model: params[:model] || params["model"],
         options: params[:options] || params["options"] || %{}
+      }
+    })
+  end
+
+  defp append_command_entry(agent, {ConfigureSkills, params}) when is_map(params) do
+    ThreadAgent.append(agent, %{
+      kind: :note,
+      payload: %{
+        event: "skills_configured",
+        enabled: params[:enabled] || params["enabled"] || []
       }
     })
   end

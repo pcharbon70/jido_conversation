@@ -59,6 +59,12 @@ defmodule Jido.Conversation.Server do
     GenServer.call(server, {:configure_llm, backend, opts})
   end
 
+  @spec configure_skills(GenServer.server(), [String.t() | atom()]) ::
+          {:ok, Conversation.t(), [struct()]} | {:error, term()}
+  def configure_skills(server, enabled) when is_list(enabled) do
+    GenServer.call(server, {:configure_skills, enabled})
+  end
+
   @spec generate_assistant_reply(GenServer.server(), keyword()) ::
           {:ok, reference()} | {:error, :generation_in_progress}
   def generate_assistant_reply(server, opts \\ []) when is_list(opts) do
@@ -116,6 +122,19 @@ defmodule Jido.Conversation.Server do
   def handle_call({:configure_llm, backend, opts}, _from, state) do
     {:ok, conversation, directives} =
       Conversation.configure_llm(state.conversation, backend, opts)
+
+    {:reply, {:ok, conversation, directives}, %{state | conversation: conversation}}
+  end
+
+  @impl true
+  def handle_call({:configure_skills, _enabled}, _from, %{active_generation: %{}} = state) do
+    {:reply, {:error, :generation_in_progress}, state}
+  end
+
+  @impl true
+  def handle_call({:configure_skills, enabled}, _from, state) do
+    {:ok, conversation, directives} =
+      Conversation.configure_skills(state.conversation, enabled)
 
     {:reply, {:ok, conversation, directives}, %{state | conversation: conversation}}
   end
