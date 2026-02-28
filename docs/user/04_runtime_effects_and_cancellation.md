@@ -79,6 +79,10 @@ through managed runtime processes:
 {:ok, _conversation, _directives} =
   JidoConversation.send_user_message("conv-123", "Hello")
 
+# Optional: append assistant output produced by your host integration
+{:ok, _conversation, _directives} =
+  JidoConversation.record_assistant_message("conv-123", "Hello from external runtime")
+
 {:ok, generation_ref} =
   JidoConversation.generate_assistant_reply("conv-123")
 

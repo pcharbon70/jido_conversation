@@ -58,6 +58,15 @@ defmodule Jido.Conversation.Runtime do
     end
   end
 
+  @spec record_assistant_message(locator(), String.t(), keyword()) ::
+          {:ok, Conversation.t(), [struct()]} | {:error, term()}
+  def record_assistant_message(locator, content, opts \\ [])
+      when is_binary(content) and is_list(opts) do
+    with {:ok, pid} <- ensure_server(locator) do
+      Server.record_assistant_message(pid, content, opts)
+    end
+  end
+
   @spec configure_llm(locator(), atom(), keyword()) ::
           {:ok, Conversation.t(), [struct()]} | {:error, term()}
   def configure_llm(locator, backend, opts \\ []) when is_atom(backend) and is_list(opts) do

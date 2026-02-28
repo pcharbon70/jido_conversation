@@ -66,6 +66,8 @@ Every signal must satisfy:
 - `JidoConversation.start_conversation/1`
 - `JidoConversation.ensure_conversation/1`
 - `JidoConversation.send_user_message/3`
+- `JidoConversation.record_assistant_message/3`
+- `JidoConversation.configure_llm/3`
 - `JidoConversation.configure_skills/2`
 - `JidoConversation.generate_assistant_reply/2`
 - `JidoConversation.await_generation/3`

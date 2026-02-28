@@ -141,6 +141,25 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "managed facade records assistant messages" do
+    conversation_id = "facade-conv-assistant"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "hello from facade")
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.record_assistant_message(conversation_id, "facade assistant reply")
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+
+    assert Enum.map(derived.messages, & &1.content) == [
+             "hello from facade",
+             "facade assistant reply"
+           ]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "managed facade supports generation and cancellation" do
     conversation_id = "facade-conv-generate"
 
@@ -280,6 +299,7 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
 
   test "managed facade validates locators" do
     assert {:error, :invalid_locator} = JidoConversation.conversation("")
+    assert {:error, :invalid_locator} = JidoConversation.record_assistant_message("", "bad")
     assert {:error, :invalid_locator} = JidoConversation.cancel_generation({"project", ""})
     assert {:error, :not_found} = JidoConversation.conversation("missing-facade-conv")
   end

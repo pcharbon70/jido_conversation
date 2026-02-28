@@ -53,6 +53,13 @@ defmodule Jido.Conversation.Server do
     GenServer.call(server, {:send_user_message, content, opts})
   end
 
+  @spec record_assistant_message(GenServer.server(), String.t(), keyword()) ::
+          {:ok, Conversation.t(), [struct()]} | {:error, term()}
+  def record_assistant_message(server, content, opts \\ [])
+      when is_binary(content) and is_list(opts) do
+    GenServer.call(server, {:record_assistant_message, content, opts})
+  end
+
   @spec configure_llm(GenServer.server(), atom(), keyword()) ::
           {:ok, Conversation.t(), [struct()]} | {:error, term()}
   def configure_llm(server, backend, opts \\ []) when is_atom(backend) and is_list(opts) do
@@ -105,6 +112,26 @@ defmodule Jido.Conversation.Server do
   @impl true
   def handle_call({:send_user_message, content, opts}, _from, state) do
     case Conversation.send_user_message(state.conversation, content, opts) do
+      {:ok, conversation, directives} ->
+        {:reply, {:ok, conversation, directives}, %{state | conversation: conversation}}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  @impl true
+  def handle_call(
+        {:record_assistant_message, _content, _opts},
+        _from,
+        %{active_generation: %{}} = state
+      ) do
+    {:reply, {:error, :generation_in_progress}, state}
+  end
+
+  @impl true
+  def handle_call({:record_assistant_message, content, opts}, _from, state) do
+    case Conversation.record_assistant_message(state.conversation, content, opts) do
       {:ok, conversation, directives} ->
         {:reply, {:ok, conversation, directives}, %{state | conversation: conversation}}
 
