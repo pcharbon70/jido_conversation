@@ -77,5 +77,6 @@ Every signal must satisfy:
 - `JidoConversation.conversation_timeline/1`
 - `JidoConversation.conversation_thread/1`
 - `JidoConversation.conversation_thread_entries/1`
+- `JidoConversation.conversation_messages/2`
 - `JidoConversation.conversation_llm_context/2`
 - `JidoConversation.telemetry_snapshot/0`

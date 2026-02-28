@@ -118,6 +118,18 @@ defmodule Jido.Conversation do
     Reducer.derive(thread_entries(conversation), default_llm: default_llm(conversation))
   end
 
+  @spec messages(t(), keyword()) :: [map()]
+  def messages(%Agent{} = conversation, opts \\ []) when is_list(opts) do
+    messages =
+      conversation
+      |> derived_state()
+      |> Map.get(:messages, [])
+
+    messages
+    |> maybe_filter_roles(Keyword.get(opts, :roles))
+    |> tail_messages(Keyword.get(opts, :max_messages))
+  end
+
   @spec timeline(t()) :: [Timeline.entry()]
   def timeline(%Agent{} = conversation) do
     conversation
@@ -176,6 +188,37 @@ defmodule Jido.Conversation do
 
   defp normalize_map(value) when is_map(value), do: value
   defp normalize_map(_), do: %{}
+
+  defp maybe_filter_roles(messages, nil), do: messages
+
+  defp maybe_filter_roles(messages, roles) when is_list(roles) do
+    role_set =
+      roles
+      |> Enum.map(&normalize_message_role/1)
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+
+    if MapSet.size(role_set) == 0 do
+      []
+    else
+      Enum.filter(messages, &MapSet.member?(role_set, &1.role))
+    end
+  end
+
+  defp maybe_filter_roles(messages, _roles), do: messages
+
+  defp tail_messages(messages, max_messages) when is_integer(max_messages) and max_messages > 0 do
+    Enum.take(messages, -max_messages)
+  end
+
+  defp tail_messages(messages, _max_messages), do: messages
+
+  defp normalize_message_role("user"), do: :user
+  defp normalize_message_role("assistant"), do: :assistant
+  defp normalize_message_role("system"), do: :system
+  defp normalize_message_role("tool"), do: :tool
+  defp normalize_message_role(role) when role in [:user, :assistant, :system, :tool], do: role
+  defp normalize_message_role(_), do: nil
 
   defp blank?(value) when is_binary(value), do: String.trim(value) == ""
   defp blank?(_), do: true
