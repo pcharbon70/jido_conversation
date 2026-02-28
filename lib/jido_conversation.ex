@@ -85,6 +85,15 @@ defmodule JidoConversation do
   end
 
   @doc """
+  Returns the in-memory `Jido.Thread` journal struct from a managed conversation process.
+  """
+  @spec conversation_thread(conversation_locator()) ::
+          {:ok, Jido.Thread.t() | nil} | {:error, :invalid_locator | :not_found}
+  def conversation_thread(locator) do
+    ConversationRuntime.thread(locator)
+  end
+
+  @doc """
   Returns append-only in-memory thread journal entries from a managed conversation process.
 
   This gives direct access to the raw journal used to derive conversation state.

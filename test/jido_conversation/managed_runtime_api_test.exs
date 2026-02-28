@@ -184,6 +184,35 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "managed facade exposes in-memory conversation thread struct" do
+    conversation_id = "facade-conv-thread-struct"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "facade thread struct hello")
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.record_assistant_message(
+               conversation_id,
+               "facade thread struct reply"
+             )
+
+    assert {:ok, %Jido.Thread{id: "conv_thread_facade-conv-thread-struct"} = thread} =
+             JidoConversation.conversation_thread(conversation_id)
+
+    message_payloads =
+      thread
+      |> Jido.Thread.to_list()
+      |> Enum.filter(&(&1.kind == :message))
+      |> Enum.map(& &1.payload)
+
+    assert message_payloads == [
+             %{content: "facade thread struct hello", metadata: %{}, role: "user"},
+             %{content: "facade thread struct reply", metadata: %{}, role: "assistant"}
+           ]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "managed facade exposes in-memory conversation thread entries" do
     conversation_id = "facade-conv-thread"
 
@@ -347,6 +376,7 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
 
   test "managed facade validates locators" do
     assert {:error, :invalid_locator} = JidoConversation.conversation("")
+    assert {:error, :invalid_locator} = JidoConversation.conversation_thread("")
     assert {:error, :invalid_locator} = JidoConversation.conversation_thread_entries("")
     assert {:error, :invalid_locator} = JidoConversation.conversation_llm_context("")
     assert {:error, :invalid_locator} = JidoConversation.record_assistant_message("", "bad")

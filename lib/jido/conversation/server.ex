@@ -47,6 +47,11 @@ defmodule Jido.Conversation.Server do
     GenServer.call(server, :timeline)
   end
 
+  @spec thread(GenServer.server()) :: Jido.Thread.t() | nil
+  def thread(server) do
+    GenServer.call(server, :thread)
+  end
+
   @spec thread_entries(GenServer.server()) :: [Jido.Thread.Entry.t()]
   def thread_entries(server) do
     GenServer.call(server, :thread_entries)
@@ -117,6 +122,11 @@ defmodule Jido.Conversation.Server do
   @impl true
   def handle_call(:timeline, _from, state) do
     {:reply, Conversation.timeline(state.conversation), state}
+  end
+
+  @impl true
+  def handle_call(:thread, _from, state) do
+    {:reply, Conversation.thread(state.conversation), state}
   end
 
   @impl true
