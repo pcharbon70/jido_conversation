@@ -449,6 +449,57 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "send_and_generate/3 timeout cancels by default" do
+    conversation_id = "facade-conv-turn-timeout-cancel"
+
+    assert {:error, :timeout} =
+             JidoConversation.send_and_generate(conversation_id, "please wait",
+               generation_opts: [
+                 llm: %{backend: :facade_slow_stub},
+                 llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+                 backend_opts: [test_pid: self(), sleep_ms: 2_000]
+               ],
+               await_opts: [timeout_ms: 10]
+             )
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+    assert_receive {:jido_conversation, {:generation_canceled, _generation_ref, "await_timeout"}}
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert derived.status == :canceled
+    assert derived.cancel_reason == "await_timeout"
+    assert Enum.map(derived.messages, & &1.content) == ["please wait"]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
+  test "send_and_generate/3 timeout can leave generation running when configured" do
+    conversation_id = "facade-conv-turn-timeout-no-cancel"
+
+    assert {:error, :timeout} =
+             JidoConversation.send_and_generate(conversation_id, "please wait",
+               generation_opts: [
+                 llm: %{backend: :facade_slow_stub},
+                 llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+                 backend_opts: [test_pid: self(), sleep_ms: 150]
+               ],
+               await_opts: [timeout_ms: 10, cancel_on_timeout?: false]
+             )
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+
+    assert_receive {:jido_conversation,
+                    {:generation_result, _generation_ref, {:ok, %LLMResult{} = result}}},
+                   1_000
+
+    assert result.text == "facade slow reply"
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert Enum.map(derived.messages, & &1.content) == ["please wait", "facade slow reply"]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "await_generation/3 timeout cancels by default" do
     conversation_id = "facade-conv-await-timeout"
 
