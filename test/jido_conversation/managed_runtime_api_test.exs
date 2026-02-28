@@ -4,6 +4,7 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
   alias Jido.Conversation
   alias JidoConversation
   alias JidoConversation.LLM.Backend
+  alias JidoConversation.LLM.Error, as: LLMError
   alias JidoConversation.LLM.Request, as: LLMRequest
   alias JidoConversation.LLM.Result, as: LLMResult
 
@@ -78,6 +79,37 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
          provider: request.provider || "anthropic",
          model: request.model || "claude-test"
        })}
+    end
+
+    @impl true
+    def stream(%LLMRequest{} = request, _emit, opts), do: start(request, opts)
+
+    @impl true
+    def cancel(_execution_ref, _opts), do: :ok
+  end
+
+  defmodule FacadeErrorBackendStub do
+    @behaviour Backend
+
+    @impl true
+    def capabilities do
+      %{
+        streaming?: false,
+        cancellation?: false,
+        provider_selection?: true,
+        model_selection?: true
+      }
+    end
+
+    @impl true
+    def start(%LLMRequest{} = request, opts) do
+      send(
+        Keyword.get(opts, :test_pid, self()),
+        {:facade_error_backend_called, request.request_id}
+      )
+
+      {:error,
+       LLMError.new!(category: :provider, message: "facade backend failed", retryable?: true)}
     end
 
     @impl true
@@ -428,6 +460,82 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
 
     assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
     assert Enum.map(derived.messages, & &1.content) == ["please wait", "facade slow reply"]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
+  test "await_generation/3 returns backend errors" do
+    conversation_id = "facade-conv-await-error"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "return error")
+
+    assert {:ok, generation_ref} =
+             JidoConversation.generate_assistant_reply(conversation_id,
+               llm: %{backend: :facade_error_stub},
+               llm_config: llm_config(:facade_error_stub, FacadeErrorBackendStub),
+               backend_opts: [test_pid: self()]
+             )
+
+    assert_receive {:facade_error_backend_called, _request_id}
+
+    assert {:error, %LLMError{} = error} =
+             JidoConversation.await_generation(conversation_id, generation_ref, timeout_ms: 1_000)
+
+    assert error.category == :provider
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert Enum.map(derived.messages, & &1.content) == ["return error"]
+    assert derived.status == :pending_llm
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
+  test "await_generation/3 returns canceled tuples when cancellation was requested" do
+    conversation_id = "facade-conv-await-canceled"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "cancel this run")
+
+    assert {:ok, generation_ref} =
+             JidoConversation.generate_assistant_reply(conversation_id,
+               llm: %{backend: :facade_slow_stub},
+               llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+               backend_opts: [test_pid: self(), sleep_ms: 2_000]
+             )
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+    assert :ok = JidoConversation.cancel_generation(conversation_id, "manual_cancel")
+
+    assert {:error, {:canceled, "manual_cancel"}} =
+             JidoConversation.await_generation(conversation_id, generation_ref, timeout_ms: 1_000)
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert derived.status == :canceled
+    assert derived.cancel_reason == "manual_cancel"
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
+  test "send_and_generate/3 propagates backend errors and keeps assistant history unchanged" do
+    conversation_id = "facade-conv-turn-error"
+
+    assert {:error, %LLMError{} = error} =
+             JidoConversation.send_and_generate(conversation_id, "error turn",
+               generation_opts: [
+                 llm: %{backend: :facade_error_stub},
+                 llm_config: llm_config(:facade_error_stub, FacadeErrorBackendStub),
+                 backend_opts: [test_pid: self()]
+               ],
+               await_opts: [timeout_ms: 1_000]
+             )
+
+    assert error.category == :provider
+    assert_receive {:facade_error_backend_called, _request_id}
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert Enum.map(derived.messages, & &1.content) == ["error turn"]
+    assert derived.status == :pending_llm
 
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
