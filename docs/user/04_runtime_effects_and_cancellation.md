@@ -91,3 +91,19 @@ end
 Use this API when you want managed per-conversation processes and direct async
 notifications. Keep using ingest adapters when your host app is event-source
 driven and journal-first at all boundaries.
+
+## Synchronous turn helper
+
+For simple request/response flows, use `send_and_generate/3`:
+
+```elixir
+{:ok, conversation, result} =
+  JidoConversation.send_and_generate("conv-123", "Hello", 
+    generation_opts: [llm: %{backend: :jido_ai}],
+    await_opts: [timeout_ms: 30_000]
+  )
+```
+
+If you need explicit control, call `generate_assistant_reply/2` and then
+`await_generation/3` directly. By default, `await_generation/3` cancels the
+in-flight generation on timeout with reason `"await_timeout"`.
