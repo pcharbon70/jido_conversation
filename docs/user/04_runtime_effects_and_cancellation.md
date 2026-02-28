@@ -63,3 +63,31 @@ Effect workers emit lifecycle events in `conv.effect.*` namespaces, for example:
 
 These lifecycle events are what power retry telemetry, projection output, and
 replay diagnostics.
+
+## Managed conversation process API
+
+For request/response style host integrations, you can drive conversations
+through managed runtime processes:
+
+```elixir
+{:ok, _pid, _status} =
+  JidoConversation.ensure_conversation(conversation_id: "conv-123")
+
+{:ok, _conversation, _directives} =
+  JidoConversation.send_user_message("conv-123", "Hello")
+
+{:ok, generation_ref} =
+  JidoConversation.generate_assistant_reply("conv-123")
+
+receive do
+  {:jido_conversation, {:generation_result, ^generation_ref, {:ok, result}}} ->
+    result
+end
+
+# Cancel when needed
+:ok = JidoConversation.cancel_generation("conv-123", "user_cancel")
+```
+
+Use this API when you want managed per-conversation processes and direct async
+notifications. Keep using ingest adapters when your host app is event-source
+driven and journal-first at all boundaries.
