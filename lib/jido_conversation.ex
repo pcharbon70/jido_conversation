@@ -105,6 +105,20 @@ defmodule JidoConversation do
   end
 
   @doc """
+  Returns in-memory derived message entries from a managed conversation process.
+
+  Options:
+  - `:max_messages` keep only the most recent N messages
+  - `:roles` include only messages for the provided roles (`:user`, `:assistant`,
+    `:system`, `:tool`, or string equivalents)
+  """
+  @spec conversation_messages(conversation_locator(), keyword()) ::
+          {:ok, [map()]} | {:error, :invalid_locator | :not_found}
+  def conversation_messages(locator, opts \\ []) when is_list(opts) do
+    ConversationRuntime.messages(locator, opts)
+  end
+
+  @doc """
   Returns the in-memory LLM context from a managed conversation process.
 
   This is different from `llm_context/2`, which reads projection data from the

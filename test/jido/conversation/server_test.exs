@@ -231,6 +231,33 @@ defmodule Jido.Conversation.ServerTest do
              end)
   end
 
+  test "messages/2 returns in-memory derived messages with filters" do
+    {:ok, server} = Server.start_link(conversation_id: "server-conv-messages")
+
+    assert {:ok, _conversation, _directives} =
+             Server.send_user_message(server, "messages hello")
+
+    assert {:ok, _conversation, _directives} =
+             Server.record_assistant_message(server, "messages reply")
+
+    assert Enum.map(Server.messages(server), &{&1.role, &1.content}) == [
+             {:user, "messages hello"},
+             {:assistant, "messages reply"}
+           ]
+
+    assert Enum.map(Server.messages(server, max_messages: 1), &{&1.role, &1.content}) == [
+             {:assistant, "messages reply"}
+           ]
+
+    assert Enum.map(Server.messages(server, roles: [:user]), &{&1.role, &1.content}) == [
+             {:user, "messages hello"}
+           ]
+
+    assert Enum.map(Server.messages(server, roles: ["assistant"]), &{&1.role, &1.content}) == [
+             {:assistant, "messages reply"}
+           ]
+  end
+
   test "thread/1 returns in-memory append-only journal struct" do
     {:ok, server} = Server.start_link(conversation_id: "server-conv-thread-struct")
 

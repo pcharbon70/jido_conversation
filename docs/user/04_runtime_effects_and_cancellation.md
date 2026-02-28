@@ -89,6 +89,9 @@ through managed runtime processes:
 {:ok, entries} =
   JidoConversation.conversation_thread_entries("conv-123")
 
+{:ok, messages} =
+  JidoConversation.conversation_messages("conv-123", roles: [:user, :assistant], max_messages: 10)
+
 {:ok, context} =
   JidoConversation.conversation_llm_context("conv-123", max_messages: 10)
 

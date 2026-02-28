@@ -52,6 +52,11 @@ defmodule Jido.Conversation.Server do
     GenServer.call(server, :thread)
   end
 
+  @spec messages(GenServer.server(), keyword()) :: [map()]
+  def messages(server, opts \\ []) when is_list(opts) do
+    GenServer.call(server, {:messages, opts})
+  end
+
   @spec thread_entries(GenServer.server()) :: [Jido.Thread.Entry.t()]
   def thread_entries(server) do
     GenServer.call(server, :thread_entries)
@@ -127,6 +132,11 @@ defmodule Jido.Conversation.Server do
   @impl true
   def handle_call(:thread, _from, state) do
     {:reply, Conversation.thread(state.conversation), state}
+  end
+
+  @impl true
+  def handle_call({:messages, opts}, _from, state) do
+    {:reply, Conversation.messages(state.conversation, opts), state}
   end
 
   @impl true

@@ -202,6 +202,35 @@ defmodule Jido.Conversation.RuntimeTest do
     assert :ok = Runtime.stop_conversation("runtime-conv-context")
   end
 
+  test "messages/2 returns managed in-memory derived messages with filters" do
+    assert {:ok, _conversation, _directives} =
+             Runtime.send_user_message("runtime-conv-messages", "runtime messages hello")
+
+    assert {:ok, _conversation, _directives} =
+             Runtime.record_assistant_message("runtime-conv-messages", "runtime messages reply")
+
+    assert {:ok, messages} = Runtime.messages("runtime-conv-messages")
+
+    assert Enum.map(messages, &{&1.role, &1.content}) == [
+             {:user, "runtime messages hello"},
+             {:assistant, "runtime messages reply"}
+           ]
+
+    assert {:ok, limited} = Runtime.messages("runtime-conv-messages", max_messages: 1)
+    assert Enum.map(limited, &{&1.role, &1.content}) == [{:assistant, "runtime messages reply"}]
+
+    assert {:ok, user_only} = Runtime.messages("runtime-conv-messages", roles: [:user])
+    assert Enum.map(user_only, &{&1.role, &1.content}) == [{:user, "runtime messages hello"}]
+
+    assert {:ok, assistant_only} = Runtime.messages("runtime-conv-messages", roles: ["assistant"])
+
+    assert Enum.map(assistant_only, &{&1.role, &1.content}) == [
+             {:assistant, "runtime messages reply"}
+           ]
+
+    assert :ok = Runtime.stop_conversation("runtime-conv-messages")
+  end
+
   test "thread/1 returns managed in-memory append-only journal struct" do
     assert {:ok, _conversation, _directives} =
              Runtime.send_user_message(
@@ -307,6 +336,7 @@ defmodule Jido.Conversation.RuntimeTest do
     assert {:error, :invalid_locator} = Runtime.conversation("")
     assert {:error, :invalid_locator} = Runtime.derived_state({"", "conv"})
     assert {:error, :invalid_locator} = Runtime.thread({"", "conv"})
+    assert {:error, :invalid_locator} = Runtime.messages({"", "conv"})
     assert {:error, :invalid_locator} = Runtime.thread_entries({"", "conv"})
     assert {:error, :invalid_locator} = Runtime.llm_context({"", "conv"})
     assert {:error, :invalid_locator} = Runtime.record_assistant_message("", "bad locator")

@@ -184,6 +184,42 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "managed facade exposes in-memory conversation messages" do
+    conversation_id = "facade-conv-messages"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "facade messages hello")
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.record_assistant_message(conversation_id, "facade messages reply")
+
+    assert {:ok, messages} = JidoConversation.conversation_messages(conversation_id)
+
+    assert Enum.map(messages, &{&1.role, &1.content}) == [
+             {:user, "facade messages hello"},
+             {:assistant, "facade messages reply"}
+           ]
+
+    assert {:ok, limited} =
+             JidoConversation.conversation_messages(conversation_id, max_messages: 1)
+
+    assert Enum.map(limited, &{&1.role, &1.content}) == [{:assistant, "facade messages reply"}]
+
+    assert {:ok, user_only} =
+             JidoConversation.conversation_messages(conversation_id, roles: [:user])
+
+    assert Enum.map(user_only, &{&1.role, &1.content}) == [{:user, "facade messages hello"}]
+
+    assert {:ok, assistant_only} =
+             JidoConversation.conversation_messages(conversation_id, roles: ["assistant"])
+
+    assert Enum.map(assistant_only, &{&1.role, &1.content}) == [
+             {:assistant, "facade messages reply"}
+           ]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "managed facade exposes in-memory conversation thread struct" do
     conversation_id = "facade-conv-thread-struct"
 
@@ -376,6 +412,7 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
 
   test "managed facade validates locators" do
     assert {:error, :invalid_locator} = JidoConversation.conversation("")
+    assert {:error, :invalid_locator} = JidoConversation.conversation_messages("")
     assert {:error, :invalid_locator} = JidoConversation.conversation_thread("")
     assert {:error, :invalid_locator} = JidoConversation.conversation_thread_entries("")
     assert {:error, :invalid_locator} = JidoConversation.conversation_llm_context("")
