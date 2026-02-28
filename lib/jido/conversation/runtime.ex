@@ -50,6 +50,14 @@ defmodule Jido.Conversation.Runtime do
     end
   end
 
+  @spec thread(locator()) ::
+          {:ok, Jido.Thread.t() | nil} | {:error, :invalid_locator | :not_found}
+  def thread(locator) do
+    with {:ok, pid} <- fetch_server(locator) do
+      {:ok, Server.thread(pid)}
+    end
+  end
+
   @spec thread_entries(locator()) ::
           {:ok, [Jido.Thread.Entry.t()]} | {:error, :invalid_locator | :not_found}
   def thread_entries(locator) do

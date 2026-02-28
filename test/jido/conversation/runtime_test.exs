@@ -202,6 +202,36 @@ defmodule Jido.Conversation.RuntimeTest do
     assert :ok = Runtime.stop_conversation("runtime-conv-context")
   end
 
+  test "thread/1 returns managed in-memory append-only journal struct" do
+    assert {:ok, _conversation, _directives} =
+             Runtime.send_user_message(
+               "runtime-conv-thread-struct",
+               "runtime thread struct hello"
+             )
+
+    assert {:ok, _conversation, _directives} =
+             Runtime.record_assistant_message(
+               "runtime-conv-thread-struct",
+               "runtime thread struct reply"
+             )
+
+    assert {:ok, %Jido.Thread{id: "conv_thread_runtime-conv-thread-struct"} = thread} =
+             Runtime.thread("runtime-conv-thread-struct")
+
+    message_payloads =
+      thread
+      |> Jido.Thread.to_list()
+      |> Enum.filter(&(&1.kind == :message))
+      |> Enum.map(& &1.payload)
+
+    assert message_payloads == [
+             %{content: "runtime thread struct hello", metadata: %{}, role: "user"},
+             %{content: "runtime thread struct reply", metadata: %{}, role: "assistant"}
+           ]
+
+    assert :ok = Runtime.stop_conversation("runtime-conv-thread-struct")
+  end
+
   test "thread_entries/1 returns managed in-memory append-only journal entries" do
     assert {:ok, _conversation, _directives} =
              Runtime.send_user_message("runtime-conv-thread", "runtime thread hello")
@@ -276,6 +306,7 @@ defmodule Jido.Conversation.RuntimeTest do
   test "read and cancel APIs return locator errors" do
     assert {:error, :invalid_locator} = Runtime.conversation("")
     assert {:error, :invalid_locator} = Runtime.derived_state({"", "conv"})
+    assert {:error, :invalid_locator} = Runtime.thread({"", "conv"})
     assert {:error, :invalid_locator} = Runtime.thread_entries({"", "conv"})
     assert {:error, :invalid_locator} = Runtime.llm_context({"", "conv"})
     assert {:error, :invalid_locator} = Runtime.record_assistant_message("", "bad locator")

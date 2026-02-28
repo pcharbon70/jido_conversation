@@ -231,6 +231,31 @@ defmodule Jido.Conversation.ServerTest do
              end)
   end
 
+  test "thread/1 returns in-memory append-only journal struct" do
+    {:ok, server} = Server.start_link(conversation_id: "server-conv-thread-struct")
+
+    assert {:ok, _conversation, _directives} =
+             Server.send_user_message(server, "thread struct hello")
+
+    assert {:ok, _conversation, _directives} =
+             Server.record_assistant_message(server, "thread struct reply")
+
+    assert %Jido.Thread{id: "conv_thread_server-conv-thread-struct"} =
+             thread =
+             Server.thread(server)
+
+    message_payloads =
+      thread
+      |> Jido.Thread.to_list()
+      |> Enum.filter(&(&1.kind == :message))
+      |> Enum.map(& &1.payload)
+
+    assert message_payloads == [
+             %{content: "thread struct hello", metadata: %{}, role: "user"},
+             %{content: "thread struct reply", metadata: %{}, role: "assistant"}
+           ]
+  end
+
   test "thread_entries/1 returns in-memory append-only journal entries" do
     {:ok, server} = Server.start_link(conversation_id: "server-conv-thread")
 
