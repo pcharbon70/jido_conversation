@@ -9,6 +9,7 @@ defmodule Jido.Conversation do
   alias Jido.Conversation.Actions.RecordAssistantMessage
   alias Jido.Conversation.Actions.RequestCancel
   alias Jido.Conversation.Agent, as: ConversationAgent
+  alias Jido.Conversation.LLMGeneration
   alias Jido.Conversation.Projections.LlmContext
   alias Jido.Conversation.Projections.Timeline
   alias Jido.Conversation.Reducer
@@ -84,6 +85,12 @@ defmodule Jido.Conversation do
     }
 
     run_action(conversation, {ConfigureLlm, params})
+  end
+
+  @spec generate_assistant_reply(t(), keyword()) ::
+          {:ok, t(), JidoConversation.LLM.Result.t()} | {:error, JidoConversation.LLM.Error.t()}
+  def generate_assistant_reply(%Agent{} = conversation, opts \\ []) when is_list(opts) do
+    LLMGeneration.generate(conversation, opts)
   end
 
   @spec thread(t()) :: Thread.t() | nil
