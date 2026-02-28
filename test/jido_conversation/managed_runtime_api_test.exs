@@ -538,6 +538,35 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "send_and_generate/3 returns canceled tuples when cancellation was requested" do
+    conversation_id = "facade-conv-turn-canceled"
+    test_pid = self()
+
+    task =
+      Task.async(fn ->
+        JidoConversation.send_and_generate(conversation_id, "cancel this run",
+          generation_opts: [
+            llm: %{backend: :facade_slow_stub},
+            llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+            backend_opts: [test_pid: test_pid, sleep_ms: 2_000]
+          ],
+          await_opts: [timeout_ms: 1_000]
+        )
+      end)
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+    assert :ok = JidoConversation.cancel_generation(conversation_id, "manual_cancel")
+
+    assert {:error, {:canceled, "manual_cancel"}} = Task.await(task, 2_000)
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert derived.status == :canceled
+    assert derived.cancel_reason == "manual_cancel"
+    assert Enum.map(derived.messages, & &1.content) == ["cancel this run"]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "await_generation/3 timeout cancels by default" do
     conversation_id = "facade-conv-await-timeout"
 
