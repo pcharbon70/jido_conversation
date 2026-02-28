@@ -3,6 +3,7 @@ defmodule Jido.Conversation.Runtime do
   Managed runtime API for starting and controlling conversation server processes.
   """
 
+  alias Jido.Conversation
   alias Jido.Conversation.Server
   alias JidoConversation.ConversationRef
 
@@ -24,6 +25,60 @@ defmodule Jido.Conversation.Runtime do
   def ensure_conversation(opts) do
     with {:ok, key, server_opts} <- normalize_start_opts(opts) do
       ensure_started(key, server_opts)
+    end
+  end
+
+  @spec conversation(locator()) ::
+          {:ok, Conversation.t()} | {:error, :invalid_locator | :not_found}
+  def conversation(locator) do
+    with {:ok, pid} <- fetch_server(locator) do
+      {:ok, Server.conversation(pid)}
+    end
+  end
+
+  @spec derived_state(locator()) :: {:ok, map()} | {:error, :invalid_locator | :not_found}
+  def derived_state(locator) do
+    with {:ok, pid} <- fetch_server(locator) do
+      {:ok, Server.derived_state(pid)}
+    end
+  end
+
+  @spec timeline(locator()) :: {:ok, [map()]} | {:error, :invalid_locator | :not_found}
+  def timeline(locator) do
+    with {:ok, pid} <- fetch_server(locator) do
+      {:ok, Server.timeline(pid)}
+    end
+  end
+
+  @spec send_user_message(locator(), String.t(), keyword()) ::
+          {:ok, Conversation.t(), [struct()]} | {:error, term()}
+  def send_user_message(locator, content, opts \\ []) when is_binary(content) and is_list(opts) do
+    with {:ok, pid} <- ensure_server(locator) do
+      Server.send_user_message(pid, content, opts)
+    end
+  end
+
+  @spec configure_llm(locator(), atom(), keyword()) ::
+          {:ok, Conversation.t(), [struct()]} | {:error, term()}
+  def configure_llm(locator, backend, opts \\ []) when is_atom(backend) and is_list(opts) do
+    with {:ok, pid} <- ensure_server(locator) do
+      Server.configure_llm(pid, backend, opts)
+    end
+  end
+
+  @spec generate_assistant_reply(locator(), keyword()) ::
+          {:ok, reference()} | {:error, :invalid_locator | :generation_in_progress | term()}
+  def generate_assistant_reply(locator, opts \\ []) when is_list(opts) do
+    with {:ok, pid} <- ensure_server(locator) do
+      Server.generate_assistant_reply(pid, opts)
+    end
+  end
+
+  @spec cancel_generation(locator(), String.t()) ::
+          :ok | {:error, :invalid_locator | :not_found | :no_generation_in_progress | term()}
+  def cancel_generation(locator, reason \\ "cancel_requested") when is_binary(reason) do
+    with {:ok, pid} <- fetch_server(locator) do
+      Server.cancel_generation(pid, reason)
     end
   end
 
@@ -90,6 +145,23 @@ defmodule Jido.Conversation.Runtime do
     end
   end
 
+  defp ensure_server(locator) do
+    with {:ok, start_opts} <- locator_to_start_opts(locator),
+         {:ok, pid, _status} <- ensure_conversation(start_opts) do
+      {:ok, pid}
+    end
+  end
+
+  defp fetch_server(locator) do
+    with {:ok, key} <- locator_to_key(locator),
+         pid when is_pid(pid) <- whereis_key(key) do
+      {:ok, pid}
+    else
+      nil -> {:error, :not_found}
+      {:error, _reason} -> {:error, :invalid_locator}
+    end
+  end
+
   defp whereis_key(key) do
     case Registry.lookup(@registry_name, key) do
       [{pid, _value} | _] -> pid
@@ -140,6 +212,25 @@ defmodule Jido.Conversation.Runtime do
   defp project_key(project_id, conversation_id) do
     ConversationRef.subject(project_id, conversation_id)
   end
+
+  defp locator_to_start_opts({project_id, conversation_id})
+       when is_binary(project_id) and is_binary(conversation_id) do
+    if valid_nonblank?(project_id) and valid_nonblank?(conversation_id) do
+      {:ok, [project_id: project_id, conversation_id: conversation_id]}
+    else
+      {:error, :invalid_locator}
+    end
+  end
+
+  defp locator_to_start_opts(conversation_id) when is_binary(conversation_id) do
+    if valid_nonblank?(conversation_id) do
+      {:ok, [conversation_id: conversation_id]}
+    else
+      {:error, :invalid_locator}
+    end
+  end
+
+  defp locator_to_start_opts(_), do: {:error, :invalid_locator}
 
   defp locator_to_key({project_id, conversation_id})
        when is_binary(project_id) and is_binary(conversation_id) do
