@@ -425,6 +425,44 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "send_and_generate/3 returns generation_in_progress while another generation is active" do
+    conversation_id = "facade-conv-turn-concurrency-guard"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "please wait")
+
+    assert {:ok, generation_ref} =
+             JidoConversation.generate_assistant_reply(conversation_id,
+               llm: %{backend: :facade_slow_stub},
+               llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+               backend_opts: [test_pid: self(), sleep_ms: 2_000]
+             )
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+
+    assert {:error, :generation_in_progress} =
+             JidoConversation.send_and_generate(conversation_id, "blocked turn",
+               generation_opts: [
+                 llm: %{backend: :facade_slow_stub},
+                 llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+                 backend_opts: [test_pid: self(), sleep_ms: 2_000]
+               ],
+               await_opts: [timeout_ms: 200]
+             )
+
+    refute_receive {:facade_slow_backend_started, _request_id}, 100
+
+    assert :ok = JidoConversation.cancel_generation(conversation_id, "concurrency_guard_cancel")
+
+    assert_receive {:jido_conversation,
+                    {:generation_canceled, ^generation_ref, "concurrency_guard_cancel"}}
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert Enum.map(derived.messages, & &1.content) == ["please wait"]
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "send_and_generate/3 runs a full managed turn" do
     conversation_id = "facade-conv-turn"
 
