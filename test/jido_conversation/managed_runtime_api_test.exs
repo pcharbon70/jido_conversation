@@ -125,6 +125,28 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(locator)
   end
 
+  test "managed facade configures llm" do
+    conversation_id = "facade-conv-llm"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.configure_llm(conversation_id, :jido_ai,
+               provider: "anthropic",
+               model: "claude-test",
+               options: %{temperature: 0.2}
+             )
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+
+    assert derived.llm == %{
+             backend: :jido_ai,
+             provider: "anthropic",
+             model: "claude-test",
+             options: %{temperature: 0.2}
+           }
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "managed facade configures skills" do
     conversation_id = "facade-conv-skills"
 
@@ -416,6 +438,7 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert {:error, :invalid_locator} = JidoConversation.conversation_thread("")
     assert {:error, :invalid_locator} = JidoConversation.conversation_thread_entries("")
     assert {:error, :invalid_locator} = JidoConversation.conversation_llm_context("")
+    assert {:error, :invalid_locator} = JidoConversation.configure_llm("", :jido_ai)
     assert {:error, :invalid_locator} = JidoConversation.record_assistant_message("", "bad")
     assert {:error, :invalid_locator} = JidoConversation.cancel_generation({"project", ""})
     assert {:error, :not_found} = JidoConversation.conversation("missing-facade-conv")

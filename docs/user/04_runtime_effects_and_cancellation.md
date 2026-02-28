@@ -74,6 +74,13 @@ through managed runtime processes:
   JidoConversation.ensure_conversation(conversation_id: "conv-123")
 
 {:ok, _conversation, _directives} =
+  JidoConversation.configure_llm("conv-123", :jido_ai,
+    provider: "anthropic",
+    model: "claude-test",
+    options: %{temperature: 0.2}
+  )
+
+{:ok, _conversation, _directives} =
   JidoConversation.configure_skills("conv-123", ["web_search", "code_exec"])
 
 {:ok, _conversation, _directives} =
