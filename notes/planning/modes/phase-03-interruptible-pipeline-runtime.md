@@ -59,6 +59,13 @@ Back to index: [README](./README.md)
       [ ] 3.2.3.2 Subtask - Define deterministic mapping from mode step intents to execution kinds (`strategy_run`, tool kinds, `command_run`, `workflow_run`).
       [ ] 3.2.3.3 Subtask - Define rejection behavior when an intent cannot be mapped to a supported execution kind.
 
+    [ ] 3.2.4 Task - Define tool declaration and LLM exposure contract in code server
+      Make `jido_code_server` the explicit source of truth for tool inventory and what tools are visible to LLM runs.
+
+      [ ] 3.2.4.1 Subtask - Define `ToolCatalog` ownership for built-in, asset-derived, and template-derived tools.
+      [ ] 3.2.4.2 Subtask - Define deterministic tool-exposure filters per conversation/mode before LLM execution.
+      [ ] 3.2.4.3 Subtask - Define validation/rejection behavior for unknown or non-exposed tool references.
+
   [ ] 3.3 Section - Mode Switching and Run Lifecycle Control
     Implement switching semantics and lifecycle events as reducer-driven orchestration behavior.
 
@@ -86,6 +93,7 @@ Back to index: [README](./README.md)
       [ ] 3.4.1.2 Subtask - Verify resolver precedence and validation failures.
       [ ] 3.4.1.3 Subtask - Verify diagnostics projection contains normalized mode/run fields.
       [ ] 3.4.1.4 Subtask - Verify mode-step intents resolve to supported unified execution envelope values.
+      [ ] 3.4.1.5 Subtask - Verify only declared/exposed `ToolCatalog` tools are surfaced to LLM strategy/tool loops.
 
     [ ] 3.4.2 Task - Switch and lifecycle integration scenarios
       Prove switching and run state transitions hold under real conversation traffic.
