@@ -186,9 +186,17 @@ defmodule JidoConversation do
   @doc """
   Returns the list of currently supported built-in modes.
   """
-  @spec supported_modes() :: [:coding, ...]
+  @spec supported_modes() :: [atom(), ...]
   def supported_modes do
     ConversationRuntime.supported_modes()
+  end
+
+  @doc """
+  Returns metadata for supported conversation modes.
+  """
+  @spec supported_mode_metadata(keyword()) :: [Jido.Conversation.Mode.Registry.mode_metadata()]
+  def supported_mode_metadata(opts \\ []) when is_list(opts) do
+    ConversationRuntime.supported_mode_metadata(opts)
   end
 
   @doc """
