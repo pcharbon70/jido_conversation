@@ -25,8 +25,10 @@ Back to index: [README](./README.md)
       Document which components own state transitions, business policy, and event persistence semantics.
 
       [ ] 1.1.1.1 Subtask - Declare `jido_code_server` as owner of mode runtime, strategy selection, pipeline decisions, and execution policy enforcement via `Project.ExecutionRunner`.
-      [ ] 1.1.1.2 Subtask - Declare `jido_conversation` as owner of `conv.*` validation, ingestion, replay, and projections.
-      [ ] 1.1.1.3 Subtask - Define forbidden dependencies (no orchestration callbacks in `jido_conversation`; no direct substrate bypass in `jido_code_server`).
+      [ ] 1.1.1.2 Subtask - Declare `jido_code_server` as owner of action-based tool declaration/exposure policy for conversation LLM runs.
+      [ ] 1.1.1.3 Subtask - Declare provider runtimes (`jido_command`, `jido_workflow`, `jido_skill`) as owners of markdown-to-runtime loading, not direct LLM tool declaration.
+      [ ] 1.1.1.4 Subtask - Declare `jido_conversation` as owner of `conv.*` validation, ingestion, replay, and projections.
+      [ ] 1.1.1.5 Subtask - Define forbidden dependencies (no orchestration callbacks in `jido_conversation`; no direct substrate bypass in `jido_code_server`; no raw asset-to-tool declaration path).
 
     [ ] 1.1.2 Task - Define data-flow direction and trust boundaries
       Lock one-way and two-way integration pathways so orchestration remains deterministic and auditable.
