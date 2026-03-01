@@ -1,86 +1,95 @@
-# Phase 3 - Interruptible Pipeline Runtime
+# Phase 3 - Mode Orchestration Runtime Foundation (`jido_code_server`)
 
 Back to index: [README](./README.md)
 
 ## Relevant Shared APIs / Interfaces
-- Mode run orchestration contracts
-- Runtime reducer/effect directives
-- `JidoConversation.run/3`
-- `JidoConversation.interrupt_run/2`
-- `JidoConversation.resume_run/3`
+- `Jido.Code.Server.Conversation.Domain.State`
+- `Jido.Code.Server.Conversation.Domain.Reducer`
+- `Jido.Code.Server.Conversation.Actions.Support`
+- `Jido.Code.Server.Project.ExecutionRunner`
+- `Jido.Code.Server.Project.Server` conversation orchestration toggles
 
 ## Relevant Assumptions / Defaults
-- One active run per conversation.
-- Step execution is driven through existing effect manager directives.
-- Interrupt and resume are first-class lifecycle operations.
+- Mode runtime source-of-truth lives in `jido_code_server` domain state.
+- Reducer remains pure and emits intents/directives.
+- Mode-aware orchestration builds on existing instruction execution flow.
+- Reducer-generated execution intents are normalized to one execution call shape handled by `Project.ExecutionRunner`.
 
-[ ] 3 Phase 3 - Interruptible Pipeline Runtime
-  Implement a mode-agnostic, interruptible run engine mapped onto current deterministic runtime primitives.
+[ ] 3 Phase 3 - Mode Orchestration Runtime Foundation (`jido_code_server`)
+  Establish the mode-aware conversation orchestration core in code server with deterministic state, transitions, and event production.
 
-  [ ] 3.1 Section - Run and Step Execution Model
-    Define standard run and step contracts used by all modes.
+  [ ] 3.1 Section - Mode-Aware Domain State Model
+    Extend conversation domain state to represent mode lifecycle and run tracking as first-class orchestration state.
 
-    [ ] 3.1.1 Task - Define run lifecycle model
-      Establish identifiers, statuses, transitions, and invariants.
+    [ ] 3.1.1 Task - Add mode state fields and invariants
+      Introduce normalized state shape for mode runtime without side effects.
 
-      [ ] 3.1.1.1 Subtask - Define run identity fields and uniqueness constraints.
-      [ ] 3.1.1.2 Subtask - Define statuses and legal transitions.
-      [ ] 3.1.1.3 Subtask - Define terminal exclusivity and idempotency guarantees.
+      [ ] 3.1.1.1 Subtask - Add fields (`mode`, `mode_state`, `active_run`, `run_history`, `pending_steps`).
+      [ ] 3.1.1.2 Subtask - Define allowed run statuses and transition matrix.
+      [ ] 3.1.1.3 Subtask - Define bounded history retention and serialization rules.
 
-    [ ] 3.1.2 Task - Define step model and result envelopes
-      Standardize step classes and outputs for orchestration logic.
+    [ ] 3.1.2 Task - Add projections and diagnostics for mode runtime
+      Expose mode/run visibility for host APIs and debugging.
 
-      [ ] 3.1.2.1 Subtask - Define step classes (`:llm`, `:tool`, `:timer`, `:human_gate`, `:system`).
-      [ ] 3.1.2.2 Subtask - Define step input and policy payload shapes.
-      [ ] 3.1.2.3 Subtask - Define normalized step result and failure envelopes.
+      [ ] 3.1.2.1 Subtask - Extend diagnostics projection with mode and run snapshots.
+      [ ] 3.1.2.2 Subtask - Add pending-step and interruption metadata to domain projections.
+      [ ] 3.1.2.3 Subtask - Define redaction policy for strategy/tool payload fragments in diagnostics.
 
-  [ ] 3.2 Section - Directive Mapping and Runtime Integration
-    Map mode decisions into reducer/effect directives and lifecycle events.
+  [ ] 3.2 Section - Mode Registry and Configuration in Code Server
+    Move mode discovery and config precedence to host orchestration where business policy belongs.
 
-    [ ] 3.2.1 Task - Implement run coordinator orchestration path
-      Sequence mode callback decisions with reducer-applied events.
+    [ ] 3.2.1 Task - Implement code-server mode registry contract
+      Provide deterministic mode metadata and capability discovery at orchestration layer.
 
-      [ ] 3.2.1.1 Subtask - Start run from run-request events and initialize run state.
-      [ ] 3.2.1.2 Subtask - Feed effect lifecycle events back into mode callbacks.
-      [ ] 3.2.1.3 Subtask - Emit run progress and terminal output directives.
+      [ ] 3.2.1.1 Subtask - Define built-in modes (`:coding`, `:planning`, `:engineering`) with metadata.
+      [ ] 3.2.1.2 Subtask - Define registry extension path for custom modes.
+      [ ] 3.2.1.3 Subtask - Define mode capability contract (strategy support, tool policy, interruption semantics).
 
-    [ ] 3.2.2 Task - Implement step-to-effect directive conversion
-      Reuse existing effect-manager pathways for execution and cancellation.
+    [ ] 3.2.2 Task - Implement mode config resolver
+      Resolve effective mode config with deterministic precedence and validation.
 
-      [ ] 3.2.2.1 Subtask - Convert step definitions into `start_effect` payloads.
-      [ ] 3.2.2.2 Subtask - Propagate policy and cause-link fields.
-      [ ] 3.2.2.3 Subtask - Normalize effect lifecycle back into step lifecycle semantics.
+      [ ] 3.2.2.1 Subtask - Define precedence (request > conversation > project/runtime defaults > mode defaults).
+      [ ] 3.2.2.2 Subtask - Validate required mode options and unknown-key policy.
+      [ ] 3.2.2.3 Subtask - Emit structured diagnostics for invalid configuration.
 
-  [ ] 3.3 Section - Interruption and Resume Mechanics
-    Define and implement deterministic interruption and continuation behavior.
+    [ ] 3.2.3 Task - Define unified mode-to-execution mapping contract
+      Ensure all mode step effects map to one execution envelope consumed by `Project.ExecutionRunner`.
 
-    [ ] 3.3.1 Task - Implement interruption protocol
-      Ensure active runs can be interrupted safely and observably.
+      [ ] 3.2.3.1 Subtask - Define normalized execution envelope fields (`execution_kind`, `name`, `args`, `meta`, `correlation_id`, `cause_id`).
+      [ ] 3.2.3.2 Subtask - Define deterministic mapping from mode step intents to execution kinds (`strategy_run`, tool kinds, `command_run`, `workflow_run`).
+      [ ] 3.2.3.3 Subtask - Define rejection behavior when an intent cannot be mapped to a supported execution kind.
 
-      [ ] 3.3.1.1 Subtask - Define interrupt request ingestion path and authorization checks.
-      [ ] 3.3.1.2 Subtask - Cancel in-flight effects tied to the active run.
-      [ ] 3.3.1.3 Subtask - Emit interrupted lifecycle events with reason metadata.
+  [ ] 3.3 Section - Mode Switching and Run Lifecycle Control
+    Implement switching semantics and lifecycle events as reducer-driven orchestration behavior.
 
-    [ ] 3.3.2 Task - Implement resume protocol
-      Enable deterministic continuation of interrupted runs.
+    [ ] 3.3.1 Task - Implement safe mode switch policy
+      Ensure switching behavior preserves deterministic run and cancellation semantics.
 
-      [ ] 3.3.2.1 Subtask - Define resume preconditions and run lookup behavior.
-      [ ] 3.3.2.2 Subtask - Rehydrate mode context from journaled state.
-      [ ] 3.3.2.3 Subtask - Continue from last incomplete step with run ID continuity.
+      [ ] 3.3.1.1 Subtask - Allow switch while idle and reject conflicting active-run switches by default.
+      [ ] 3.3.1.2 Subtask - Define forced-switch policy with explicit interruption/cancel reason.
+      [ ] 3.3.1.3 Subtask - Define state reset/retention behavior when switching modes.
+
+    [ ] 3.3.2 Task - Emit mode lifecycle orchestration events
+      Produce consistent `conversation.*` signals for switch acceptance/rejection and run lifecycle changes.
+
+      [ ] 3.3.2.1 Subtask - Emit switch accepted/rejected events with cause metadata.
+      [ ] 3.3.2.2 Subtask - Emit run opened/interrupted/resumed/closed events.
+      [ ] 3.3.2.3 Subtask - Ensure events flow through `JournalBridge` into canonical `conv.*` streams.
 
   [ ] 3.4 Section - Phase 3 Integration Tests
-    Validate end-to-end run orchestration and interruption/resume correctness.
+    Validate mode state, registry resolution, and switching lifecycle under orchestration runtime.
 
-    [ ] 3.4.1 Task - Run orchestration integration scenarios
-      Prove deterministic progress and terminalization behavior.
+    [ ] 3.4.1 Task - Mode state and config integration scenarios
+      Prove mode registration and config resolution are deterministic and observable.
 
-      [ ] 3.4.1.1 Subtask - Verify successful multi-step run completion.
-      [ ] 3.4.1.2 Subtask - Verify failure terminalization and error projection behavior.
-      [ ] 3.4.1.3 Subtask - Verify terminal exclusivity per run ID.
+      [ ] 3.4.1.1 Subtask - Verify supported-mode listing and metadata surface.
+      [ ] 3.4.1.2 Subtask - Verify resolver precedence and validation failures.
+      [ ] 3.4.1.3 Subtask - Verify diagnostics projection contains normalized mode/run fields.
+      [ ] 3.4.1.4 Subtask - Verify mode-step intents resolve to supported unified execution envelope values.
 
-    [ ] 3.4.2 Task - Interruption and resume integration scenarios
-      Prove safe cancellation and deterministic continuation under realistic timing races.
+    [ ] 3.4.2 Task - Switch and lifecycle integration scenarios
+      Prove switching and run state transitions hold under real conversation traffic.
 
-      [ ] 3.4.2.1 Subtask - Verify interrupt cancels active effects and marks run interrupted.
-      [ ] 3.4.2.2 Subtask - Verify resume picks up from expected step.
-      [ ] 3.4.2.3 Subtask - Verify duplicate interrupt/resume requests remain idempotent.
+      [ ] 3.4.2.1 Subtask - Verify idle switch success and active-run rejection path.
+      [ ] 3.4.2.2 Subtask - Verify forced-switch interruption path with explicit reason.
+      [ ] 3.4.2.3 Subtask - Verify bridged canonical events preserve switch/run causality.

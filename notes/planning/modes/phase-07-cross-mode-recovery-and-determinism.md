@@ -1,84 +1,85 @@
-# Phase 7 - Cross-Mode Recovery and Determinism
+# Phase 7 - Migration Cutover and Removal of In-Library Mode Business Logic
 
 Back to index: [README](./README.md)
 
 ## Relevant Shared APIs / Interfaces
-- Runtime reducer and scheduler contracts
-- Run interruption/resume APIs
-- Journal replay and projection reconstruction paths
+- `JidoConversation` public facade
+- `Jido.Conversation.*` mode-related modules (current implementation)
+- `Jido.Code.Server` conversation orchestration APIs
+- `Jido.Code.Server.Conversation.JournalBridge`
 
 ## Relevant Assumptions / Defaults
-- Determinism and replay parity are mandatory.
-- Cross-mode transitions must preserve isolation.
-- Recovery behavior must be explicit for interrupted and in-flight runs.
+- Backward compatibility is not required.
+- Final orchestration owner is `jido_code_server`.
+- `jido_conversation` must remain stable as canonical event substrate.
 
-[ ] 7 Phase 7 - Cross-Mode Recovery and Determinism
-  Harden multi-mode runtime behavior under restarts, races, and high concurrency while preserving deterministic outcomes.
+[ ] 7 Phase 7 - Migration Cutover and Removal of In-Library Mode Business Logic
+  Complete migration by cutting orchestration ownership to code server and removing in-library mode business paths from `jido_conversation`.
 
-  [ ] 7.1 Section - Cross-Mode Transition and Preemption Policy
-    Define strict behavior for mode/run overlap and explicit preemption cases.
+  [ ] 7.1 Section - Cutover Execution and Runtime Path Switch
+    Perform deterministic runtime switch to code-server-owned mode orchestration.
 
-    [ ] 7.1.1 Task - Implement run preemption policy
-      Ensure only one active run executes and preemption remains explicit.
+    [ ] 7.1.1 Task - Enable code-server mode orchestration as default path
+      Make code-server pipeline runtime authoritative for all mode behavior.
 
-      [ ] 7.1.1.1 Subtask - Define queued-vs-rejected policy for second run requests.
-      [ ] 7.1.1.2 Subtask - Define explicit preemption flow for forceful transitions.
-      [ ] 7.1.1.3 Subtask - Define preemption event sequence and terminal guarantees.
+      [ ] 7.1.1.1 Subtask - Set runtime defaults to code-server mode orchestration path.
+      [ ] 7.1.1.2 Subtask - Remove fallback routing to in-library mode execution.
+      [ ] 7.1.1.3 Subtask - Add startup-time contract checks to fail fast on path mismatch.
 
-    [ ] 7.1.2 Task - Implement transition guardrails
-      Prevent invalid mode transitions and enforce handoff preconditions.
+    [ ] 7.1.2 Task - Verify host API routing and call-path integrity
+      Ensure host APIs route through orchestration runtime and canonical bridge as expected.
 
-      [ ] 7.1.2.1 Subtask - Validate unsupported transitions are rejected consistently.
-      [ ] 7.1.2.2 Subtask - Validate required handoff artifacts exist before guarded transitions.
-      [ ] 7.1.2.3 Subtask - Validate transition decisions are journaled with causal links.
+      [ ] 7.1.2.1 Subtask - Validate conversation call/cast paths trigger reducer-intent orchestration.
+      [ ] 7.1.2.2 Subtask - Validate async tool result re-ingestion continues to work post-cutover.
+      [ ] 7.1.2.3 Subtask - Validate canonical `conv.*` events still represent full user-visible lifecycle.
 
-  [ ] 7.2 Section - Replay and Crash Recovery Semantics
-    Ensure full rehydration of mode and run state from append-only journal.
+  [ ] 7.2 Section - Remove Mode Business Logic from `jido_conversation`
+    Reduce `jido_conversation` code surface to substrate-only responsibilities.
 
-    [ ] 7.2.1 Task - Extend replay reducer for mode run state
-      Reconstruct active and historical runs deterministically.
+    [ ] 7.2.1 Task - Remove superseded mode runtime modules
+      Eliminate modules and flows that execute mode business logic directly in library runtime.
 
-      [ ] 7.2.1.1 Subtask - Rehydrate interrupted, failed, canceled, and completed run states.
-      [ ] 7.2.1.2 Subtask - Rehydrate mode-specific artifacts and checkpoints.
-      [ ] 7.2.1.3 Subtask - Rehydrate resumable step pointers with run identity continuity.
+      [ ] 7.2.1.1 Subtask - Remove/retire `Jido.Conversation.Mode*` business orchestration modules.
+      [ ] 7.2.1.2 Subtask - Remove/retire mode-run state transitions from in-library runtime/server paths.
+      [ ] 7.2.1.3 Subtask - Remove stale tests and fixtures tied to removed in-library orchestration.
 
-    [ ] 7.2.2 Task - Implement restart recovery strategy
-      Define behavior for orphaned effects and partially applied runs.
+    [ ] 7.2.2 Task - Keep substrate APIs clean and explicit
+      Preserve only canonical event and projection responsibilities with clear documentation.
 
-      [ ] 7.2.2.1 Subtask - Detect and reconcile orphaned in-flight effects.
-      [ ] 7.2.2.2 Subtask - Decide resume-or-terminalize behavior by run status.
-      [ ] 7.2.2.3 Subtask - Emit explicit recovery lifecycle diagnostics.
+      [ ] 7.2.2.1 Subtask - Update public API docs to describe substrate-only purpose.
+      [ ] 7.2.2.2 Subtask - Update telemetry/health docs to remove orchestration claims.
+      [ ] 7.2.2.3 Subtask - Add explicit references to host orchestration responsibilities.
 
-  [ ] 7.3 Section - Concurrency, Isolation, and Scheduling Hardening
-    Validate correctness under concurrent mode workloads and high runtime pressure.
+  [ ] 7.3 Section - Cross-Repo Contract and Test Suite Realignment
+    Align tests and contracts to the new architecture where code server owns business behavior.
 
-    [ ] 7.3.1 Task - Harden isolation boundaries
-      Guarantee no leakage across conversations/projects.
+    [ ] 7.3.1 Task - Rework test ownership boundaries
+      Move tests to the repository that owns each behavior to reduce cross-layer ambiguity.
 
-      [ ] 7.3.1.1 Subtask - Verify project-scoped locator isolation with shared conversation IDs.
-      [ ] 7.3.1.2 Subtask - Verify effect cancellation isolation by conversation/run.
-      [ ] 7.3.1.3 Subtask - Verify telemetry and projection partition integrity.
+      [ ] 7.3.1.1 Subtask - Keep canonical contract/replay tests in `jido_conversation`.
+      [ ] 7.3.1.2 Subtask - Move mode pipeline and strategy tests to `jido_code_server`.
+      [ ] 7.3.1.3 Subtask - Add shared fixtures for `conversation.*` -> `conv.*` mapping parity.
 
-    [ ] 7.3.2 Task - Harden deterministic scheduling outcomes
-      Preserve ordering and terminal exclusivity under burst load.
+    [ ] 7.3.2 Task - Remove obsolete migration scaffolding
+      Clean transitional flags, adapters, and compatibility shims after successful cutover.
 
-      [ ] 7.3.2.1 Subtask - Stress lifecycle ordering under high event throughput.
-      [ ] 7.3.2.2 Subtask - Stress interrupt/resume race windows.
-      [ ] 7.3.2.3 Subtask - Verify no duplicate terminal events for a run.
+      [ ] 7.3.2.1 Subtask - Remove migration-only flags and dead-path toggles.
+      [ ] 7.3.2.2 Subtask - Remove legacy compatibility wrappers and docs.
+      [ ] 7.3.2.3 Subtask - Confirm no dead code remains via static analysis and coverage.
 
   [ ] 7.4 Section - Phase 7 Integration Tests
-    Validate replay parity, crash recovery, and cross-mode concurrency guarantees.
+    Validate final cutover architecture with no in-library mode business runtime remaining.
 
-    [ ] 7.4.1 Task - Replay and recovery integration scenarios
-      Prove deterministic reconstruction and restart-safe behavior.
+    [ ] 7.4.1 Task - Architecture ownership integration scenarios
+      Prove runtime behavior follows new ownership boundaries in all core flows.
 
-      [ ] 7.4.1.1 Subtask - Verify replay parity for completed and interrupted runs.
-      [ ] 7.4.1.2 Subtask - Verify crash recovery of in-flight mode runs.
-      [ ] 7.4.1.3 Subtask - Verify recovery diagnostics and lifecycle events.
+      [ ] 7.4.1.1 Subtask - Verify mode execution only occurs in `jido_code_server`.
+      [ ] 7.4.1.2 Subtask - Verify `jido_conversation` remains fully functional for ingest/replay/projections.
+      [ ] 7.4.1.3 Subtask - Verify bridge parity for full tool/strategy loop traces.
 
-    [ ] 7.4.2 Task - Concurrency and isolation integration scenarios
-      Prove high-concurrency correctness and strict boundary isolation.
+    [ ] 7.4.2 Task - Cleanup and regression integration scenarios
+      Prove removed paths do not regress core canonical behavior.
 
-      [ ] 7.4.2.1 Subtask - Verify concurrent runs across many conversations/projects.
-      [ ] 7.4.2.2 Subtask - Verify guarded transitions under concurrent control requests.
-      [ ] 7.4.2.3 Subtask - Verify terminal-event exclusivity across all modes.
+      [ ] 7.4.2.1 Subtask - Verify no references to removed mode business modules remain in runtime paths.
+      [ ] 7.4.2.2 Subtask - Verify canonical contract and projection tests pass after cleanup.
+      [ ] 7.4.2.3 Subtask - Verify deterministic replay parity for migrated orchestration traces.
