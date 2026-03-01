@@ -22,4 +22,15 @@ defmodule Jido.Conversation.ModeErrorTest do
     assert %{code: :resume_not_allowed, message: "mode run cannot be resumed from current state"} =
              Error.metadata(:resume_not_allowed)
   end
+
+  test "metadata/1 maps invalid mode config errors" do
+    diagnostics = [%{code: :required, path: [:mode_state, :objective], message: "missing"}]
+
+    assert %{
+             code: :invalid_mode_config,
+             message: "invalid mode configuration",
+             mode: :planning,
+             diagnostics: ^diagnostics
+           } = Error.metadata({:invalid_mode_config, :planning, diagnostics})
+  end
 end

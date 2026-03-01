@@ -11,6 +11,7 @@ defmodule Jido.Conversation do
   alias Jido.Conversation.Actions.RequestCancel
   alias Jido.Conversation.Agent, as: ConversationAgent
   alias Jido.Conversation.LLMGeneration
+  alias Jido.Conversation.Mode.Config, as: ModeConfig
   alias Jido.Conversation.Mode.Error, as: ModeError
   alias Jido.Conversation.Mode.Registry, as: ModeRegistry
   alias Jido.Conversation.Projections.LlmContext
@@ -110,24 +111,39 @@ defmodule Jido.Conversation do
 
   def configure_mode(%Agent{} = conversation, mode, opts)
       when is_atom(mode) and is_list(opts) do
-    case ModeRegistry.fetch(mode) do
-      {:ok, _metadata} ->
-        conversation =
-          conversation
-          |> ThreadAgent.ensure(metadata: %{conversation_id: conversation.id})
-          |> ThreadAgent.append(%{
-            kind: :note,
-            payload: %{
-              event: "mode_configured",
-              mode: mode,
-              mode_state: normalize_map(Keyword.get(opts, :mode_state, %{}))
-            }
-          })
+    current_derived = derived_state(conversation)
 
-        {:ok, sync_state_from_thread(conversation), []}
+    conversation_mode_state =
+      if current_derived.mode == mode do
+        normalize_map(current_derived.mode_state)
+      else
+        %{}
+      end
 
+    request_mode_state = normalize_map(Keyword.get(opts, :mode_state, %{}))
+
+    with {:ok, metadata} <- ModeRegistry.fetch(mode),
+         {:ok, resolved_mode_state} <-
+           ModeConfig.resolve(metadata, request_mode_state, conversation_mode_state) do
+      conversation =
+        conversation
+        |> ThreadAgent.ensure(metadata: %{conversation_id: conversation.id})
+        |> ThreadAgent.append(%{
+          kind: :note,
+          payload: %{
+            event: "mode_configured",
+            mode: mode,
+            mode_state: resolved_mode_state
+          }
+        })
+
+      {:ok, sync_state_from_thread(conversation), []}
+    else
       {:error, {:unsupported_mode, unsupported_mode, supported}} ->
         {:error, {:unsupported_mode, unsupported_mode, supported}}
+
+      {:error, diagnostics} when is_list(diagnostics) ->
+        {:error, {:invalid_mode_config, mode, diagnostics}}
 
       {:error, reason} ->
         {:error, reason}

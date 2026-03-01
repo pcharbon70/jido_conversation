@@ -223,6 +223,30 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "managed facade validates mode configuration by schema" do
+    conversation_id = "facade-conv-mode-planning"
+
+    assert {:error, {:invalid_mode_config, :planning, diagnostics}} =
+             JidoConversation.configure_mode(conversation_id, :planning)
+
+    assert Enum.any?(diagnostics, fn diagnostic ->
+             diagnostic.code == :required and diagnostic.path == [:mode_state, :objective]
+           end)
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.configure_mode(conversation_id, :planning,
+               mode_state: %{"objective" => "Plan migration", "max_phases" => "3"}
+             )
+
+    assert {:ok, :planning} = JidoConversation.mode(conversation_id)
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert derived.mode_state.objective == "Plan migration"
+    assert derived.mode_state.max_phases == 3
+    assert derived.mode_state.output_format == :markdown
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "managed facade maps active generation mode changes to :run_in_progress" do
     conversation_id = "facade-conv-mode-run-in-progress"
 

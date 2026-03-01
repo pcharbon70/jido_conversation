@@ -147,4 +147,26 @@ defmodule Jido.ConversationTest do
     assert {:error, {:unsupported_mode, :unknown, [:coding, :planning, :engineering]}} =
              Conversation.configure_mode(conversation, :unknown)
   end
+
+  test "configure_mode/3 validates required options and normalizes values" do
+    conversation = Conversation.new(conversation_id: "conv-mode-planning")
+
+    assert {:error, {:invalid_mode_config, :planning, diagnostics}} =
+             Conversation.configure_mode(conversation, :planning)
+
+    assert Enum.any?(diagnostics, fn diagnostic ->
+             diagnostic.code == :required and diagnostic.path == [:mode_state, :objective]
+           end)
+
+    assert {:ok, conversation, _directives} =
+             Conversation.configure_mode(conversation, :planning,
+               mode_state: %{"objective" => "Ship phase 1", "max_phases" => "4"}
+             )
+
+    derived = Conversation.derived_state(conversation)
+    assert derived.mode == :planning
+    assert derived.mode_state.objective == "Ship phase 1"
+    assert derived.mode_state.max_phases == 4
+    assert derived.mode_state.output_format == :markdown
+  end
 end

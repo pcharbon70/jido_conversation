@@ -6,6 +6,7 @@ defmodule Jido.Conversation.Mode.Error do
   @type t ::
           {:unsupported_mode, atom(), [atom()]}
           | {:invalid_mode, term()}
+          | {:invalid_mode_config, atom(), [map()]}
           | {:invalid_transition, atom(), atom()}
           | :run_in_progress
           | :run_not_found
@@ -16,6 +17,7 @@ defmodule Jido.Conversation.Mode.Error do
           required(:message) => String.t(),
           optional(:mode) => atom(),
           optional(:supported_modes) => [atom()],
+          optional(:diagnostics) => [map()],
           optional(:from_status) => atom(),
           optional(:to_status) => atom()
         }
@@ -32,6 +34,15 @@ defmodule Jido.Conversation.Mode.Error do
 
   def metadata({:invalid_mode, _mode}) do
     %{code: :invalid_mode, message: "invalid mode identifier"}
+  end
+
+  def metadata({:invalid_mode_config, mode, diagnostics}) do
+    %{
+      code: :invalid_mode_config,
+      message: "invalid mode configuration",
+      mode: mode,
+      diagnostics: diagnostics
+    }
   end
 
   def metadata({:invalid_transition, from_status, to_status}) do
