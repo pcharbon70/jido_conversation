@@ -42,6 +42,7 @@ Back to index: [README](./README.md)
       [ ] 8.2.1.1 Subtask - Update `jido_conversation` docs to emphasize substrate-only role.
       [ ] 8.2.1.2 Subtask - Update `jido_code_server` docs with mode orchestration and single `ExecutionRunner` gateway internals.
       [ ] 8.2.1.3 Subtask - Add sequence diagrams for mode pipeline, tool loop, and cancellation flows.
+      [ ] 8.2.1.4 Subtask - Document `jido_code_server` tool declaration and LLM exposure flow (`ToolCatalog` to LLM-visible tools).
 
     [ ] 8.2.2 Task - Publish extension model for new modes and strategies
       Define how contributors add new mode templates and strategy adapters safely.
@@ -76,6 +77,7 @@ Back to index: [README](./README.md)
       [ ] 8.4.1.1 Subtask - Verify full coding-mode loop with tool calls and successful completion.
       [ ] 8.4.1.2 Subtask - Verify planning and engineering mode pipelines with strategy variation.
       [ ] 8.4.1.3 Subtask - Verify interruption, resume, and cancel behaviors across all modes.
+      [ ] 8.4.1.4 Subtask - Verify only declared/exposed tools are available to LLM and executable via `ExecutionRunner`.
 
     [ ] 8.4.2 Task - Cross-repo quality gate integration scenarios
       Prove CI and contract drift protections operate as intended.

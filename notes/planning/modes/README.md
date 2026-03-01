@@ -35,6 +35,7 @@ This plan supersedes the previous in-library modes plan.
 - `jido_code_server`:
   - conversation orchestration domain (`conversation.*`)
   - mode switching, mode state, run lifecycle, strategy selection
+  - tool declaration and inventory ownership (`ToolCatalog` and project-derived tool specs)
   - single execution gateway (`Project.ExecutionRunner`) for strategy, tool, command, and workflow effects
   - instruction-based side effects routed through unified execution directives
   - bridging `conversation.*` to `conv.*` via `JournalBridge`
@@ -43,6 +44,7 @@ This plan supersedes the previous in-library modes plan.
 - `jido_code_server` is the orchestration host; `jido_conversation` is the canonical event substrate.
 - Mode pipelines execute as reducer-derived intents in `jido_code_server`.
 - `JidoAI` strategy type selection is owned by mode runtime/config in `jido_code_server`.
+- LLM-visible tool inventory and tool exposure policy are owned by `jido_code_server`.
 - All execution paths are policy-gated through `Project.ExecutionRunner`, which delegates by call kind to specialized sub-runners (including strategy/tool/command/workflow).
 - Interrupt/cancel semantics are deterministic and recorded through append-only events.
 
@@ -56,3 +58,4 @@ This plan supersedes the previous in-library modes plan.
 - [ ] XR-7 Cross-repo CI validates contract compatibility and detects drift before merge.
 - [ ] XR-8 Developer and user docs clearly reflect the new ownership model and extension points.
 - [ ] XR-9 Every mode step requiring side effects is routed through `Project.ExecutionRunner` with auditable policy decisions.
+- [ ] XR-10 Tools declared in `jido_code_server` are the only tools surfaced to LLM execution for conversation runs.
