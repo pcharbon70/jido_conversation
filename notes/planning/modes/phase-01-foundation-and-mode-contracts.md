@@ -1,86 +1,87 @@
-# Phase 1 - Foundation and Mode Contracts
+# Phase 1 - Ownership Boundaries and Contract Reset
 
 Back to index: [README](./README.md)
 
 ## Relevant Shared APIs / Interfaces
-- `Jido.Conversation.Mode`
-- `JidoConversation.configure_mode/3`
-- `JidoConversation.mode/1`
-- `JidoConversation.supported_modes/0`
-- Conversation state and projection contracts
+- `Jido.Code.Server.Conversation.Domain.*`
+- `Jido.Code.Server.Conversation.Actions.Support`
+- `Jido.Code.Server.Conversation.JournalBridge`
+- `Jido.Code.Server.Project.ExecutionRunner`
+- `JidoConversation.Signal.Contract`
+- `JidoConversation.Ingest.Pipeline`
 
 ## Relevant Assumptions / Defaults
-- Default mode is `:coding`.
-- Mode contracts are additive and do not remove existing APIs.
-- Mode lifecycle must be replay-safe through journal entries/signals.
+- Orchestration responsibility moves to `jido_code_server`.
+- `jido_conversation` remains canonical `conv.*` event infrastructure.
+- Existing behavior may be changed; backward compatibility is not required.
 
-[ ] 1 Phase 1 - Foundation and Mode Contracts
-  Establish foundational abstractions, ownership boundaries, and state/event contracts before implementing mode logic.
+[ ] 1 Phase 1 - Ownership Boundaries and Contract Reset
+  Establish explicit cross-repo ownership, event contracts, and migration guardrails before implementing runtime changes.
 
-  [ ] 1.1 Section - Namespace and Ownership Baseline
-    Define module boundaries so mode orchestration responsibilities are explicit and maintainable.
+  [ ] 1.1 Section - Cross-Repo Ownership Model
+    Define exactly which repository owns orchestration decisions versus canonical event substrate responsibilities.
 
-    [ ] 1.1.1 Task - Define mode domain module boundaries
-      Separate mode interfaces, mode implementations, and runtime execution concerns.
+    [ ] 1.1.1 Task - Define source-of-truth ownership boundaries
+      Document which components own state transitions, business policy, and event persistence semantics.
 
-      [ ] 1.1.1.1 Subtask - Introduce namespace map for `Jido.Conversation.Mode*` modules.
-      [ ] 1.1.1.2 Subtask - Define ownership of mode orchestration between conversation runtime, server, and reducer layers.
-      [ ] 1.1.1.3 Subtask - Document forbidden cross-layer dependencies and access patterns.
+      [ ] 1.1.1.1 Subtask - Declare `jido_code_server` as owner of mode runtime, strategy selection, pipeline decisions, and execution policy enforcement via `Project.ExecutionRunner`.
+      [ ] 1.1.1.2 Subtask - Declare `jido_conversation` as owner of `conv.*` validation, ingestion, replay, and projections.
+      [ ] 1.1.1.3 Subtask - Define forbidden dependencies (no orchestration callbacks in `jido_conversation`; no direct substrate bypass in `jido_code_server`).
 
-    [ ] 1.1.2 Task - Define mode behavior contract
-      Establish a complete callback protocol that future modes must implement.
+    [ ] 1.1.2 Task - Define data-flow direction and trust boundaries
+      Lock one-way and two-way integration pathways so orchestration remains deterministic and auditable.
 
-      [ ] 1.1.2.1 Subtask - Define callbacks for init, step planning, effect-event handling, and terminalization.
-      [ ] 1.1.2.2 Subtask - Define callbacks for interruption and resume handling.
-      [ ] 1.1.2.3 Subtask - Define callback return envelopes for directives, run-state updates, and errors.
+      [ ] 1.1.2.1 Subtask - Define `conversation.*` as code-server internal orchestration stream.
+      [ ] 1.1.2.2 Subtask - Define `JournalBridge` as canonical translation point into `conv.*`.
+      [ ] 1.1.2.3 Subtask - Define allowed call paths for host API and internal calls through `Project.ExecutionRunner`, plus async execution-result re-ingestion.
 
-  [ ] 1.2 Section - Conversation State and Journal Contract
-    Extend conversation state and event contracts to represent mode run lifecycle deterministically.
+  [ ] 1.2 Section - Canonical Signal Taxonomy Alignment
+    Establish stable mapping between orchestration events and substrate events before moving business logic.
 
-    [ ] 1.2.1 Task - Define mode-aware conversation state shape
-      Add required fields and transition rules for mode execution state.
+    [ ] 1.2.1 Task - Define cross-stream mapping matrix
+      Normalize every orchestration lifecycle event to canonical stream events and required metadata fields.
 
-      [ ] 1.2.1.1 Subtask - Add state fields: `mode`, `mode_state`, `active_run`, and `run_history`.
-      [ ] 1.2.1.2 Subtask - Define allowed run statuses and transition matrix.
-      [ ] 1.2.1.3 Subtask - Define projection-facing serialization format for run snapshots.
+      [ ] 1.2.1.1 Subtask - Map user, assistant, tool, llm, control, and audit lifecycles (`conversation.*` -> `conv.*`).
+      [ ] 1.2.1.2 Subtask - Define required identity fields (`conversation_id`, `output_id`, `tool_call_id`, `correlation_id`, `cause_id`).
+      [ ] 1.2.1.3 Subtask - Define failure and cancellation terminal mappings with stable status vocabulary.
 
-    [ ] 1.2.2 Task - Define mode lifecycle signal and journal schema
-      Guarantee that all mode state changes are represented in append-only, replayable events.
+    [ ] 1.2.2 Task - Define contract-version and compatibility policy
+      Ensure both repos evolve safely without silent drift in event shape or semantics.
 
-      [ ] 1.2.2.1 Subtask - Define `conv.in.mode.*`, `conv.out.mode.*`, and control-event payload contracts.
-      [ ] 1.2.2.2 Subtask - Define required lifecycle fields (`mode`, `run_id`, `step_id`, `status`, `reason`).
-      [ ] 1.2.2.3 Subtask - Define cause-link and contract-versioning requirements.
+      [ ] 1.2.2.1 Subtask - Pin canonical contract-major expectations and rejection behavior.
+      [ ] 1.2.2.2 Subtask - Define additive versus breaking field evolution rules for bridge payloads.
+      [ ] 1.2.2.3 Subtask - Define contract drift detection checks in shared test fixtures.
 
-  [ ] 1.3 Section - Public API and Error Taxonomy Baseline
-    Lock external contracts early so downstream phases can implement without ambiguity.
+  [ ] 1.3 Section - Migration Control Plane and Cutover Criteria
+    Define sequencing, feature gates, and objective cutover gates for a controlled cross-repo migration.
 
-    [ ] 1.3.1 Task - Define public mode API signatures and semantics
-      Specify exact arguments, return tuples, and default behavior for mode management.
+    [ ] 1.3.1 Task - Define cross-repo feature flags and rollout toggles
+      Provide deterministic runtime toggles to switch between legacy and new orchestration paths during migration.
 
-      [ ] 1.3.1.1 Subtask - Define `configure_mode/3` contract and validation flow.
-      [ ] 1.3.1.2 Subtask - Define `mode/1` and `supported_modes/0` contract shapes.
-      [ ] 1.3.1.3 Subtask - Define expected delegation boundaries for legacy APIs.
+      [ ] 1.3.1.1 Subtask - Define code-server flag for mode runtime ownership (`conversation_orchestration` target mode runtime variant).
+      [ ] 1.3.1.2 Subtask - Define conversation-substrate flag set for disabling in-library mode orchestration paths.
+      [ ] 1.3.1.3 Subtask - Define safe fallback behavior for partial enablement mismatch.
 
-    [ ] 1.3.2 Task - Define mode error taxonomy
-      Normalize host-facing failure outcomes for predictable handling.
+    [ ] 1.3.2 Task - Define phase gate acceptance criteria
+      Establish measurable criteria required before enabling the next migration phase.
 
-      [ ] 1.3.2.1 Subtask - Define errors for unsupported modes and invalid transitions.
-      [ ] 1.3.2.2 Subtask - Define run-state errors (`:run_in_progress`, `:run_not_found`, `:resume_not_allowed`).
-      [ ] 1.3.2.3 Subtask - Define structured error metadata fields for telemetry and projections.
+      [ ] 1.3.2.1 Subtask - Define runtime determinism gate (same inputs -> same canonical outputs).
+      [ ] 1.3.2.2 Subtask - Define interruption/cancellation correctness gate.
+      [ ] 1.3.2.3 Subtask - Define cross-repo contract parity gate.
 
   [ ] 1.4 Section - Phase 1 Integration Tests
-    Validate foundational contracts and replay-safe state representation before runtime changes.
+    Validate ownership boundaries, mapping matrix, and migration gates before implementing runtime refactors.
 
-    [ ] 1.4.1 Task - API and state contract integration scenarios
-      Prove mode metadata and baseline state interfaces behave as specified.
+    [ ] 1.4.1 Task - Ownership and mapping integration scenarios
+      Prove events and responsibilities are enforced at runtime boundaries.
 
-      [ ] 1.4.1.1 Subtask - Verify default mode initialization.
-      [ ] 1.4.1.2 Subtask - Verify unsupported mode rejection.
-      [ ] 1.4.1.3 Subtask - Verify mode fields appear in derived state and projections.
+      [ ] 1.4.1.1 Subtask - Verify orchestration intents are produced only in `jido_code_server` domain and execution intents route through `Project.ExecutionRunner`.
+      [ ] 1.4.1.2 Subtask - Verify canonical `conv.*` writes are produced through bridge/ingest adapters only.
+      [ ] 1.4.1.3 Subtask - Verify canonical output projections remain reconstructable from bridged events.
 
-    [ ] 1.4.2 Task - Signal and taxonomy integration scenarios
-      Prove contract enforcement and normalized error mapping across boundaries.
+    [ ] 1.4.2 Task - Contract and gating integration scenarios
+      Prove contract-version behavior and migration control toggles are deterministic.
 
-      [ ] 1.4.2.1 Subtask - Validate mode signal payload schemas via contract normalization.
-      [ ] 1.4.2.2 Subtask - Validate error taxonomy mapping on invalid requests.
-      [ ] 1.4.2.3 Subtask - Validate cause-link metadata propagation in foundational events.
+      [ ] 1.4.2.1 Subtask - Verify invalid bridge payloads fail contract checks with explicit diagnostics.
+      [ ] 1.4.2.2 Subtask - Verify feature-flag combinations produce expected path selection.
+      [ ] 1.4.2.3 Subtask - Verify cutover gate checks fail fast on contract drift.

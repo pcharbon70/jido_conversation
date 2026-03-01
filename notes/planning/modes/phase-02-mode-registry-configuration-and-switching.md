@@ -1,85 +1,86 @@
-# Phase 2 - Mode Registry, Configuration, and Switching
+# Phase 2 - Canonical Event Substrate Hardening (`jido_conversation`)
 
 Back to index: [README](./README.md)
 
 ## Relevant Shared APIs / Interfaces
-- `Jido.Conversation.Mode.Registry`
-- `JidoConversation.supported_modes/0`
-- `JidoConversation.configure_mode/3`
-- Mode option resolution and validation helpers
+- `JidoConversation.Signal.Contract`
+- `JidoConversation.Ingest.Pipeline`
+- `JidoConversation.Ingest.Adapters.*`
+- `JidoConversation.Projections.Timeline`
+- `JidoConversation.Projections.LlmContext`
 
 ## Relevant Assumptions / Defaults
-- Registry may be seeded from defaults and app/runtime configuration.
-- Configuration precedence is deterministic.
-- Mode switching defaults to safe behavior (reject if active run exists).
+- `jido_conversation` should not own mode/business policy execution.
+- Host orchestration still depends on stable `conv.*` semantics.
+- Replay determinism remains a hard non-negotiable.
 
-[ ] 2 Phase 2 - Mode Registry, Configuration, and Switching
-  Build deterministic mode discovery, validation, and switching behavior with strict transition rules.
+[ ] 2 Phase 2 - Canonical Event Substrate Hardening (`jido_conversation`)
+  Refactor and harden `jido_conversation` to serve as a pure interruptible event substrate for external orchestrators.
 
-  [ ] 2.1 Section - Mode Registry and Discovery
-    Define and implement how mode modules are registered and enumerated.
+  [ ] 2.1 Section - Remove or Isolate In-Library Mode Business Paths
+    Eliminate mode pipeline ownership from substrate runtime while preserving canonical event integrity.
 
-    [ ] 2.1.1 Task - Implement registry source and validation contract
-      Ensure registry state is deterministic, valid, and conflict-safe.
+    [ ] 2.1.1 Task - Define minimal public responsibility surface
+      Trim or freeze APIs that imply orchestration ownership and keep substrate responsibilities explicit.
 
-      [ ] 2.1.1.1 Subtask - Define source precedence: built-in defaults, app config, runtime overrides.
-      [ ] 2.1.1.2 Subtask - Validate mode IDs, module availability, and callback completeness.
-      [ ] 2.1.1.3 Subtask - Define duplicate mode ID conflict handling policy.
+      [ ] 2.1.1.1 Subtask - Classify current mode-related APIs as substrate-safe, host-only, or removable.
+      [ ] 2.1.1.2 Subtask - Remove or deprecate in-library pipeline entry points that execute business logic.
+      [ ] 2.1.1.3 Subtask - Ensure remaining APIs are strictly ingest/query/replay/health oriented.
 
-    [ ] 2.1.2 Task - Implement supported-modes metadata surface
-      Expose useful mode metadata for host UX and debugging.
+    [ ] 2.1.2 Task - Isolate any remaining compatibility shims
+      Keep transition shims deterministic and auditable if temporarily required.
 
-      [ ] 2.1.2.1 Subtask - Define metadata fields: id, summary, capabilities, required options.
-      [ ] 2.1.2.2 Subtask - Define stability/version tags for mode modules.
-      [ ] 2.1.2.3 Subtask - Define deterministic ordering and filtering behavior.
+      [ ] 2.1.2.1 Subtask - Route shim behavior to canonical ingest paths, never direct orchestration.
+      [ ] 2.1.2.2 Subtask - Emit audit markers identifying shim-originated behavior.
+      [ ] 2.1.2.3 Subtask - Define explicit removal criteria for each shim.
 
-  [ ] 2.2 Section - Configuration Resolution and Option Schemas
-    Resolve effective mode configuration from layered defaults and request-level overrides.
+  [ ] 2.2 Section - Strengthen Host-Orchestrated Ingest Contracts
+    Ensure `jido_code_server` can publish rich orchestration outcomes without substrate ambiguity.
 
-    [ ] 2.2.1 Task - Implement mode config resolver
-      Merge options with explicit precedence and strict normalization.
+    [ ] 2.2.1 Task - Harden adapter coverage for orchestration lifecycles
+      Expand or normalize adapters to represent strategy/tool/interruption lifecycles cleanly.
 
-      [ ] 2.2.1.1 Subtask - Define precedence: request > conversation > mode defaults > app defaults.
-      [ ] 2.2.1.2 Subtask - Normalize option values and types.
-      [ ] 2.2.1.3 Subtask - Produce structured, path-aware validation diagnostics.
+      [ ] 2.2.1.1 Subtask - Validate outbound adapters for assistant/tool status parity (`delta`, `completed`, `failed`, `canceled`).
+      [ ] 2.2.1.2 Subtask - Validate control adapters for interrupt/stop/cancel causality.
+      [ ] 2.2.1.3 Subtask - Define canonical audit event payloads for host decision records.
 
-    [ ] 2.2.2 Task - Implement per-mode option schema validation
-      Enforce required and optional settings by mode.
+    [ ] 2.2.2 Task - Enforce stricter contract validation diagnostics
+      Make contract failures actionable during cross-repo integration.
 
-      [ ] 2.2.2.1 Subtask - Define required options for `:planning` and `:engineering`.
-      [ ] 2.2.2.2 Subtask - Define allowed unknown-key policy.
-      [ ] 2.2.2.3 Subtask - Define mode-specific defaulting semantics.
+      [ ] 2.2.2.1 Subtask - Add field-path diagnostics for missing/invalid bridge payload fields.
+      [ ] 2.2.2.2 Subtask - Add namespace diagnostics for unexpected `conversation.*` leakage into substrate.
+      [ ] 2.2.2.3 Subtask - Add contract-version mismatch diagnostics with remediation hints.
 
-  [ ] 2.3 Section - Mode Switching Semantics and Auditability
-    Make mode transitions predictable and fully traceable in runtime events.
+  [ ] 2.3 Section - Projection and Replay Invariants
+    Guarantee read models remain stable with orchestration logic moved out of library core.
 
-    [ ] 2.3.1 Task - Implement safe switching rules
-      Ensure mode changes preserve run integrity and deterministic behavior.
+    [ ] 2.3.1 Task - Stabilize projection behavior for host-originated events
+      Preserve timeline and llm_context fidelity regardless of upstream orchestration strategy.
 
-      [ ] 2.3.1.1 Subtask - Allow mode switches when conversation is idle.
-      [ ] 2.3.1.2 Subtask - Reject mode switches during active runs by default.
-      [ ] 2.3.1.3 Subtask - Define forced-switch flow with explicit cancel reason requirements.
+      [ ] 2.3.1.1 Subtask - Define projection treatment for tool status variants and strategy-generated assistant chunks.
+      [ ] 2.3.1.2 Subtask - Define llm_context inclusion policy for execution outputs and cancellations across strategy/tool paths.
+      [ ] 2.3.1.3 Subtask - Define projection metadata retention boundaries to prevent unbounded payload growth.
 
-    [ ] 2.3.2 Task - Implement switch event emission and trace linkage
-      Emit clear acceptance/rejection events and ensure cause chains are preserved.
+    [ ] 2.3.2 Task - Harden replay determinism and traceability
+      Keep replay parity robust as orchestration event richness grows.
 
-      [ ] 2.3.2.1 Subtask - Emit switch accepted and switch rejected lifecycle events.
-      [ ] 2.3.2.2 Subtask - Include previous mode, next mode, and reason metadata.
-      [ ] 2.3.2.3 Subtask - Link transition events to causal control/input events.
+      [ ] 2.3.2.1 Subtask - Verify replay reconstruction parity for representative orchestration traces.
+      [ ] 2.3.2.2 Subtask - Verify cause-chain traversal across mixed inbound/outbound/effect streams.
+      [ ] 2.3.2.3 Subtask - Verify dedupe semantics remain stable under repeated bridged events.
 
   [ ] 2.4 Section - Phase 2 Integration Tests
-    Validate registry, configuration precedence, and switching rules end-to-end.
+    Validate substrate-only responsibilities, adapter contracts, and replay invariants end-to-end.
 
-    [ ] 2.4.1 Task - Registry and resolver integration scenarios
-      Verify deterministic mode registration and effective option resolution.
+    [ ] 2.4.1 Task - Host-ingest contract integration scenarios
+      Prove `jido_code_server`-shaped payloads are accepted and projected consistently.
 
-      [ ] 2.4.1.1 Subtask - Verify expected supported-mode listing and ordering.
-      [ ] 2.4.1.2 Subtask - Verify option precedence and normalization outcomes.
-      [ ] 2.4.1.3 Subtask - Verify failure behavior on invalid mode configuration.
+      [ ] 2.4.1.1 Subtask - Verify bridged user/assistant/tool flows ingest into canonical streams successfully.
+      [ ] 2.4.1.2 Subtask - Verify invalid bridge payloads fail with deterministic diagnostics.
+      [ ] 2.4.1.3 Subtask - Verify cancellation and interruption lifecycles project as expected.
 
-    [ ] 2.4.2 Task - Switching-policy integration scenarios
-      Verify mode switching behavior under idle and active execution states.
+    [ ] 2.4.2 Task - Replay and projection integration scenarios
+      Prove deterministic reconstruction from canonical logs after orchestration separation.
 
-      [ ] 2.4.2.1 Subtask - Verify successful idle switches.
-      [ ] 2.4.2.2 Subtask - Verify active-run switch rejection.
-      [ ] 2.4.2.3 Subtask - Verify forced switch cancellation and transition event sequence.
+      [ ] 2.4.2.1 Subtask - Verify timeline parity between live and replay paths.
+      [ ] 2.4.2.2 Subtask - Verify llm_context parity between live and replay paths.
+      [ ] 2.4.2.3 Subtask - Verify cause-chain and audit trace continuity.
