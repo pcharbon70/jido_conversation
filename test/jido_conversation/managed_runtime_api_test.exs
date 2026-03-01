@@ -198,7 +198,7 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
   test "managed facade exposes supported modes and configures mode" do
     conversation_id = "facade-conv-mode"
 
-    assert JidoConversation.supported_modes() == [:coding]
+    assert JidoConversation.supported_modes() == [:coding, :planning, :engineering]
 
     assert {:ok, _conversation, _directives} =
              JidoConversation.configure_mode(conversation_id, :coding,
@@ -217,8 +217,8 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
   test "managed facade rejects unsupported mode configuration" do
     conversation_id = "facade-conv-mode-invalid"
 
-    assert {:error, {:unsupported_mode, :planning, [:coding]}} =
-             JidoConversation.configure_mode(conversation_id, :planning)
+    assert {:error, {:unsupported_mode, :unknown, [:coding, :planning, :engineering]}} =
+             JidoConversation.configure_mode(conversation_id, :unknown)
 
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end

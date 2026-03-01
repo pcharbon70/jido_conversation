@@ -72,8 +72,13 @@ defmodule Jido.Conversation.Server do
     GenServer.call(server, :mode)
   end
 
-  @spec supported_modes() :: [:coding, ...]
+  @spec supported_modes() :: [atom(), ...]
   def supported_modes, do: Conversation.supported_modes()
+
+  @spec supported_mode_metadata(keyword()) :: [Jido.Conversation.Mode.Registry.mode_metadata()]
+  def supported_mode_metadata(opts \\ []) when is_list(opts) do
+    Conversation.supported_mode_metadata(opts)
+  end
 
   @spec send_user_message(GenServer.server(), String.t(), keyword()) ::
           {:ok, Conversation.t(), [struct()]} | {:error, term()}

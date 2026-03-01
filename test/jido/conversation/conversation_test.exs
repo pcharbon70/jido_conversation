@@ -144,7 +144,7 @@ defmodule Jido.ConversationTest do
   test "configure_mode/3 rejects unsupported mode" do
     conversation = Conversation.new(conversation_id: "conv-mode-invalid")
 
-    assert {:error, {:unsupported_mode, :planning, [:coding]}} =
-             Conversation.configure_mode(conversation, :planning)
+    assert {:error, {:unsupported_mode, :unknown, [:coding, :planning, :engineering]}} =
+             Conversation.configure_mode(conversation, :unknown)
   end
 end

@@ -12,6 +12,7 @@ defmodule Jido.Conversation do
   alias Jido.Conversation.Agent, as: ConversationAgent
   alias Jido.Conversation.LLMGeneration
   alias Jido.Conversation.Mode.Error, as: ModeError
+  alias Jido.Conversation.Mode.Registry, as: ModeRegistry
   alias Jido.Conversation.Projections.LlmContext
   alias Jido.Conversation.Projections.Timeline
   alias Jido.Conversation.Reducer
@@ -21,10 +22,13 @@ defmodule Jido.Conversation do
   @type t :: Agent.t()
   @type mode_error :: ModeError.t()
 
-  @supported_modes [:coding]
+  @spec supported_modes() :: [atom(), ...]
+  def supported_modes, do: ModeRegistry.supported_modes()
 
-  @spec supported_modes() :: [:coding, ...]
-  def supported_modes, do: @supported_modes
+  @spec supported_mode_metadata(keyword()) :: [ModeRegistry.mode_metadata()]
+  def supported_mode_metadata(opts \\ []) when is_list(opts) do
+    ModeRegistry.supported_mode_metadata(opts)
+  end
 
   @spec new(keyword() | map()) :: t()
   def new(opts \\ []) do
@@ -106,22 +110,27 @@ defmodule Jido.Conversation do
 
   def configure_mode(%Agent{} = conversation, mode, opts)
       when is_atom(mode) and is_list(opts) do
-    if mode in supported_modes() do
-      conversation =
-        conversation
-        |> ThreadAgent.ensure(metadata: %{conversation_id: conversation.id})
-        |> ThreadAgent.append(%{
-          kind: :note,
-          payload: %{
-            event: "mode_configured",
-            mode: mode,
-            mode_state: normalize_map(Keyword.get(opts, :mode_state, %{}))
-          }
-        })
+    case ModeRegistry.fetch(mode) do
+      {:ok, _metadata} ->
+        conversation =
+          conversation
+          |> ThreadAgent.ensure(metadata: %{conversation_id: conversation.id})
+          |> ThreadAgent.append(%{
+            kind: :note,
+            payload: %{
+              event: "mode_configured",
+              mode: mode,
+              mode_state: normalize_map(Keyword.get(opts, :mode_state, %{}))
+            }
+          })
 
-      {:ok, sync_state_from_thread(conversation), []}
-    else
-      {:error, {:unsupported_mode, mode, supported_modes()}}
+        {:ok, sync_state_from_thread(conversation), []}
+
+      {:error, {:unsupported_mode, unsupported_mode, supported}} ->
+        {:error, {:unsupported_mode, unsupported_mode, supported}}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
