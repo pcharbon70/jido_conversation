@@ -195,6 +195,59 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end
 
+  test "managed facade exposes supported modes and configures mode" do
+    conversation_id = "facade-conv-mode"
+
+    assert JidoConversation.supported_modes() == [:coding]
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.configure_mode(conversation_id, :coding,
+               mode_state: %{pipeline: "default"}
+             )
+
+    assert {:ok, :coding} = JidoConversation.mode(conversation_id)
+
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert derived.mode == :coding
+    assert derived.mode_state == %{pipeline: "default"}
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
+  test "managed facade rejects unsupported mode configuration" do
+    conversation_id = "facade-conv-mode-invalid"
+
+    assert {:error, {:unsupported_mode, :planning, [:coding]}} =
+             JidoConversation.configure_mode(conversation_id, :planning)
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
+  test "managed facade maps active generation mode changes to :run_in_progress" do
+    conversation_id = "facade-conv-mode-run-in-progress"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "please wait")
+
+    assert {:ok, generation_ref} =
+             JidoConversation.generate_assistant_reply(conversation_id,
+               llm: %{backend: :facade_slow_stub},
+               llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+               backend_opts: [test_pid: self(), sleep_ms: 2_000]
+             )
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+
+    assert {:error, :run_in_progress} = JidoConversation.configure_mode(conversation_id, :coding)
+
+    assert :ok = JidoConversation.cancel_generation(conversation_id, "mode_change_blocked")
+
+    assert_receive {:jido_conversation,
+                    {:generation_canceled, ^generation_ref, "mode_change_blocked"}}
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
   test "managed facade records assistant messages" do
     conversation_id = "facade-conv-assistant"
 

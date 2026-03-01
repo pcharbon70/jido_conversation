@@ -106,4 +106,45 @@ defmodule Jido.ConversationTest do
 
     assert {:error, :empty_message} == Conversation.send_user_message(conversation, "  ")
   end
+
+  test "mode defaults to :coding with empty run tracking" do
+    conversation = Conversation.new(conversation_id: "conv-mode-default")
+
+    assert :coding == Conversation.mode(conversation)
+
+    derived = Conversation.derived_state(conversation)
+    assert derived.mode == :coding
+    assert derived.mode_state == %{}
+    assert derived.active_run == nil
+    assert derived.run_history == []
+  end
+
+  test "configure_mode/3 updates derived mode state and timeline" do
+    conversation = Conversation.new(conversation_id: "conv-mode-config")
+
+    assert {:ok, conversation, _directives} =
+             Conversation.configure_mode(conversation, :coding,
+               mode_state: %{pipeline: "default", interruptible: true}
+             )
+
+    assert :coding == Conversation.mode(conversation)
+
+    derived = Conversation.derived_state(conversation)
+    assert derived.mode == :coding
+    assert derived.mode_state == %{pipeline: "default", interruptible: true}
+
+    entries = Conversation.thread_entries(conversation)
+
+    assert Enum.any?(entries, fn entry ->
+             event = entry.payload[:event] || entry.payload["event"]
+             entry.kind == :note and event == "mode_configured"
+           end)
+  end
+
+  test "configure_mode/3 rejects unsupported mode" do
+    conversation = Conversation.new(conversation_id: "conv-mode-invalid")
+
+    assert {:error, {:unsupported_mode, :planning, [:coding]}} =
+             Conversation.configure_mode(conversation, :planning)
+  end
 end
