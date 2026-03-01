@@ -28,6 +28,52 @@ sequenceDiagram
   Red-->>Part: next_state + directives
 ```
 
+## Tool-call loop in host orchestration (`jido_code_server`)
+
+When `jido_conversation` is hosted by `jido_code_server` conversation
+orchestration, tool calls follow this deterministic loop:
+
+```mermaid
+sequenceDiagram
+  participant Client as Client
+  participant Project as Project.Server
+  participant Conv as Conversation.Agent
+  participant Red as Domain.Reducer
+  participant LLMInst as RunLLMInstruction
+  participant LLM as Conversation.LLM
+  participant ToolInst as RunToolInstruction
+  participant Bridge as ToolBridge
+  participant Runner as Project.ToolRunner
+  participant Journal as JournalBridge
+
+  Client->>Project: conversation_call(conversation.user.message)
+  Project->>Conv: call/cast canonical signal
+  Conv->>Red: enqueue + drain
+  Red-->>Conv: intent(kind=run_llm)
+  Conv->>LLMInst: execute instruction
+  LLMInst->>LLM: start_completion(tool_specs, llm_context)
+  LLM-->>Conv: conversation.llm.* + conversation.tool.requested
+  Conv->>Red: ingest returned signals
+  Red-->>Conv: intent(kind=run_tool)
+  Conv->>ToolInst: execute instruction
+  ToolInst->>Bridge: handle_tool_requested(...)
+  Bridge->>Runner: run / run_async
+  Runner-->>Bridge: conversation.tool.completed | failed
+  Bridge-->>Conv: canonical tool result signals
+  Conv->>Red: ingest tool result
+  Red-->>Conv: intent(kind=run_llm) when pending tools empty
+  Conv->>LLMInst: follow-up LLM turn
+  Conv->>Journal: bridge conversation.* into conv.*
+```
+
+Notes:
+
+- Tool calls are emitted by the LLM turn as `conversation.tool.requested`.
+- Reducer keeps pending tool state and only triggers the follow-up LLM turn when
+  the pending tool set becomes empty.
+- `JournalBridge` persists canonical `conv.*` streams (`conv.in.*`,
+  `conv.out.*`, and audit/effect events) for replay and projections.
+
 ## Partition model
 
 - Conversation `subject` determines partition assignment.
