@@ -67,6 +67,14 @@ defmodule Jido.Conversation.Server do
     GenServer.call(server, {:llm_context, opts})
   end
 
+  @spec mode(GenServer.server()) :: atom()
+  def mode(server) do
+    GenServer.call(server, :mode)
+  end
+
+  @spec supported_modes() :: [:coding, ...]
+  def supported_modes, do: Conversation.supported_modes()
+
   @spec send_user_message(GenServer.server(), String.t(), keyword()) ::
           {:ok, Conversation.t(), [struct()]} | {:error, term()}
   def send_user_message(server, content, opts \\ []) when is_binary(content) and is_list(opts) do
@@ -90,6 +98,12 @@ defmodule Jido.Conversation.Server do
           {:ok, Conversation.t(), [struct()]} | {:error, term()}
   def configure_skills(server, enabled) when is_list(enabled) do
     GenServer.call(server, {:configure_skills, enabled})
+  end
+
+  @spec configure_mode(GenServer.server(), atom(), keyword()) ::
+          {:ok, Conversation.t(), [struct()]} | {:error, term()}
+  def configure_mode(server, mode, opts \\ []) when is_atom(mode) and is_list(opts) do
+    GenServer.call(server, {:configure_mode, mode, opts})
   end
 
   @spec generate_assistant_reply(GenServer.server(), keyword()) ::
@@ -122,6 +136,11 @@ defmodule Jido.Conversation.Server do
   @impl true
   def handle_call({:llm_context, opts}, _from, state) do
     {:reply, Conversation.llm_context(state.conversation, opts), state}
+  end
+
+  @impl true
+  def handle_call(:mode, _from, state) do
+    {:reply, Conversation.mode(state.conversation), state}
   end
 
   @impl true
@@ -204,6 +223,22 @@ defmodule Jido.Conversation.Server do
       Conversation.configure_skills(state.conversation, enabled)
 
     {:reply, {:ok, conversation, directives}, %{state | conversation: conversation}}
+  end
+
+  @impl true
+  def handle_call({:configure_mode, _mode, _opts}, _from, %{active_generation: %{}} = state) do
+    {:reply, {:error, :run_in_progress}, state}
+  end
+
+  @impl true
+  def handle_call({:configure_mode, mode, opts}, _from, state) do
+    case Conversation.configure_mode(state.conversation, mode, opts) do
+      {:ok, conversation, directives} ->
+        {:reply, {:ok, conversation, directives}, %{state | conversation: conversation}}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
   end
 
   @impl true

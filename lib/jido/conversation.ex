@@ -11,6 +11,7 @@ defmodule Jido.Conversation do
   alias Jido.Conversation.Actions.RequestCancel
   alias Jido.Conversation.Agent, as: ConversationAgent
   alias Jido.Conversation.LLMGeneration
+  alias Jido.Conversation.Mode.Error, as: ModeError
   alias Jido.Conversation.Projections.LlmContext
   alias Jido.Conversation.Projections.Timeline
   alias Jido.Conversation.Reducer
@@ -18,6 +19,12 @@ defmodule Jido.Conversation do
   alias Jido.Thread.Agent, as: ThreadAgent
 
   @type t :: Agent.t()
+  @type mode_error :: ModeError.t()
+
+  @supported_modes [:coding]
+
+  @spec supported_modes() :: [:coding, ...]
+  def supported_modes, do: @supported_modes
 
   @spec new(keyword() | map()) :: t()
   def new(opts \\ []) do
@@ -92,6 +99,39 @@ defmodule Jido.Conversation do
   def configure_skills(%Agent{} = conversation, enabled) when is_list(enabled) do
     params = %{enabled: normalize_skills(enabled)}
     run_action(conversation, {ConfigureSkills, params})
+  end
+
+  @spec configure_mode(t(), atom(), keyword()) :: {:ok, t(), [struct()]} | {:error, mode_error()}
+  def configure_mode(conversation, mode, opts \\ [])
+
+  def configure_mode(%Agent{} = conversation, mode, opts)
+      when is_atom(mode) and is_list(opts) do
+    if mode in supported_modes() do
+      conversation =
+        conversation
+        |> ThreadAgent.ensure(metadata: %{conversation_id: conversation.id})
+        |> ThreadAgent.append(%{
+          kind: :note,
+          payload: %{
+            event: "mode_configured",
+            mode: mode,
+            mode_state: normalize_map(Keyword.get(opts, :mode_state, %{}))
+          }
+        })
+
+      {:ok, sync_state_from_thread(conversation), []}
+    else
+      {:error, {:unsupported_mode, mode, supported_modes()}}
+    end
+  end
+
+  def configure_mode(%Agent{}, mode, _opts), do: {:error, {:invalid_mode, mode}}
+
+  @spec mode(t()) :: atom()
+  def mode(%Agent{} = conversation) do
+    conversation
+    |> derived_state()
+    |> Map.get(:mode, :coding)
   end
 
   @spec generate_assistant_reply(t(), keyword()) ::

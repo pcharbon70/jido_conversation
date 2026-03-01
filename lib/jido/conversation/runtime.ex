@@ -81,6 +81,16 @@ defmodule Jido.Conversation.Runtime do
     end
   end
 
+  @spec mode(locator()) :: {:ok, atom()} | {:error, :invalid_locator | :not_found}
+  def mode(locator) do
+    with {:ok, pid} <- fetch_server(locator) do
+      {:ok, Server.mode(pid)}
+    end
+  end
+
+  @spec supported_modes() :: [:coding, ...]
+  def supported_modes, do: Conversation.supported_modes()
+
   @spec send_user_message(locator(), String.t(), keyword()) ::
           {:ok, Conversation.t(), [struct()]} | {:error, term()}
   def send_user_message(locator, content, opts \\ []) when is_binary(content) and is_list(opts) do
@@ -111,6 +121,14 @@ defmodule Jido.Conversation.Runtime do
   def configure_skills(locator, enabled) when is_list(enabled) do
     with {:ok, pid} <- ensure_server(locator) do
       Server.configure_skills(pid, enabled)
+    end
+  end
+
+  @spec configure_mode(locator(), atom(), keyword()) ::
+          {:ok, Conversation.t(), [struct()]} | {:error, term()}
+  def configure_mode(locator, mode, opts \\ []) when is_atom(mode) and is_list(opts) do
+    with {:ok, pid} <- ensure_server(locator) do
+      Server.configure_mode(pid, mode, opts)
     end
   end
 
