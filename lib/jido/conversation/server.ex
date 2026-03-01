@@ -231,18 +231,14 @@ defmodule Jido.Conversation.Server do
   end
 
   @impl true
-  def handle_call({:configure_mode, _mode, _opts}, _from, %{active_generation: %{}} = state) do
-    {:reply, {:error, :run_in_progress}, state}
-  end
-
-  @impl true
   def handle_call({:configure_mode, mode, opts}, _from, state) do
-    case Conversation.configure_mode(state.conversation, mode, opts) do
-      {:ok, conversation, directives} ->
-        {:reply, {:ok, conversation, directives}, %{state | conversation: conversation}}
+    cause_id = Keyword.get(opts, :cause_id, Jido.Util.generate_id())
+    opts = Keyword.put_new(opts, :cause_id, cause_id)
 
-      {:error, reason} ->
-        {:reply, {:error, reason}, state}
+    if state.active_generation do
+      handle_configure_mode_while_running(state, mode, opts)
+    else
+      handle_configure_mode_idle(state, mode, opts, cause_id)
     end
   end
 
@@ -322,6 +318,111 @@ defmodule Jido.Conversation.Server do
 
   @impl true
   def handle_info(_message, state), do: {:noreply, state}
+
+  defp handle_configure_mode_idle(state, mode, opts, cause_id) do
+    case Conversation.configure_mode(state.conversation, mode, opts) do
+      {:ok, conversation, directives} ->
+        {:reply, {:ok, conversation, directives}, %{state | conversation: conversation}}
+
+      {:error, reason} ->
+        rejection_reason = switch_rejection_reason(reason)
+
+        conversation =
+          Conversation.audit_mode_switch(state.conversation, :rejected, %{
+            from_mode: Conversation.mode(state.conversation),
+            to_mode: mode,
+            reason: rejection_reason,
+            cause_id: cause_id
+          })
+
+        {:reply, {:error, reason}, %{state | conversation: conversation}}
+    end
+  end
+
+  defp handle_configure_mode_while_running(state, mode, opts) do
+    force_switch? = Keyword.get(opts, :force, false)
+    cause_id = Keyword.get(opts, :cause_id, Jido.Util.generate_id())
+
+    if force_switch? do
+      handle_forced_mode_switch(state, mode, opts, cause_id)
+    else
+      conversation =
+        Conversation.audit_mode_switch(state.conversation, :rejected, %{
+          from_mode: Conversation.mode(state.conversation),
+          to_mode: mode,
+          reason: "run_in_progress",
+          cause_id: cause_id
+        })
+
+      {:reply, {:error, :run_in_progress}, %{state | conversation: conversation}}
+    end
+  end
+
+  defp handle_forced_mode_switch(state, mode, opts, cause_id) do
+    cancel_reason =
+      opts
+      |> Keyword.get(:cancel_reason, "")
+      |> normalize_cancel_reason()
+
+    if cancel_reason == nil do
+      conversation =
+        Conversation.audit_mode_switch(state.conversation, :rejected, %{
+          from_mode: Conversation.mode(state.conversation),
+          to_mode: mode,
+          reason: "force_cancel_reason_required",
+          cause_id: cause_id
+        })
+
+      {:reply, {:error, :force_cancel_reason_required}, %{state | conversation: conversation}}
+    else
+      active = state.active_generation
+      _ = Task.shutdown(active.task, :brutal_kill)
+      Process.demonitor(active.task.ref, [:flush])
+
+      {:ok, canceled_conversation, _directives} =
+        Conversation.cancel(state.conversation, cancel_reason)
+
+      notify(active.reply_to, {:generation_canceled, active.generation_ref, cancel_reason})
+
+      mode_opts =
+        opts
+        |> Keyword.delete(:force)
+        |> Keyword.delete(:cancel_reason)
+        |> Keyword.put_new(:reason, "forced_mode_switch")
+
+      case Conversation.configure_mode(canceled_conversation, mode, mode_opts) do
+        {:ok, conversation, directives} ->
+          {:reply, {:ok, conversation, directives},
+           %{state | conversation: conversation, active_generation: nil}}
+
+        {:error, reason} ->
+          conversation =
+            Conversation.audit_mode_switch(canceled_conversation, :rejected, %{
+              from_mode: Conversation.mode(canceled_conversation),
+              to_mode: mode,
+              reason: switch_rejection_reason(reason),
+              cause_id: cause_id
+            })
+
+          {:reply, {:error, reason},
+           %{state | conversation: conversation, active_generation: nil}}
+      end
+    end
+  end
+
+  defp normalize_cancel_reason(reason) when is_binary(reason) do
+    trimmed = String.trim(reason)
+    if trimmed == "", do: nil, else: trimmed
+  end
+
+  defp normalize_cancel_reason(_reason), do: nil
+
+  defp switch_rejection_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
+
+  defp switch_rejection_reason({reason, _details}) when is_atom(reason),
+    do: Atom.to_string(reason)
+
+  defp switch_rejection_reason({reason, _, _}) when is_atom(reason), do: Atom.to_string(reason)
 
   defp notify(reply_to, payload) when is_pid(reply_to) do
     send(reply_to, {:jido_conversation, payload})

@@ -264,10 +264,95 @@ defmodule JidoConversation.ManagedRuntimeApiTest do
 
     assert {:error, :run_in_progress} = JidoConversation.configure_mode(conversation_id, :coding)
 
+    assert {:ok, entries} = JidoConversation.conversation_thread_entries(conversation_id)
+
+    assert Enum.any?(entries, fn entry ->
+             event = entry.payload[:event] || entry.payload["event"]
+             reason = entry.payload[:reason] || entry.payload["reason"]
+             to_mode = entry.payload[:to_mode] || entry.payload["to_mode"]
+
+             entry.kind == :note and event == "mode_switch_rejected" and
+               reason == "run_in_progress" and
+               to_mode == :coding
+           end)
+
     assert :ok = JidoConversation.cancel_generation(conversation_id, "mode_change_blocked")
 
     assert_receive {:jido_conversation,
                     {:generation_canceled, ^generation_ref, "mode_change_blocked"}}
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
+  test "managed facade requires cancel reason for forced mode switch" do
+    conversation_id = "facade-conv-mode-force-missing-reason"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "please wait")
+
+    assert {:ok, generation_ref} =
+             JidoConversation.generate_assistant_reply(conversation_id,
+               llm: %{backend: :facade_slow_stub},
+               llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+               backend_opts: [test_pid: self(), sleep_ms: 2_000]
+             )
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+
+    assert {:error, :force_cancel_reason_required} =
+             JidoConversation.configure_mode(conversation_id, :planning,
+               force: true,
+               mode_state: %{objective: "Plan migration"}
+             )
+
+    assert :ok = JidoConversation.cancel_generation(conversation_id, "cleanup_force_reason")
+
+    assert_receive {:jido_conversation,
+                    {:generation_canceled, ^generation_ref, "cleanup_force_reason"}}
+
+    assert :ok = JidoConversation.stop_conversation(conversation_id)
+  end
+
+  test "managed facade supports forced switch by canceling active generation first" do
+    conversation_id = "facade-conv-mode-force-switch"
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.send_user_message(conversation_id, "please wait")
+
+    assert {:ok, generation_ref} =
+             JidoConversation.generate_assistant_reply(conversation_id,
+               llm: %{backend: :facade_slow_stub},
+               llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
+               backend_opts: [test_pid: self(), sleep_ms: 2_000]
+             )
+
+    assert_receive {:facade_slow_backend_started, _request_id}
+
+    assert {:ok, _conversation, _directives} =
+             JidoConversation.configure_mode(conversation_id, :planning,
+               force: true,
+               cancel_reason: "force_switch_cancel",
+               mode_state: %{objective: "Plan migration"}
+             )
+
+    assert_receive {:jido_conversation,
+                    {:generation_canceled, ^generation_ref, "force_switch_cancel"}}
+
+    assert {:ok, :planning} = JidoConversation.mode(conversation_id)
+    assert {:ok, derived} = JidoConversation.derived_state(conversation_id)
+    assert derived.status == :canceled
+    assert derived.cancel_reason == "force_switch_cancel"
+    assert derived.mode_state.objective == "Plan migration"
+
+    assert {:ok, entries} = JidoConversation.conversation_thread_entries(conversation_id)
+
+    assert Enum.any?(entries, fn entry ->
+             event = entry.payload[:event] || entry.payload["event"]
+             reason = entry.payload[:reason] || entry.payload["reason"]
+
+             entry.kind == :note and event == "mode_switch_accepted" and
+               reason == "forced_mode_switch"
+           end)
 
     assert :ok = JidoConversation.stop_conversation(conversation_id)
   end

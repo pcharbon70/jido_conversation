@@ -169,4 +169,35 @@ defmodule Jido.ConversationTest do
     assert derived.mode_state.max_phases == 4
     assert derived.mode_state.output_format == :markdown
   end
+
+  test "configure_mode/3 emits accepted switch audit metadata" do
+    conversation = Conversation.new(conversation_id: "conv-mode-audit")
+
+    assert {:ok, conversation, _directives} =
+             Conversation.configure_mode(conversation, :planning,
+               cause_id: "cause-mode-audit",
+               reason: "manual_switch",
+               mode_state: %{objective: "Audit this switch"}
+             )
+
+    entries = Conversation.thread_entries(conversation)
+
+    assert Enum.any?(entries, fn entry ->
+             event = entry.payload[:event] || entry.payload["event"]
+
+             entry.kind == :note and
+               event == "mode_switch_accepted" and
+               (entry.payload[:cause_id] || entry.payload["cause_id"]) == "cause-mode-audit" and
+               (entry.payload[:from_mode] || entry.payload["from_mode"]) == :coding and
+               (entry.payload[:to_mode] || entry.payload["to_mode"]) == :planning
+           end)
+
+    assert Enum.any?(entries, fn entry ->
+             event = entry.payload[:event] || entry.payload["event"]
+
+             entry.kind == :note and
+               event == "mode_configured" and
+               (entry.payload[:cause_id] || entry.payload["cause_id"]) == "cause-mode-audit"
+           end)
+  end
 end
