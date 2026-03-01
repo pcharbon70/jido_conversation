@@ -18,7 +18,11 @@ defmodule Jido.Conversation.Agent do
       metadata: [type: :map, default: %{}],
       cancel_requested?: [type: :boolean, default: false],
       llm: [type: :map, default: %{backend: :jido_ai, provider: nil, model: nil, options: %{}}],
-      skills: [type: :map, default: %{enabled: []}]
+      skills: [type: :map, default: %{enabled: []}],
+      mode: [type: :atom, default: :coding],
+      mode_state: [type: :map, default: %{}],
+      active_run: [type: :any, default: nil],
+      run_history: [type: :list, default: []]
     ],
     strategy: {Jido.Agent.Strategy.Direct, thread?: true}
 
