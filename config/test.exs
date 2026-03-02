@@ -20,3 +20,5 @@ config :jido_conversation, JidoConversation.EventSystem,
 config :jido_signal,
   journal_adapter: Jido.Signal.Journal.Adapters.InMemory,
   journal_adapter_opts: []
+
+config :logger, level: :warning
