@@ -19,7 +19,15 @@ defmodule JidoConversation.CrossRepoContractFixtureTest do
     live_context = Projections.llm_context(conversation_id, include_deltas: true)
 
     expected_types = fixture["expected"]["canonical_timeline_types"]
-    assert Enum.map(live_timeline, & &1.type) == expected_types
+    expected_tool_statuses = fixture["expected"]["canonical_tool_statuses"]
+
+    case contract_drift_diagnostics(live_timeline, expected_types, expected_tool_statuses) do
+      :ok ->
+        :ok
+
+      {:error, diagnostics} ->
+        flunk(diagnostics)
+    end
 
     replay_signals =
       eventually(fn ->
@@ -43,8 +51,6 @@ defmodule JidoConversation.CrossRepoContractFixtureTest do
 
     assert live_timeline == replay_timeline
     assert live_context == replay_context
-
-    expected_tool_statuses = fixture["expected"]["canonical_tool_statuses"]
 
     assert Enum.map(tool_entries(live_timeline), & &1.metadata.status) == expected_tool_statuses
   end
@@ -115,6 +121,32 @@ defmodule JidoConversation.CrossRepoContractFixtureTest do
       :retry ->
         Process.sleep(20)
         eventually(fun, attempts - 1)
+    end
+  end
+
+  defp contract_drift_diagnostics(timeline, expected_types, expected_tool_statuses) do
+    observed_types = Enum.map(timeline, & &1.type)
+    observed_tool_statuses = Enum.map(tool_entries(timeline), & &1.metadata.status)
+
+    cond do
+      observed_types != expected_types ->
+        {:error,
+         """
+         contract drift: canonical timeline order/types do not match fixture
+         expected timeline types: #{inspect(expected_types)}
+         observed timeline types: #{inspect(observed_types)}
+         """}
+
+      observed_tool_statuses != expected_tool_statuses ->
+        {:error,
+         """
+         contract drift: canonical tool status order does not match fixture
+         expected tool statuses: #{inspect(expected_tool_statuses)}
+         observed tool statuses: #{inspect(observed_tool_statuses)}
+         """}
+
+      true ->
+        :ok
     end
   end
 end
