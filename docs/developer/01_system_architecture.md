@@ -3,6 +3,28 @@
 This guide describes the runtime shape of `jido_conversation` and how core
 modules collaborate.
 
+## Cross-Repo Ownership Boundary
+
+`jido_conversation` is the conversation substrate. It owns:
+
+- canonical contract validation and journal-first ingest
+- deterministic reducer/scheduler runtime
+- effect lifecycle eventing
+- projection and replay APIs
+
+`jido_conversation` does not own business orchestration policy such as mode
+pipelines, strategy selection, or project tool declaration. Those live in
+`jido_code_server` and are expressed into this library as canonical
+conversation events.
+
+```mermaid
+flowchart LR
+  Host["Host or protocol client"] --> CS["jido_code_server"]
+  CS --> JB["Conversation.JournalBridge"]
+  JB --> JC["jido_conversation ingest + runtime"]
+  JC --> PR["timeline / llm_context / replay"]
+```
+
 ## Application boot graph
 
 `JidoConversation.Application` starts four top-level subsystems:

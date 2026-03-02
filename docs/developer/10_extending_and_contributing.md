@@ -2,6 +2,19 @@
 
 This guide is a practical checklist for safe architectural changes.
 
+## Cross-repo extension rule
+
+Keep this library focused on conversation substrate concerns:
+
+- event contract and ingest normalization
+- deterministic runtime state transitions
+- effect lifecycle signaling
+- projection/replay behavior
+
+Do not add mode-specific orchestration, strategy selection, or project tool
+declaration logic here. Implement those in `jido_code_server` and integrate via
+canonical conversation events.
+
 ## Adding a new event type
 
 1. Decide stream family (`conv.in|effect|out|audit`).
