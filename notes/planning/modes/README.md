@@ -50,13 +50,13 @@ This plan supersedes the previous in-library modes plan.
 - Interrupt/cancel semantics are deterministic and recorded through append-only events.
 
 ## Cross-Phase Acceptance Scenarios
-- [ ] XR-1 A full user -> strategy -> tool -> strategy loop is orchestrated in `jido_code_server` and represented in canonical `conv.*` streams.
-- [ ] XR-2 `jido_conversation` can be replayed independently and reconstruct equivalent read models without embedded mode business logic.
-- [ ] XR-3 Mode switching, interruption, resume, and cancellation are deterministic and recoverable across process restarts.
-- [ ] XR-4 Multiple strategy types can be selected per mode without changing substrate contracts.
-- [ ] XR-5 Tool and strategy cancellation behavior produces consistent terminal events and cause-link metadata.
-- [ ] XR-6 Legacy host entry points continue to work through explicit orchestration adapters during migration.
-- [ ] XR-7 Cross-repo CI validates contract compatibility and detects drift before merge.
-- [ ] XR-8 Developer and user docs clearly reflect the new ownership model and extension points.
-- [ ] XR-9 Every mode step requiring side effects is routed through `Project.ExecutionRunner` with auditable policy decisions.
-- [ ] XR-10 Only action-backed tools registered through `jido_code_server` providers are surfaced to LLM execution for conversation runs.
+- [x] XR-1 A full user -> strategy -> tool -> strategy loop is orchestrated in `jido_code_server` and represented in canonical `conv.*` streams.
+- [x] XR-2 `jido_conversation` can be replayed independently and reconstruct equivalent read models without embedded mode business logic.
+- [x] XR-3 Mode switching, interruption, resume, and cancellation are deterministic and recoverable across process restarts.
+- [x] XR-4 Multiple strategy types can be selected per mode without changing substrate contracts.
+- [x] XR-5 Tool and strategy cancellation behavior produces consistent terminal events and cause-link metadata.
+- [x] XR-6 Legacy host entry points continue to work through explicit orchestration adapters during migration.
+- [x] XR-7 Cross-repo CI validates contract compatibility and detects drift before merge.
+- [x] XR-8 Developer and user docs clearly reflect the new ownership model and extension points.
+- [x] XR-9 Every mode step requiring side effects is routed through `Project.ExecutionRunner` with auditable policy decisions.
+- [x] XR-10 Only action-backed tools registered through `jido_code_server` providers are surfaced to LLM execution for conversation runs.
