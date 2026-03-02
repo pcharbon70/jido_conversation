@@ -43,4 +43,6 @@ flowchart TD
 - `Reducer` must stay pure.
 - `PartitionWorker` is the only place reducer directives are executed.
 - `Ingest.Pipeline` is the only write boundary to journal + bus for normal event entry.
+- Mode/strategy/tool business orchestration is host-owned (for example,
+  `jido_code_server`) and should not be implemented in this library.
 - Host app should depend on `JidoConversation` public APIs, not deep internals.

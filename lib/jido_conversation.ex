@@ -176,41 +176,6 @@ defmodule JidoConversation do
   end
 
   @doc """
-  Returns the configured mode for a managed conversation.
-  """
-  @spec mode(conversation_locator()) :: {:ok, atom()} | {:error, :invalid_locator | :not_found}
-  def mode(locator) do
-    ConversationRuntime.mode(locator)
-  end
-
-  @doc """
-  Returns the list of currently supported built-in modes.
-  """
-  @spec supported_modes() :: [atom(), ...]
-  def supported_modes do
-    ConversationRuntime.supported_modes()
-  end
-
-  @doc """
-  Returns metadata for supported conversation modes.
-  """
-  @spec supported_mode_metadata(keyword()) :: [Jido.Conversation.Mode.Registry.mode_metadata()]
-  def supported_mode_metadata(opts \\ []) when is_list(opts) do
-    ConversationRuntime.supported_mode_metadata(opts)
-  end
-
-  @doc """
-  Configures the active mode for a managed conversation.
-
-  If the conversation process does not exist yet, it is created automatically.
-  """
-  @spec configure_mode(conversation_locator(), atom(), keyword()) ::
-          {:ok, Conversation.t(), [struct()]} | {:error, term()}
-  def configure_mode(locator, mode, opts \\ []) when is_atom(mode) and is_list(opts) do
-    ConversationRuntime.configure_mode(locator, mode, opts)
-  end
-
-  @doc """
   Starts asynchronous assistant generation for a managed conversation.
 
   If the conversation process does not exist yet, it is created automatically.

@@ -3,10 +3,7 @@ defmodule Jido.Conversation.Reducer do
   Pure state derivation from append-only thread entries.
   """
 
-  alias Jido.Conversation.Mode.Run
   alias Jido.Thread.Entry
-
-  @max_run_history 100
 
   @type derived_state :: %{
           status: :idle | :pending_llm | :responding | :canceled | :error,
@@ -16,11 +13,7 @@ defmodule Jido.Conversation.Reducer do
           last_user_message: String.t() | nil,
           messages: [map()],
           llm: map(),
-          skills: %{enabled: [String.t()]},
-          mode: atom(),
-          mode_state: map(),
-          active_run: Run.snapshot() | nil,
-          run_history: [Run.snapshot()]
+          skills: %{enabled: [String.t()]}
         }
 
   @default_llm %{backend: :jido_ai, provider: nil, model: nil, options: %{}}
@@ -45,11 +38,7 @@ defmodule Jido.Conversation.Reducer do
       last_user_message: nil,
       messages: [],
       llm: default_llm,
-      skills: %{enabled: []},
-      mode: :coding,
-      mode_state: %{},
-      active_run: nil,
-      run_history: []
+      skills: %{enabled: []}
     }
   end
 
@@ -96,19 +85,6 @@ defmodule Jido.Conversation.Reducer do
         enabled = normalize_skill_list(get_field(entry.payload, :enabled))
         %{state | skills: %{enabled: enabled}}
 
-      "mode_configured" ->
-        mode = normalize_mode(get_field(entry.payload, :mode), state.mode)
-        mode_state = normalize_map(get_field(entry.payload, :mode_state))
-        %{state | mode: mode, mode_state: mode_state}
-
-      "mode_run_snapshot" ->
-        snapshot =
-          entry.payload
-          |> get_field(:snapshot)
-          |> Run.serialize_snapshot()
-
-        apply_mode_run_snapshot(state, snapshot)
-
       _other ->
         state
     end
@@ -140,13 +116,6 @@ defmodule Jido.Conversation.Reducer do
   defp normalize_backend("harness"), do: :harness
   defp normalize_backend(_), do: nil
 
-  defp normalize_mode(value, _fallback) when is_atom(value), do: value
-
-  defp normalize_mode("coding", _fallback), do: :coding
-  defp normalize_mode("planning", _fallback), do: :planning
-  defp normalize_mode("engineering", _fallback), do: :engineering
-  defp normalize_mode(_value, fallback), do: fallback
-
   defp get_field(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, to_string(key))
   end
@@ -168,19 +137,6 @@ defmodule Jido.Conversation.Reducer do
 
   defp normalize_map(value) when is_map(value), do: value
   defp normalize_map(_), do: %{}
-
-  defp apply_mode_run_snapshot(state, nil), do: state
-
-  defp apply_mode_run_snapshot(state, snapshot) do
-    next_state = %{state | mode: snapshot.mode}
-
-    if snapshot.status in Run.terminal_statuses() do
-      run_history = [snapshot | next_state.run_history] |> Enum.take(@max_run_history)
-      %{next_state | active_run: nil, run_history: run_history}
-    else
-      %{next_state | active_run: snapshot}
-    end
-  end
 
   defp compact_map(map) when is_map(map) do
     Enum.reduce(map, %{}, fn
