@@ -147,12 +147,6 @@ defmodule Jido.Conversation do
   @spec state(t()) :: map()
   def state(%Agent{} = conversation), do: conversation.state
 
-  defp append_note(%Agent{} = conversation, payload) when is_map(payload) do
-    conversation
-    |> ThreadAgent.ensure(metadata: %{conversation_id: conversation.id})
-    |> ThreadAgent.append(%{kind: :note, payload: payload})
-  end
-
   defp run_action(%Agent{} = conversation, action) do
     {next_conversation, directives} = ConversationAgent.cmd(conversation, action)
     {:ok, sync_state_from_thread(next_conversation), directives}
