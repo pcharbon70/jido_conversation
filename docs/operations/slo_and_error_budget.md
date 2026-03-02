@@ -5,6 +5,20 @@ after phase-8 load testing, but changes must be explicit and versioned.
 
 ## Service level objectives
 
+### Cross-repo orchestration health
+
+- Strategy execution latency:
+  - SLO: p95 <= 6.0 s, p99 <= 12.0 s
+  - Measurement: `conversation.execution.started` to `conversation.execution.completed` (`strategy_run`)
+
+- Tool execution latency:
+  - SLO: p95 <= 4.0 s, p99 <= 8.0 s for non-network tools
+  - Measurement: `conversation.tool.started` to terminal tool lifecycle event
+
+- Cancellation success:
+  - SLO: >= 99.0% successful cancel paths over rolling 30 minutes
+  - Measurement: `conversation.cancel` requests that drain pending work and allow successful `conversation.resume`
+
 ### Control-plane responsiveness
 
 - Abort acknowledgement latency:
@@ -56,3 +70,13 @@ If any budget is exhausted:
 - First-output latency histogram
 - Retry counts and DLQ counts
 - Replay parity check results
+- Strategy/tool lifecycle latency histograms by mode
+- Cancellation success and cancel-to-drain durations
+
+## Post-release validation window
+
+- Window: 7 days after release
+- Success criteria:
+  - all SLO budgets remain within target
+  - no unresolved cross-repo contract drift incidents
+  - replay parity remains stable on sampled conversations

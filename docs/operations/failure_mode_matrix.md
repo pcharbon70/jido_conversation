@@ -15,6 +15,7 @@ conversation architecture.
 | Duplicate delivery (at-least-once) | Duplicate id metric/idempotency check | Drop duplicate or no-op apply based on idempotency keys | Verify dedupe logic and checkpoint behavior |
 | DLQ growth spike | DLQ size and rate alerts | Pause non-critical ingest and prioritize re-drive diagnostics | Triage root causes and execute controlled re-drive |
 | Replay parity mismatch | Replay parity check failure | Block deployment gate, flag conversation for forensic trace | Investigate scheduler determinism/state mutation bug |
+| Cross-repo contract drift (`conversation.*` -> `conv.*`) | Shared fixture CI gate failure | Block release publication | Compare fixture traces and journal bridge mapping, then patch and re-run both repos |
 
 ## Notes
 
