@@ -13,6 +13,7 @@ architecture and runtime components.
 6. [Projections, Replay, and Debugging](./06_projections_replay_and_debugging.md)
 7. [Observability and Health](./07_observability_and_health.md)
 8. [Integration Checklist](./08_integration_checklist.md)
+9. [API Surfaces and Selection](./09_api_surfaces_and_selection.md)
 
 ## Existing Legacy Guides
 
