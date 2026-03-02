@@ -3,11 +3,11 @@ defmodule Jido.Conversation.LLMGeneration do
 
   alias Jido.Agent
   alias Jido.Conversation
-  alias JidoConversation.Config
-  alias JidoConversation.LLM.Error, as: LLMError
-  alias JidoConversation.LLM.Request, as: LLMRequest
-  alias JidoConversation.LLM.Resolver, as: LLMResolver
-  alias JidoConversation.LLM.Result, as: LLMResult
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.LLM.Error, as: LLMError
+  alias Jido.Conversation.LLM.Request, as: LLMRequest
+  alias Jido.Conversation.LLM.Resolver, as: LLMResolver
+  alias Jido.Conversation.LLM.Result, as: LLMResult
 
   @backend_option_string_keys %{
     "llm_client" => :llm_client,

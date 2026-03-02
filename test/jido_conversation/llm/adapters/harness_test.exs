@@ -1,11 +1,11 @@
-defmodule JidoConversation.LLM.Adapters.HarnessTest do
+defmodule Jido.Conversation.LLM.Adapters.HarnessTest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.LLM.Adapters.Harness
-  alias JidoConversation.LLM.Error
-  alias JidoConversation.LLM.Event
-  alias JidoConversation.LLM.Request
-  alias JidoConversation.LLM.Result
+  alias Jido.Conversation.LLM.Adapters.Harness
+  alias Jido.Conversation.LLM.Error
+  alias Jido.Conversation.LLM.Event
+  alias Jido.Conversation.LLM.Request
+  alias Jido.Conversation.LLM.Result
 
   defmodule TestHarness do
     def run(provider, prompt, opts)

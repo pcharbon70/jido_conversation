@@ -1,9 +1,9 @@
-defmodule JidoConversation.Signal.ContractTest do
+defmodule Jido.Conversation.Signal.ContractTest do
   use ExUnit.Case, async: true
 
   alias Jido.Signal
-  alias JidoConversation.ConversationRef
-  alias JidoConversation.Signal.Contract
+  alias Jido.Conversation.ConversationRef
+  alias Jido.Conversation.Signal.Contract
 
   test "normalizes valid map input into a signal" do
     attrs = %{

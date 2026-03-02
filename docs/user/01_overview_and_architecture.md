@@ -23,11 +23,11 @@ canonical conversation events consumed here.
 
 ## Core public APIs
 
-- `JidoConversation.ingest/2`
-- `JidoConversation.timeline/2`
-- `JidoConversation.llm_context/2`
-- `JidoConversation.health/0`
-- `JidoConversation.telemetry_snapshot/0`
+- `Jido.Conversation.Ingest.ingest/2`
+- `Jido.Conversation.Projections.timeline/2`
+- `Jido.Conversation.Projections.llm_context/2`
+- `Jido.Conversation.Health.status/0`
+- `Jido.Conversation.Telemetry.snapshot/0`
 
 ## Signal families
 
@@ -39,15 +39,15 @@ canonical conversation events consumed here.
 
 ## Runtime component map
 
-1. Contract normalization (`JidoConversation.Signal.Contract`)
-2. Journal + bus ingestion (`JidoConversation.Ingest.Pipeline`)
-3. Partition scheduling + reducer apply (`JidoConversation.Runtime.Coordinator` + `JidoConversation.Runtime.Reducer`)
-4. Effect execution (`JidoConversation.Runtime.EffectManager` + `JidoConversation.Runtime.EffectWorker`)
-5. Projection reads (`JidoConversation.Projections`)
+1. Contract normalization (`Jido.Conversation.Signal.Contract`)
+2. Journal + bus ingestion (`Jido.Conversation.Ingest.Pipeline`)
+3. Partition scheduling + reducer apply (`Jido.Conversation.Runtime.Coordinator` + `Jido.Conversation.Runtime.Reducer`)
+4. Effect execution (`Jido.Conversation.Runtime.EffectManager` + `Jido.Conversation.Runtime.EffectWorker`)
+5. Projection reads (`Jido.Conversation.Projections`)
 
 ```mermaid
 flowchart LR
-  A["Host app"] --> B["JidoConversation.ingest/2"]
+  A["Host app"] --> B["Jido.Conversation.Ingest.ingest/2"]
   B --> C["Contract gate"]
   C --> D["Journal append + bus publish"]
   D --> E["Runtime coordinator"]

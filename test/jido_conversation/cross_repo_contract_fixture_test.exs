@@ -1,10 +1,10 @@
-defmodule JidoConversation.CrossRepoContractFixtureTest do
+defmodule Jido.Conversation.CrossRepoContractFixtureTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Ingest
-  alias JidoConversation.Projections
-  alias JidoConversation.Projections.LlmContext
-  alias JidoConversation.Projections.Timeline
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.Projections
+  alias Jido.Conversation.Projections.LlmContext
+  alias Jido.Conversation.Projections.Timeline
 
   @fixture_path "test/fixtures/cross_repo/user_strategy_tool_strategy_trace.json"
 

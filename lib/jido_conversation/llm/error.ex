@@ -1,4 +1,4 @@
-defmodule JidoConversation.LLM.Error do
+defmodule Jido.Conversation.LLM.Error do
   @moduledoc """
   Normalized backend error representation for LLM runtime operations.
   """

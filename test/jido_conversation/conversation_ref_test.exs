@@ -1,7 +1,7 @@
-defmodule JidoConversation.ConversationRefTest do
+defmodule Jido.Conversation.ConversationRefTest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.ConversationRef
+  alias Jido.Conversation.ConversationRef
 
   test "builds and parses canonical project-scoped subject" do
     assert {:ok, ref} = ConversationRef.new("project-a", "conversation-1")

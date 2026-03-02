@@ -1,4 +1,4 @@
-defmodule Jido.Conversation.Projections.LlmContext do
+defmodule Jido.Conversation.ThreadProjections.LlmContext do
   @moduledoc """
   Derives LLM context messages from thread entries.
   """

@@ -1,7 +1,7 @@
-defmodule JidoConversation.TelemetryTest do
+defmodule Jido.Conversation.TelemetryTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Telemetry
+  alias Jido.Conversation.Telemetry
 
   setup do
     :ok = Telemetry.reset()

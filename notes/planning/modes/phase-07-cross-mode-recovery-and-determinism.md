@@ -3,7 +3,7 @@
 Back to index: [README](./README.md)
 
 ## Relevant Shared APIs / Interfaces
-- `JidoConversation` public facade
+- `Jido.Conversation` public facade
 - `Jido.Conversation.*` mode-related modules (current implementation)
 - `Jido.Code.Server` conversation orchestration APIs
 - `Jido.Code.Server.Conversation.JournalBridge`

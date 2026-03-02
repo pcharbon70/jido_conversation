@@ -1,4 +1,4 @@
-defmodule JidoConversation.LLM.Backend do
+defmodule Jido.Conversation.LLM.Backend do
   @moduledoc """
   Behaviour contract for LLM backend adapters.
 
@@ -6,10 +6,10 @@ defmodule JidoConversation.LLM.Backend do
   backend-native protocol differences internally.
   """
 
-  alias JidoConversation.LLM.Error
-  alias JidoConversation.LLM.Event
-  alias JidoConversation.LLM.Request
-  alias JidoConversation.LLM.Result
+  alias Jido.Conversation.LLM.Error
+  alias Jido.Conversation.LLM.Event
+  alias Jido.Conversation.LLM.Request
+  alias Jido.Conversation.LLM.Result
 
   @type execution_ref :: term()
   @type options :: keyword()

@@ -1,4 +1,4 @@
-defmodule JidoConversation.LLM.Adapters.JidoAI do
+defmodule Jido.Conversation.LLM.Adapters.JidoAI do
   @moduledoc """
   `JidoAI` backend adapter for the unified LLM client contract.
 
@@ -7,12 +7,12 @@ defmodule JidoConversation.LLM.Adapters.JidoAI do
   dependency in all environments.
   """
 
-  @behaviour JidoConversation.LLM.Backend
+  @behaviour Jido.Conversation.LLM.Backend
 
-  alias JidoConversation.LLM.Error
-  alias JidoConversation.LLM.Event
-  alias JidoConversation.LLM.Request
-  alias JidoConversation.LLM.Result
+  alias Jido.Conversation.LLM.Error
+  alias Jido.Conversation.LLM.Event
+  alias Jido.Conversation.LLM.Request
+  alias Jido.Conversation.LLM.Result
 
   @default_jido_ai_module Jido.AI
   @default_llm_client_module Jido.AI.LLMClient

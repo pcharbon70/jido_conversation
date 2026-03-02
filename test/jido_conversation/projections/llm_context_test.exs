@@ -1,8 +1,8 @@
-defmodule JidoConversation.Projections.LlmContextTest do
+defmodule Jido.Conversation.Projections.LlmContextTest do
   use ExUnit.Case, async: true
 
   alias Jido.Signal
-  alias JidoConversation.Projections.LlmContext
+  alias Jido.Conversation.Projections.LlmContext
 
   test "builds role/content context from projected events" do
     events = [

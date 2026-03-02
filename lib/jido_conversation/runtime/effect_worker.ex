@@ -1,4 +1,4 @@
-defmodule JidoConversation.Runtime.EffectWorker do
+defmodule Jido.Conversation.Runtime.EffectWorker do
   @moduledoc """
   Executes one effect directive asynchronously with retry, timeout, and cancellation.
   """
@@ -7,13 +7,13 @@ defmodule JidoConversation.Runtime.EffectWorker do
 
   require Logger
 
-  alias JidoConversation.Config
-  alias JidoConversation.Ingest
-  alias JidoConversation.LLM.Error, as: LLMError
-  alias JidoConversation.LLM.Event, as: LLMEvent
-  alias JidoConversation.LLM.Request, as: LLMRequest
-  alias JidoConversation.LLM.Resolver, as: LLMResolver
-  alias JidoConversation.LLM.Result, as: LLMResult
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.LLM.Error, as: LLMError
+  alias Jido.Conversation.LLM.Event, as: LLMEvent
+  alias Jido.Conversation.LLM.Request, as: LLMRequest
+  alias Jido.Conversation.LLM.Resolver, as: LLMResolver
+  alias Jido.Conversation.LLM.Result, as: LLMResult
 
   @backend_option_string_keys %{
     "llm_client" => :llm_client,

@@ -1,8 +1,8 @@
-defmodule Jido.Conversation.ProjectionsTest do
+defmodule Jido.Conversation.ThreadProjectionsTest do
   use ExUnit.Case, async: true
 
-  alias Jido.Conversation.Projections.LlmContext
-  alias Jido.Conversation.Projections.Timeline
+  alias Jido.Conversation.ThreadProjections.LlmContext
+  alias Jido.Conversation.ThreadProjections.Timeline
   alias Jido.Thread
 
   test "timeline and llm context project thread messages" do
