@@ -25,6 +25,10 @@ remain true when changing code.
    - Read models (`Timeline`, `LlmContext`) are derived from ingested events.
    - No hidden mutable projection stores in core runtime.
 
+6. Substrate ownership boundary
+   - `jido_conversation` stays focused on canonical event runtime concerns.
+   - Mode orchestration and business policy logic belong in `jido_code_server`.
+
 ## Contract invariants
 
 - Stream namespace must match `conv.in|applied|effect|out|audit.*`.

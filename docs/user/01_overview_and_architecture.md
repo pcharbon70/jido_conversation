@@ -13,6 +13,14 @@ queries.
 - Projection APIs for UI timeline and LLM context
 - Runtime health and telemetry snapshots
 
+## Ownership boundary
+
+`jido_conversation` is the runtime substrate for conversation events. It keeps
+state transitions deterministic and exposes projections, but it does not define
+mode-specific business pipelines. In the Jido stack, mode orchestration and
+policy-gated execution are handled by `jido_code_server`, which publishes
+canonical conversation events consumed here.
+
 ## Core public APIs
 
 - `JidoConversation.ingest/2`
