@@ -4,9 +4,10 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 
 ## Current status
 
-- Phases 0-73 complete:
+- Event-runtime roadmap phases 0-9 complete:
   - architecture baseline through reliability hardening
   - replay-vs-live determinism parity hardening
+- LLM integration hardening plan phases 0-73 complete (see `docs/developer/llm_client_integration_plan.md`).
 - Post-phase hardening complete:
   - cross-namespace contract evolution test matrix for v1 compatibility
   - scheduler fairness/load burst test coverage
@@ -135,6 +136,7 @@ The hook runs:
 
 - Research: `notes/research/events_based_conversation.md`
 - Implementation plan: `notes/research/events_based_architecture_implementation_plan.md`
+- LLM integration plan: `docs/developer/llm_client_integration_plan.md`
 - Host integration patterns: `docs/host_integration_patterns.md`
 - Replay stress suites: `docs/replay_stress_suites.md`
 - User guides: `docs/user/README.md`
