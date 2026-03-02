@@ -81,11 +81,15 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 
 `jido_conversation` is an embeddable runtime library.
 
-Core public APIs focus on:
+Primary API surfaces:
 
-- event ingestion (`JidoConversation.ingest/2`)
-- conversation projections (`JidoConversation.timeline/2`, `JidoConversation.llm_context/2`)
-- runtime diagnostics (`JidoConversation.health/0`, `JidoConversation.telemetry_snapshot/0`)
+- `JidoConversation` for managed runtime operations:
+  - event ingestion (`JidoConversation.ingest/2`)
+  - projection queries (`JidoConversation.timeline/2`, `JidoConversation.llm_context/2`)
+  - runtime diagnostics (`JidoConversation.health/0`, `JidoConversation.telemetry_snapshot/0`)
+- `Jido.Conversation` for direct agent-first conversation objects and thread-derived state.
+
+See `docs/user/09_api_surfaces_and_selection.md` for selection guidance.
 
 ## Local setup
 

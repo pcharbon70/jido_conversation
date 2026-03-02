@@ -16,6 +16,8 @@ defmodule Jido.Conversation do
   alias Jido.Conversation.Reducer
   alias Jido.Thread
   alias Jido.Thread.Agent, as: ThreadAgent
+  alias JidoConversation.LLM.Error, as: LLMError
+  alias JidoConversation.LLM.Result, as: LLMResult
 
   @type t :: Agent.t()
 
@@ -95,7 +97,7 @@ defmodule Jido.Conversation do
   end
 
   @spec generate_assistant_reply(t(), keyword()) ::
-          {:ok, t(), JidoConversation.LLM.Result.t()} | {:error, JidoConversation.LLM.Error.t()}
+          {:ok, t(), LLMResult.t()} | {:error, LLMError.t()}
   def generate_assistant_reply(%Agent{} = conversation, opts \\ []) when is_list(opts) do
     LLMGeneration.generate(conversation, opts)
   end
