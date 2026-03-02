@@ -3,6 +3,9 @@
 `jido_conversation` is a runtime library. Operational policy is owned by the
 host application.
 
+`jido_conversation` does not implement conversation mode/strategy orchestration.
+That business logic belongs to host orchestration (for example, `jido_code_server`).
+
 ## Health
 
 Use `JidoConversation.health/0` in host health/readiness endpoints:
@@ -42,6 +45,7 @@ Host applications should own:
 - alerting/on-call escalation
 - incident runbooks and rollback decisions
 - environment-specific tuning of runtime knobs
+- conversation mode, strategy, and tool execution orchestration
 
 ## Runtime knobs to tune in host config
 
