@@ -1,7 +1,7 @@
-defmodule JidoConversation.LLM.ErrorTest do
+defmodule Jido.Conversation.LLM.ErrorTest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.LLM.Error
+  alias Jido.Conversation.LLM.Error
 
   test "new/1 applies category default retryability when omitted" do
     assert {:ok, error} = Error.new(%{category: :timeout, message: "timed out"})

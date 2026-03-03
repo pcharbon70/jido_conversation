@@ -1,24 +1,24 @@
-defmodule JidoConversation.Runtime.LLMReliabilityMatrixTest do
+defmodule Jido.Conversation.Runtime.LLMReliabilityMatrixTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Ingest
-  alias JidoConversation.LLM.Request
-  alias JidoConversation.Projections
-  alias JidoConversation.Projections.LlmContext
-  alias JidoConversation.Projections.Timeline
-  alias JidoConversation.Runtime.Coordinator
-  alias JidoConversation.Runtime.EffectManager
-  alias JidoConversation.Runtime.IngressSubscriber
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.LLM.Request
+  alias Jido.Conversation.Projections
+  alias Jido.Conversation.Projections.LlmContext
+  alias Jido.Conversation.Projections.Timeline
+  alias Jido.Conversation.Runtime.Coordinator
+  alias Jido.Conversation.Runtime.EffectManager
+  alias Jido.Conversation.Runtime.IngressSubscriber
 
   @app :jido_conversation
-  @key JidoConversation.EventSystem
+  @key Jido.Conversation.EventSystem
 
   defmodule JidoAIMatrixBackendStub do
-    @behaviour JidoConversation.LLM.Backend
+    @behaviour Jido.Conversation.LLM.Backend
 
-    alias JidoConversation.LLM.Event
-    alias JidoConversation.LLM.Request
-    alias JidoConversation.LLM.Result
+    alias Jido.Conversation.LLM.Event
+    alias Jido.Conversation.LLM.Request
+    alias Jido.Conversation.LLM.Result
 
     @impl true
     def capabilities do
@@ -115,11 +115,11 @@ defmodule JidoConversation.Runtime.LLMReliabilityMatrixTest do
   end
 
   defmodule HarnessMatrixBackendStub do
-    @behaviour JidoConversation.LLM.Backend
+    @behaviour Jido.Conversation.LLM.Backend
 
-    alias JidoConversation.LLM.Event
-    alias JidoConversation.LLM.Request
-    alias JidoConversation.LLM.Result
+    alias Jido.Conversation.LLM.Event
+    alias Jido.Conversation.LLM.Request
+    alias Jido.Conversation.LLM.Result
 
     @impl true
     def capabilities do
@@ -229,12 +229,12 @@ defmodule JidoConversation.Runtime.LLMReliabilityMatrixTest do
   end
 
   defmodule TimeoutCancelRaceBackendStub do
-    @behaviour JidoConversation.LLM.Backend
+    @behaviour Jido.Conversation.LLM.Backend
 
-    alias JidoConversation.LLM.Error
-    alias JidoConversation.LLM.Event
-    alias JidoConversation.LLM.Request
-    alias JidoConversation.LLM.Result
+    alias Jido.Conversation.LLM.Error
+    alias Jido.Conversation.LLM.Event
+    alias Jido.Conversation.LLM.Request
+    alias Jido.Conversation.LLM.Result
 
     @impl true
     def capabilities do

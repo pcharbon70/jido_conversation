@@ -2,13 +2,13 @@ defmodule Jido.Conversation.LLMGenerationTest do
   use ExUnit.Case, async: true
 
   alias Jido.Conversation
-  alias JidoConversation.LLM.Error, as: LLMError
-  alias JidoConversation.LLM.Event, as: LLMEvent
-  alias JidoConversation.LLM.Request, as: LLMRequest
-  alias JidoConversation.LLM.Result, as: LLMResult
+  alias Jido.Conversation.LLM.Error, as: LLMError
+  alias Jido.Conversation.LLM.Event, as: LLMEvent
+  alias Jido.Conversation.LLM.Request, as: LLMRequest
+  alias Jido.Conversation.LLM.Result, as: LLMResult
 
   defmodule StartBackendStub do
-    @behaviour JidoConversation.LLM.Backend
+    @behaviour Jido.Conversation.LLM.Backend
 
     @impl true
     def capabilities do
@@ -48,7 +48,7 @@ defmodule Jido.Conversation.LLMGenerationTest do
   end
 
   defmodule StreamBackendStub do
-    @behaviour JidoConversation.LLM.Backend
+    @behaviour Jido.Conversation.LLM.Backend
 
     @impl true
     def capabilities do
@@ -106,7 +106,7 @@ defmodule Jido.Conversation.LLMGenerationTest do
   end
 
   defmodule ErrorBackendStub do
-    @behaviour JidoConversation.LLM.Backend
+    @behaviour Jido.Conversation.LLM.Backend
 
     @impl true
     def capabilities do

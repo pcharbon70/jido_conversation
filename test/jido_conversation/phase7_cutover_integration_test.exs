@@ -1,13 +1,13 @@
-defmodule JidoConversation.Phase7CutoverIntegrationTest do
+defmodule Jido.Conversation.Phase7CutoverIntegrationTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Ingest
-  alias JidoConversation.Projections
-  alias JidoConversation.Projections.LlmContext
-  alias JidoConversation.Projections.Timeline
-  alias JidoConversation.Runtime.Coordinator
-  alias JidoConversation.Runtime.EffectManager
-  alias JidoConversation.Runtime.IngressSubscriber
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.Projections
+  alias Jido.Conversation.Projections.LlmContext
+  alias Jido.Conversation.Projections.Timeline
+  alias Jido.Conversation.Runtime.Coordinator
+  alias Jido.Conversation.Runtime.EffectManager
+  alias Jido.Conversation.Runtime.IngressSubscriber
 
   setup do
     wait_for_ingress_subscriber!()
@@ -16,12 +16,12 @@ defmodule JidoConversation.Phase7CutoverIntegrationTest do
   end
 
   test "legacy mode runtime surface is removed from jido_conversation" do
-    refute function_exported?(JidoConversation, :mode, 1)
-    refute function_exported?(JidoConversation, :supported_modes, 0)
-    refute function_exported?(JidoConversation, :supported_mode_metadata, 0)
-    refute function_exported?(JidoConversation, :supported_mode_metadata, 1)
-    refute function_exported?(JidoConversation, :configure_mode, 2)
-    refute function_exported?(JidoConversation, :configure_mode, 3)
+    refute function_exported?(Jido.Conversation, :mode, 1)
+    refute function_exported?(Jido.Conversation, :supported_modes, 0)
+    refute function_exported?(Jido.Conversation, :supported_mode_metadata, 0)
+    refute function_exported?(Jido.Conversation, :supported_mode_metadata, 1)
+    refute function_exported?(Jido.Conversation, :configure_mode, 2)
+    refute function_exported?(Jido.Conversation, :configure_mode, 3)
 
     mode_files =
       Path.wildcard(Path.join([File.cwd!(), "lib/jido/conversation/mode*.ex"])) ++
@@ -114,6 +114,7 @@ defmodule JidoConversation.Phase7CutoverIntegrationTest do
         loaded = Ingest.conversation_events(conversation_id)
 
         loaded_types = MapSet.new(Enum.map(loaded, & &1.type))
+
         required_types =
           MapSet.new([
             "conv.in.message.received",

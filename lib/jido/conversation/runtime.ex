@@ -5,7 +5,8 @@ defmodule Jido.Conversation.Runtime do
 
   alias Jido.Conversation
   alias Jido.Conversation.Server
-  alias JidoConversation.ConversationRef
+  alias Jido.Conversation.ConversationRef
+  alias Jido.Conversation.LLM.Result, as: LLMResult
 
   @registry_name Jido.Conversation.Registry
   @server_supervisor_name Jido.Conversation.ServerSupervisor
@@ -127,6 +128,46 @@ defmodule Jido.Conversation.Runtime do
   def cancel_generation(locator, reason \\ "cancel_requested") when is_binary(reason) do
     with {:ok, pid} <- fetch_server(locator) do
       Server.cancel_generation(pid, reason)
+    end
+  end
+
+  @spec await_generation(locator(), reference(), keyword()) ::
+          {:ok, LLMResult.t()} | {:error, :timeout | {:canceled, String.t()} | term()}
+  def await_generation(locator, generation_ref, opts \\ [])
+      when is_reference(generation_ref) and is_list(opts) do
+    timeout_ms = Keyword.get(opts, :timeout_ms, 30_000)
+    cancel_on_timeout? = Keyword.get(opts, :cancel_on_timeout?, true)
+    cancel_reason = Keyword.get(opts, :cancel_reason, "await_timeout")
+
+    receive do
+      {:jido_conversation, {:generation_result, ^generation_ref, {:ok, %LLMResult{} = result}}} ->
+        {:ok, result}
+
+      {:jido_conversation, {:generation_result, ^generation_ref, {:error, reason}}} ->
+        {:error, reason}
+
+      {:jido_conversation, {:generation_canceled, ^generation_ref, reason}}
+      when is_binary(reason) ->
+        {:error, {:canceled, reason}}
+    after
+      timeout_ms ->
+        maybe_cancel_on_timeout(locator, cancel_on_timeout?, cancel_reason)
+        {:error, :timeout}
+    end
+  end
+
+  @spec send_and_generate(locator(), String.t(), keyword()) ::
+          {:ok, Conversation.t(), LLMResult.t()} | {:error, term()}
+  def send_and_generate(locator, content, opts \\ []) when is_binary(content) and is_list(opts) do
+    message_opts = Keyword.get(opts, :message_opts, [])
+    generation_opts = Keyword.get(opts, :generation_opts, [])
+    await_opts = Keyword.get(opts, :await_opts, [])
+
+    with {:ok, _conversation, _directives} <- send_user_message(locator, content, message_opts),
+         {:ok, generation_ref} <- generate_assistant_reply(locator, generation_opts),
+         {:ok, result} <- await_generation(locator, generation_ref, await_opts),
+         {:ok, conversation} <- conversation(locator) do
+      {:ok, conversation, result}
     end
   end
 
@@ -339,4 +380,11 @@ defmodule Jido.Conversation.Runtime do
 
   defp maybe_put_keyword(keyword, _key, nil), do: keyword
   defp maybe_put_keyword(keyword, key, value), do: Keyword.put(keyword, key, value)
+
+  defp maybe_cancel_on_timeout(locator, true, reason) when is_binary(reason) do
+    _ = cancel_generation(locator, reason)
+    :ok
+  end
+
+  defp maybe_cancel_on_timeout(_locator, _cancel_on_timeout?, _reason), do: :ok
 end

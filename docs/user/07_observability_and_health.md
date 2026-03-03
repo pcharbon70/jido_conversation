@@ -6,7 +6,7 @@ snapshot for runtime diagnostics.
 ## Health snapshot
 
 ```elixir
-health = JidoConversation.health()
+health = Jido.Conversation.Health.status()
 ```
 
 Returned fields:
@@ -22,7 +22,7 @@ Use this for readiness/liveness checks in the host application.
 ## Telemetry snapshot
 
 ```elixir
-snapshot = JidoConversation.telemetry_snapshot()
+snapshot = Jido.Conversation.Telemetry.snapshot()
 ```
 
 Top-level sections include:

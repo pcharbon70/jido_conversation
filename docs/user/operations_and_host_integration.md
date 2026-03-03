@@ -8,7 +8,7 @@ That business logic belongs to host orchestration (for example, `jido_code_serve
 
 ## Health
 
-Use `JidoConversation.health/0` in host health/readiness endpoints:
+Use `Jido.Conversation.Health.status/0` in host health/readiness endpoints:
 
 ```elixir
 %{
@@ -17,12 +17,12 @@ Use `JidoConversation.health/0` in host health/readiness endpoints:
   bus_alive?: _,
   runtime_supervisor_alive?: _,
   runtime_coordinator_alive?: _
-} = JidoConversation.health()
+} = Jido.Conversation.Health.status()
 ```
 
 ## Telemetry snapshot
 
-Use `JidoConversation.telemetry_snapshot/0` for metrics polling and dashboards.
+Use `Jido.Conversation.Telemetry.snapshot/0` for metrics polling and dashboards.
 
 It includes:
 

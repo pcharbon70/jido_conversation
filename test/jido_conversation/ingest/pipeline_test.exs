@@ -1,8 +1,8 @@
-defmodule JidoConversation.Ingest.PipelineTest do
+defmodule Jido.Conversation.Ingest.PipelineTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.ConversationRef
-  alias JidoConversation.Ingest.Pipeline
+  alias Jido.Conversation.ConversationRef
+  alias Jido.Conversation.Ingest.Pipeline
 
   test "ingest persists to journal and publishes to bus" do
     conversation_id = unique_id("conversation")

@@ -1,7 +1,7 @@
-defmodule JidoConversation.LLM.RequestTest do
+defmodule Jido.Conversation.LLM.RequestTest do
   use ExUnit.Case, async: true
 
-  alias JidoConversation.LLM.Request
+  alias Jido.Conversation.LLM.Request
 
   test "new/1 validates required fields and message shape" do
     assert {:error, {:field, :request_id, :missing}} =

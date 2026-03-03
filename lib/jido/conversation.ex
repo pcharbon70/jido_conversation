@@ -11,8 +11,8 @@ defmodule Jido.Conversation do
   alias Jido.Conversation.Actions.RequestCancel
   alias Jido.Conversation.Agent, as: ConversationAgent
   alias Jido.Conversation.LLMGeneration
-  alias Jido.Conversation.Projections.LlmContext
-  alias Jido.Conversation.Projections.Timeline
+  alias Jido.Conversation.ThreadProjections.LlmContext
+  alias Jido.Conversation.ThreadProjections.Timeline
   alias Jido.Conversation.Reducer
   alias Jido.Thread
   alias Jido.Thread.Agent, as: ThreadAgent
@@ -95,7 +95,7 @@ defmodule Jido.Conversation do
   end
 
   @spec generate_assistant_reply(t(), keyword()) ::
-          {:ok, t(), JidoConversation.LLM.Result.t()} | {:error, JidoConversation.LLM.Error.t()}
+          {:ok, t(), Jido.Conversation.LLM.Result.t()} | {:error, Jido.Conversation.LLM.Error.t()}
   def generate_assistant_reply(%Agent{} = conversation, opts \\ []) when is_list(opts) do
     LLMGeneration.generate(conversation, opts)
   end

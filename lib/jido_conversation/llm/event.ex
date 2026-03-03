@@ -1,9 +1,9 @@
-defmodule JidoConversation.LLM.Event do
+defmodule Jido.Conversation.LLM.Event do
   @moduledoc """
   Normalized LLM lifecycle event emitted by backend adapters.
   """
 
-  alias JidoConversation.LLM.Error
+  alias Jido.Conversation.LLM.Error
 
   @lifecycles [:started, :delta, :thinking, :completed, :failed, :canceled]
 

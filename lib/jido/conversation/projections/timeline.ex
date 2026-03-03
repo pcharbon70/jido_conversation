@@ -1,4 +1,4 @@
-defmodule Jido.Conversation.Projections.Timeline do
+defmodule Jido.Conversation.ThreadProjections.Timeline do
   @moduledoc """
   Builds a human-readable timeline from thread entries.
   """

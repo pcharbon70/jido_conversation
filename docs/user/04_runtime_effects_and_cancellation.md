@@ -38,7 +38,7 @@ You can send effect runtime hints in inbound data:
 Use the control adapter to request conversation cancellation:
 
 ```elixir
-alias JidoConversation.Ingest.Adapters.Control
+alias Jido.Conversation.Ingest.Adapters.Control
 
 :ok =
   Control.ingest_abort(
@@ -71,39 +71,39 @@ through managed runtime processes:
 
 ```elixir
 {:ok, _pid, _status} =
-  JidoConversation.ensure_conversation(conversation_id: "conv-123")
+  Jido.Conversation.Runtime.ensure_conversation(conversation_id: "conv-123")
 
 {:ok, _conversation, _directives} =
-  JidoConversation.configure_llm("conv-123", :jido_ai,
+  Jido.Conversation.Runtime.configure_llm("conv-123", :jido_ai,
     provider: "anthropic",
     model: "claude-test",
     options: %{temperature: 0.2}
   )
 
 {:ok, _conversation, _directives} =
-  JidoConversation.configure_skills("conv-123", ["web_search", "code_exec"])
+  Jido.Conversation.Runtime.configure_skills("conv-123", ["web_search", "code_exec"])
 
 {:ok, _conversation, _directives} =
-  JidoConversation.send_user_message("conv-123", "Hello")
+  Jido.Conversation.Runtime.send_user_message("conv-123", "Hello")
 
 # Optional: append assistant output produced by your host integration
 {:ok, _conversation, _directives} =
-  JidoConversation.record_assistant_message("conv-123", "Hello from external runtime")
+  Jido.Conversation.Runtime.record_assistant_message("conv-123", "Hello from external runtime")
 
 {:ok, thread} =
-  JidoConversation.conversation_thread("conv-123")
+  Jido.Conversation.Runtime.thread("conv-123")
 
 {:ok, entries} =
-  JidoConversation.conversation_thread_entries("conv-123")
+  Jido.Conversation.Runtime.thread_entries("conv-123")
 
 {:ok, messages} =
-  JidoConversation.conversation_messages("conv-123", roles: [:user, :assistant], max_messages: 10)
+  Jido.Conversation.Runtime.messages("conv-123", roles: [:user, :assistant], max_messages: 10)
 
 {:ok, context} =
-  JidoConversation.conversation_llm_context("conv-123", max_messages: 10)
+  Jido.Conversation.Runtime.llm_context("conv-123", max_messages: 10)
 
 {:ok, generation_ref} =
-  JidoConversation.generate_assistant_reply("conv-123")
+  Jido.Conversation.Runtime.generate_assistant_reply("conv-123")
 
 receive do
   {:jido_conversation, {:generation_result, ^generation_ref, {:ok, result}}} ->
@@ -111,7 +111,7 @@ receive do
 end
 
 # Cancel when needed
-:ok = JidoConversation.cancel_generation("conv-123", "user_cancel")
+:ok = Jido.Conversation.Runtime.cancel_generation("conv-123", "user_cancel")
 ```
 
 Use this API when you want managed per-conversation processes and direct async
@@ -124,7 +124,7 @@ For simple request/response flows, use `send_and_generate/3`:
 
 ```elixir
 {:ok, conversation, result} =
-  JidoConversation.send_and_generate("conv-123", "Hello", 
+  Jido.Conversation.Runtime.send_and_generate("conv-123", "Hello", 
     generation_opts: [llm: %{backend: :jido_ai}],
     await_opts: [timeout_ms: 30_000]
   )

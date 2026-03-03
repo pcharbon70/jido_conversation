@@ -1,4 +1,4 @@
-defmodule JidoConversation.ConversationRef do
+defmodule Jido.Conversation.ConversationRef do
   @moduledoc """
   Canonical project-scoped conversation identity helpers.
 

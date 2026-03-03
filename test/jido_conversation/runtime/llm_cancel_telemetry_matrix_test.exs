@@ -1,23 +1,23 @@
-defmodule JidoConversation.Runtime.LLMCancelTelemetryMatrixTest do
+defmodule Jido.Conversation.Runtime.LLMCancelTelemetryMatrixTest do
   use ExUnit.Case, async: false
 
-  alias JidoConversation.Ingest
-  alias JidoConversation.Runtime.Coordinator
-  alias JidoConversation.Runtime.EffectManager
-  alias JidoConversation.Runtime.IngressSubscriber
-  alias JidoConversation.Telemetry
+  alias Jido.Conversation.Ingest
+  alias Jido.Conversation.Runtime.Coordinator
+  alias Jido.Conversation.Runtime.EffectManager
+  alias Jido.Conversation.Runtime.IngressSubscriber
+  alias Jido.Conversation.Telemetry
 
   @app :jido_conversation
-  @key JidoConversation.EventSystem
+  @key Jido.Conversation.EventSystem
   @assert_timeout 1_000
 
   defmodule CancelTelemetryBackendStub do
-    @behaviour JidoConversation.LLM.Backend
+    @behaviour Jido.Conversation.LLM.Backend
 
-    alias JidoConversation.LLM.Error
-    alias JidoConversation.LLM.Event
-    alias JidoConversation.LLM.Request
-    alias JidoConversation.LLM.Result
+    alias Jido.Conversation.LLM.Error
+    alias Jido.Conversation.LLM.Event
+    alias Jido.Conversation.LLM.Request
+    alias Jido.Conversation.LLM.Result
 
     @impl true
     def capabilities do

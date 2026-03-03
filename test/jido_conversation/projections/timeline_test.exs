@@ -1,8 +1,8 @@
-defmodule JidoConversation.Projections.TimelineTest do
+defmodule Jido.Conversation.Projections.TimelineTest do
   use ExUnit.Case, async: true
 
   alias Jido.Signal
-  alias JidoConversation.Projections.Timeline
+  alias Jido.Conversation.Projections.Timeline
 
   test "builds timeline entries and coalesces adjacent assistant deltas" do
     events = [

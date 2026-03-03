@@ -3,10 +3,10 @@ defmodule Jido.Conversation.ServerTest do
 
   alias Jido.Conversation
   alias Jido.Conversation.Server
-  alias JidoConversation.LLM.Backend
-  alias JidoConversation.LLM.Error, as: LLMError
-  alias JidoConversation.LLM.Request, as: LLMRequest
-  alias JidoConversation.LLM.Result, as: LLMResult
+  alias Jido.Conversation.LLM.Backend
+  alias Jido.Conversation.LLM.Error, as: LLMError
+  alias Jido.Conversation.LLM.Request, as: LLMRequest
+  alias Jido.Conversation.LLM.Result, as: LLMResult
 
   defmodule FastBackendStub do
     @behaviour Backend

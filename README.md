@@ -83,9 +83,9 @@ Event-based conversation runtime prototype for an Elixir LLM coding assistant.
 
 Core public APIs focus on:
 
-- event ingestion (`JidoConversation.ingest/2`)
-- conversation projections (`JidoConversation.timeline/2`, `JidoConversation.llm_context/2`)
-- runtime diagnostics (`JidoConversation.health/0`, `JidoConversation.telemetry_snapshot/0`)
+- event ingestion (`Jido.Conversation.Ingest.ingest/2`)
+- conversation projections (`Jido.Conversation.Projections.timeline/2`, `Jido.Conversation.Projections.llm_context/2`)
+- runtime diagnostics (`Jido.Conversation.Health.status/0`, `Jido.Conversation.Telemetry.snapshot/0`)
 
 ## Local setup
 

@@ -1,11 +1,11 @@
-defmodule JidoConversation.Signal.Supervisor do
+defmodule Jido.Conversation.Signal.Supervisor do
   @moduledoc """
   Supervises signal infrastructure required by the conversation runtime.
   """
 
   use Supervisor
 
-  alias JidoConversation.Config
+  alias Jido.Conversation.Config
 
   @spec start_link(keyword()) :: Supervisor.on_start()
   def start_link(opts \\ []) do

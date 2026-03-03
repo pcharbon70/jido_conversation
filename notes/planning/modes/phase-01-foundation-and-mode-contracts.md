@@ -7,8 +7,8 @@ Back to index: [README](./README.md)
 - `Jido.Code.Server.Conversation.Actions.Support`
 - `Jido.Code.Server.Conversation.JournalBridge`
 - `Jido.Code.Server.Project.ExecutionRunner`
-- `JidoConversation.Signal.Contract`
-- `JidoConversation.Ingest.Pipeline`
+- `Jido.Conversation.Signal.Contract`
+- `Jido.Conversation.Ingest.Pipeline`
 
 ## Relevant Assumptions / Defaults
 - Orchestration responsibility moves to `jido_code_server`.

@@ -3,11 +3,11 @@
 Back to index: [README](./README.md)
 
 ## Relevant Shared APIs / Interfaces
-- `JidoConversation.Signal.Contract`
-- `JidoConversation.Ingest.Pipeline`
-- `JidoConversation.Ingest.Adapters.*`
-- `JidoConversation.Projections.Timeline`
-- `JidoConversation.Projections.LlmContext`
+- `Jido.Conversation.Signal.Contract`
+- `Jido.Conversation.Ingest.Pipeline`
+- `Jido.Conversation.Ingest.Adapters.*`
+- `Jido.Conversation.Projections.Timeline`
+- `Jido.Conversation.Projections.LlmContext`
 
 ## Relevant Assumptions / Defaults
 - `jido_conversation` should not own mode/business policy execution.

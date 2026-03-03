@@ -1,4 +1,4 @@
-defmodule JidoConversation.LLM.Resolver do
+defmodule Jido.Conversation.LLM.Resolver do
   @moduledoc """
   Resolves LLM backend execution settings from layered defaults.
 
@@ -6,11 +6,11 @@ defmodule JidoConversation.LLM.Resolver do
 
   1. effect overrides
   2. conversation defaults
-  3. application config (`JidoConversation.Config.llm/0`)
+  3. application config (`Jido.Conversation.Config.llm/0`)
   """
 
-  alias JidoConversation.Config
-  alias JidoConversation.LLM.Error
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.LLM.Error
 
   @override_fields [:backend, :module, :provider, :model, :stream?, :timeout_ms, :options]
 

@@ -6,7 +6,7 @@ defmodule Jido.Conversation.Server do
   use GenServer
 
   alias Jido.Conversation
-  alias JidoConversation.LLM.Error, as: LLMError
+  alias Jido.Conversation.LLM.Error, as: LLMError
 
   @type active_generation :: %{
           task: Task.t(),
