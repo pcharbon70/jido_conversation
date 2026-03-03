@@ -1,8 +1,10 @@
 defmodule Jido.Conversation.SmokeTest do
   use ExUnit.Case, async: true
 
+  alias Jido.Conversation.Health
+
   test "health reports core supervisors as alive" do
-    health = Jido.Conversation.Health.status()
+    health = Health.status()
 
     assert health.status in [:ok, :degraded]
     assert is_boolean(health.bus_alive?)

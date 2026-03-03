@@ -7,11 +7,11 @@ defmodule Jido.Conversation.Runtime.IngressSubscriber do
 
   require Logger
 
-  alias Jido.Signal
-  alias Jido.Signal.Bus
   alias Jido.Conversation.Config
   alias Jido.Conversation.Runtime.Coordinator
   alias Jido.Conversation.Signal.Contract
+  alias Jido.Signal
+  alias Jido.Signal.Bus
 
   @retry_ms 1_000
 

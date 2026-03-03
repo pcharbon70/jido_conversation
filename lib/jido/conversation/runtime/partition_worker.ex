@@ -10,12 +10,12 @@ defmodule Jido.Conversation.Runtime.PartitionWorker do
 
   require Logger
 
-  alias Jido.Signal
   alias Jido.Conversation.Ingest
   alias Jido.Conversation.Ingest.Adapters.Outbound
   alias Jido.Conversation.Runtime.EffectManager
   alias Jido.Conversation.Runtime.Reducer
   alias Jido.Conversation.Runtime.Scheduler
+  alias Jido.Signal
 
   @max_steps_per_drain 200
   @control_latency_types [

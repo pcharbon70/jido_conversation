@@ -11,9 +11,9 @@ defmodule Jido.Conversation do
   alias Jido.Conversation.Actions.RequestCancel
   alias Jido.Conversation.Agent, as: ConversationAgent
   alias Jido.Conversation.LLMGeneration
+  alias Jido.Conversation.Reducer
   alias Jido.Conversation.ThreadProjections.LlmContext
   alias Jido.Conversation.ThreadProjections.Timeline
-  alias Jido.Conversation.Reducer
   alias Jido.Thread
   alias Jido.Thread.Agent, as: ThreadAgent
 

@@ -3,8 +3,8 @@ defmodule Jido.Conversation.Projections.Timeline do
   Builds a user-facing timeline projection from conversation events.
   """
 
-  alias Jido.Signal
   alias Jido.Conversation.Projections.TokenCoalescer
+  alias Jido.Signal
 
   @type timeline_entry :: %{
           event_id: String.t(),

@@ -3,8 +3,8 @@ defmodule Jido.Conversation.Health do
   Lightweight health snapshot for runtime boot validation and diagnostics.
   """
 
-  alias Jido.Signal.Bus
   alias Jido.Conversation.Config
+  alias Jido.Signal.Bus
 
   @type status_map :: %{
           status: :ok | :degraded,

@@ -2,10 +2,10 @@ defmodule Jido.Conversation.RuntimeTest do
   use ExUnit.Case, async: false
 
   alias Jido.Conversation
-  alias Jido.Conversation.Runtime
   alias Jido.Conversation.LLM.Backend
   alias Jido.Conversation.LLM.Request, as: LLMRequest
   alias Jido.Conversation.LLM.Result, as: LLMResult
+  alias Jido.Conversation.Runtime
 
   defmodule FastRuntimeBackendStub do
     @behaviour Backend

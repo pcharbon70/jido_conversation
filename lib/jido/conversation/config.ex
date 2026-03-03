@@ -3,8 +3,8 @@ defmodule Jido.Conversation.Config do
   Accessors and validation for event-system runtime configuration.
   """
 
-  alias Jido.Signal.Journal.Adapters.ETS
   alias Jido.Conversation.Signal.Router
+  alias Jido.Signal.Journal.Adapters.ETS
 
   @app :jido_conversation
   @key Jido.Conversation.EventSystem
