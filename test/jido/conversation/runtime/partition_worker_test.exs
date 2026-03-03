@@ -1,6 +1,7 @@
 defmodule Jido.Conversation.Runtime.PartitionWorkerTest do
   use ExUnit.Case, async: false
 
+  alias Jido.Conversation.Config
   alias Jido.Conversation.Ingest
   alias Jido.Conversation.Runtime.Coordinator
   alias Jido.Conversation.Runtime.EffectManager
@@ -42,7 +43,7 @@ defmodule Jido.Conversation.Runtime.PartitionWorkerTest do
     partition_id =
       Coordinator.partition_for_subject(
         conversation_id,
-        Jido.Conversation.Config.runtime_partitions()
+        Config.runtime_partitions()
       )
 
     snapshot =

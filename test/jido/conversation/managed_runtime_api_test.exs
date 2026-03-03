@@ -6,6 +6,7 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
   alias Jido.Conversation.LLM.Error, as: LLMError
   alias Jido.Conversation.LLM.Request, as: LLMRequest
   alias Jido.Conversation.LLM.Result, as: LLMResult
+  alias Jido.Conversation.Runtime
 
   defmodule FacadeFastBackendStub do
     @behaviour Backend
@@ -120,53 +121,53 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
 
   test "managed facade supports start, read, and stop" do
     assert {:ok, pid, :started} =
-             Jido.Conversation.Runtime.ensure_conversation(conversation_id: "facade-conv-1")
+             Runtime.ensure_conversation(conversation_id: "facade-conv-1")
 
-    assert pid == Jido.Conversation.Runtime.whereis("facade-conv-1")
+    assert pid == Runtime.whereis("facade-conv-1")
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message("facade-conv-1", "hello facade")
+             Runtime.send_user_message("facade-conv-1", "hello facade")
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state("facade-conv-1")
+    assert {:ok, derived} = Runtime.derived_state("facade-conv-1")
     assert derived.last_user_message == "hello facade"
 
-    assert {:ok, timeline} = Jido.Conversation.Runtime.timeline("facade-conv-1")
+    assert {:ok, timeline} = Runtime.timeline("facade-conv-1")
 
     assert Enum.any?(
              timeline,
              &(&1.kind == :message and &1.role == :user and &1.content == "hello facade")
            )
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation("facade-conv-1")
-    assert Jido.Conversation.Runtime.whereis("facade-conv-1") == nil
+    assert :ok = Runtime.stop_conversation("facade-conv-1")
+    assert Runtime.whereis("facade-conv-1") == nil
   end
 
   test "managed facade supports project-scoped locators" do
     locator = {"facade-project", "shared-conv"}
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(locator, "from project scope")
+             Runtime.send_user_message(locator, "from project scope")
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(locator)
+    assert {:ok, derived} = Runtime.derived_state(locator)
     assert derived.last_user_message == "from project scope"
 
-    assert {:ok, conversation} = Jido.Conversation.Runtime.conversation(locator)
+    assert {:ok, conversation} = Runtime.conversation(locator)
     assert conversation.state.metadata.project_id == "facade-project"
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(locator)
+    assert :ok = Runtime.stop_conversation(locator)
   end
 
   test "managed facade configures llm" do
     conversation_id = "facade-conv-llm"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.configure_llm(conversation_id, :jido_ai,
+             Runtime.configure_llm(conversation_id, :jido_ai,
                provider: "anthropic",
                model: "claude-test",
                options: %{temperature: 0.2}
              )
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
 
     assert derived.llm == %{
              backend: :jido_ai,
@@ -175,60 +176,60 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
              options: %{temperature: 0.2}
            }
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "managed facade configures skills" do
     conversation_id = "facade-conv-skills"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.configure_skills(conversation_id, [
+             Runtime.configure_skills(conversation_id, [
                "web_search",
                :code_exec,
                "web_search"
              ])
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert derived.skills.enabled == ["web_search", "code_exec"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "managed facade records assistant messages" do
     conversation_id = "facade-conv-assistant"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "hello from facade")
+             Runtime.send_user_message(conversation_id, "hello from facade")
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.record_assistant_message(
+             Runtime.record_assistant_message(
                conversation_id,
                "facade assistant reply"
              )
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
 
     assert Enum.map(derived.messages, & &1.content) == [
              "hello from facade",
              "facade assistant reply"
            ]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "managed facade exposes in-memory conversation llm context" do
     conversation_id = "facade-conv-context"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "facade context hello")
+             Runtime.send_user_message(conversation_id, "facade context hello")
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.record_assistant_message(
+             Runtime.record_assistant_message(
                conversation_id,
                "facade context reply"
              )
 
-    assert {:ok, context} = Jido.Conversation.Runtime.llm_context(conversation_id)
+    assert {:ok, context} = Runtime.llm_context(conversation_id)
 
     assert Enum.map(context, &{&1.role, &1.content}) == [
              {:user, "facade context hello"},
@@ -236,26 +237,26 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
            ]
 
     assert {:ok, limited} =
-             Jido.Conversation.Runtime.llm_context(conversation_id, max_messages: 1)
+             Runtime.llm_context(conversation_id, max_messages: 1)
 
     assert Enum.map(limited, &{&1.role, &1.content}) == [{:assistant, "facade context reply"}]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "managed facade exposes in-memory conversation messages" do
     conversation_id = "facade-conv-messages"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "facade messages hello")
+             Runtime.send_user_message(conversation_id, "facade messages hello")
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.record_assistant_message(
+             Runtime.record_assistant_message(
                conversation_id,
                "facade messages reply"
              )
 
-    assert {:ok, messages} = Jido.Conversation.Runtime.messages(conversation_id)
+    assert {:ok, messages} = Runtime.messages(conversation_id)
 
     assert Enum.map(messages, &{&1.role, &1.content}) == [
              {:user, "facade messages hello"},
@@ -263,42 +264,42 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
            ]
 
     assert {:ok, limited} =
-             Jido.Conversation.Runtime.messages(conversation_id, max_messages: 1)
+             Runtime.messages(conversation_id, max_messages: 1)
 
     assert Enum.map(limited, &{&1.role, &1.content}) == [{:assistant, "facade messages reply"}]
 
     assert {:ok, user_only} =
-             Jido.Conversation.Runtime.messages(conversation_id, roles: [:user])
+             Runtime.messages(conversation_id, roles: [:user])
 
     assert Enum.map(user_only, &{&1.role, &1.content}) == [{:user, "facade messages hello"}]
 
     assert {:ok, assistant_only} =
-             Jido.Conversation.Runtime.messages(conversation_id, roles: ["assistant"])
+             Runtime.messages(conversation_id, roles: ["assistant"])
 
     assert Enum.map(assistant_only, &{&1.role, &1.content}) == [
              {:assistant, "facade messages reply"}
            ]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "managed facade exposes in-memory conversation thread struct" do
     conversation_id = "facade-conv-thread-struct"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(
+             Runtime.send_user_message(
                conversation_id,
                "facade thread struct hello"
              )
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.record_assistant_message(
+             Runtime.record_assistant_message(
                conversation_id,
                "facade thread struct reply"
              )
 
     assert {:ok, %Jido.Thread{id: "conv_thread_facade-conv-thread-struct"} = thread} =
-             Jido.Conversation.Runtime.thread(conversation_id)
+             Runtime.thread(conversation_id)
 
     message_payloads =
       thread
@@ -311,22 +312,22 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
              %{content: "facade thread struct reply", metadata: %{}, role: "assistant"}
            ]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "managed facade exposes in-memory conversation thread entries" do
     conversation_id = "facade-conv-thread"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "facade thread hello")
+             Runtime.send_user_message(conversation_id, "facade thread hello")
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.record_assistant_message(
+             Runtime.record_assistant_message(
                conversation_id,
                "facade thread reply"
              )
 
-    assert {:ok, entries} = Jido.Conversation.Runtime.thread_entries(conversation_id)
+    assert {:ok, entries} = Runtime.thread_entries(conversation_id)
 
     message_payloads =
       entries
@@ -338,17 +339,17 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
              %{content: "facade thread reply", metadata: %{}, role: "assistant"}
            ]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "managed facade supports generation and cancellation" do
     conversation_id = "facade-conv-generate"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "hello model")
+             Runtime.send_user_message(conversation_id, "hello model")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_fast_stub},
                llm_config: llm_config(:facade_fast_stub, FacadeFastBackendStub),
                backend_opts: [test_pid: self()]
@@ -361,20 +362,20 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
 
     assert result.text == "facade fast reply"
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert Enum.map(derived.messages, & &1.content) == ["hello model", "facade fast reply"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "managed facade supports cancel API" do
     conversation_id = "facade-conv-cancel"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "please wait")
+             Runtime.send_user_message(conversation_id, "please wait")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 2_000]
@@ -382,26 +383,26 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
 
     assert_receive {:facade_slow_backend_started, _request_id}
 
-    assert :ok = Jido.Conversation.Runtime.cancel_generation(conversation_id, "facade_cancel")
+    assert :ok = Runtime.cancel_generation(conversation_id, "facade_cancel")
     assert_receive {:jido_conversation, {:generation_canceled, ^generation_ref, "facade_cancel"}}
 
     refute_receive {:jido_conversation, {:generation_result, ^generation_ref, _}}, 150
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert derived.status == :canceled
     assert derived.cancel_reason == "facade_cancel"
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "managed facade enforces generation_in_progress for concurrent mutating commands" do
     conversation_id = "facade-conv-concurrency-guards"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "please wait")
+             Runtime.send_user_message(conversation_id, "please wait")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 2_000]
@@ -410,29 +411,29 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
 
     assert {:error, :generation_in_progress} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "blocked")
+             Runtime.send_user_message(conversation_id, "blocked")
 
     assert {:error, :generation_in_progress} =
-             Jido.Conversation.Runtime.record_assistant_message(conversation_id, "blocked")
+             Runtime.record_assistant_message(conversation_id, "blocked")
 
     assert {:error, :generation_in_progress} =
-             Jido.Conversation.Runtime.configure_llm(conversation_id, :jido_ai,
+             Runtime.configure_llm(conversation_id, :jido_ai,
                provider: "anthropic",
                model: "claude-test"
              )
 
     assert {:error, :generation_in_progress} =
-             Jido.Conversation.Runtime.configure_skills(conversation_id, ["web_search"])
+             Runtime.configure_skills(conversation_id, ["web_search"])
 
     assert {:error, :generation_in_progress} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 2_000]
              )
 
     assert :ok =
-             Jido.Conversation.Runtime.cancel_generation(
+             Runtime.cancel_generation(
                conversation_id,
                "concurrency_guard_cancel"
              )
@@ -440,17 +441,17 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:jido_conversation,
                     {:generation_canceled, ^generation_ref, "concurrency_guard_cancel"}}
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "send_and_generate/3 returns generation_in_progress while another generation is active" do
     conversation_id = "facade-conv-turn-concurrency-guard"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "please wait")
+             Runtime.send_user_message(conversation_id, "please wait")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 2_000]
@@ -459,7 +460,7 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
 
     assert {:error, :generation_in_progress} =
-             Jido.Conversation.Runtime.send_and_generate(conversation_id, "blocked turn",
+             Runtime.send_and_generate(conversation_id, "blocked turn",
                generation_opts: [
                  llm: %{backend: :facade_slow_stub},
                  llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
@@ -471,7 +472,7 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     refute_receive {:facade_slow_backend_started, _request_id}, 100
 
     assert :ok =
-             Jido.Conversation.Runtime.cancel_generation(
+             Runtime.cancel_generation(
                conversation_id,
                "concurrency_guard_cancel"
              )
@@ -479,17 +480,17 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:jido_conversation,
                     {:generation_canceled, ^generation_ref, "concurrency_guard_cancel"}}
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert Enum.map(derived.messages, & &1.content) == ["please wait"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "send_and_generate/3 runs a full managed turn" do
     conversation_id = "facade-conv-turn"
 
     assert {:ok, conversation, %LLMResult{} = result} =
-             Jido.Conversation.Runtime.send_and_generate(conversation_id, "hello turn",
+             Runtime.send_and_generate(conversation_id, "hello turn",
                generation_opts: [
                  llm: %{backend: :facade_fast_stub},
                  llm_config: llm_config(:facade_fast_stub, FacadeFastBackendStub),
@@ -506,14 +507,14 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
              "facade fast reply"
            ]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "send_and_generate/3 timeout cancels by default" do
     conversation_id = "facade-conv-turn-timeout-cancel"
 
     assert {:error, :timeout} =
-             Jido.Conversation.Runtime.send_and_generate(conversation_id, "please wait",
+             Runtime.send_and_generate(conversation_id, "please wait",
                generation_opts: [
                  llm: %{backend: :facade_slow_stub},
                  llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
@@ -525,12 +526,12 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
     assert_receive {:jido_conversation, {:generation_canceled, _generation_ref, "await_timeout"}}
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert derived.status == :canceled
     assert derived.cancel_reason == "await_timeout"
     assert Enum.map(derived.messages, & &1.content) == ["please wait"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "send_and_generate/3 timeout honors custom cancel reason" do
@@ -538,7 +539,7 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     cancel_reason = "turn_timeout"
 
     assert {:error, :timeout} =
-             Jido.Conversation.Runtime.send_and_generate(conversation_id, "please wait",
+             Runtime.send_and_generate(conversation_id, "please wait",
                generation_opts: [
                  llm: %{backend: :facade_slow_stub},
                  llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
@@ -550,19 +551,19 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
     assert_receive {:jido_conversation, {:generation_canceled, _generation_ref, ^cancel_reason}}
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert derived.status == :canceled
     assert derived.cancel_reason == cancel_reason
     assert Enum.map(derived.messages, & &1.content) == ["please wait"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "send_and_generate/3 timeout can leave generation running when configured" do
     conversation_id = "facade-conv-turn-timeout-no-cancel"
 
     assert {:error, :timeout} =
-             Jido.Conversation.Runtime.send_and_generate(conversation_id, "please wait",
+             Runtime.send_and_generate(conversation_id, "please wait",
                generation_opts: [
                  llm: %{backend: :facade_slow_stub},
                  llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
@@ -579,17 +580,17 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
 
     assert result.text == "facade slow reply"
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert Enum.map(derived.messages, & &1.content) == ["please wait", "facade slow reply"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "send_and_generate/3 timeout without cancel keeps guard until completion" do
     conversation_id = "facade-conv-turn-timeout-guard-recovery"
 
     assert {:error, :timeout} =
-             Jido.Conversation.Runtime.send_and_generate(conversation_id, "please wait",
+             Runtime.send_and_generate(conversation_id, "please wait",
                generation_opts: [
                  llm: %{backend: :facade_slow_stub},
                  llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
@@ -601,7 +602,7 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
 
     assert {:error, :generation_in_progress} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "blocked while pending")
+             Runtime.send_user_message(conversation_id, "blocked while pending")
 
     assert_receive {:jido_conversation,
                     {:generation_result, _generation_ref, {:ok, %LLMResult{} = result}}},
@@ -610,9 +611,9 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert result.text == "facade slow reply"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "after completion")
+             Runtime.send_user_message(conversation_id, "after completion")
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
 
     assert Enum.map(derived.messages, & &1.content) == [
              "please wait",
@@ -620,7 +621,7 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
              "after completion"
            ]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "send_and_generate/3 returns canceled tuples when cancellation was requested" do
@@ -629,7 +630,7 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
 
     task =
       Task.async(fn ->
-        Jido.Conversation.Runtime.send_and_generate(conversation_id, "cancel this run",
+        Runtime.send_and_generate(conversation_id, "cancel this run",
           generation_opts: [
             llm: %{backend: :facade_slow_stub},
             llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
@@ -640,26 +641,26 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
       end)
 
     assert_receive {:facade_slow_backend_started, _request_id}
-    assert :ok = Jido.Conversation.Runtime.cancel_generation(conversation_id, "manual_cancel")
+    assert :ok = Runtime.cancel_generation(conversation_id, "manual_cancel")
 
     assert {:error, {:canceled, "manual_cancel"}} = Task.await(task, 2_000)
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert derived.status == :canceled
     assert derived.cancel_reason == "manual_cancel"
     assert Enum.map(derived.messages, & &1.content) == ["cancel this run"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "await_generation/3 timeout cancels by default" do
     conversation_id = "facade-conv-await-timeout"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "please wait")
+             Runtime.send_user_message(conversation_id, "please wait")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 2_000]
@@ -668,17 +669,15 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
 
     assert {:error, :timeout} =
-             Jido.Conversation.Runtime.await_generation(conversation_id, generation_ref,
-               timeout_ms: 10
-             )
+             Runtime.await_generation(conversation_id, generation_ref, timeout_ms: 10)
 
     assert_receive {:jido_conversation, {:generation_canceled, ^generation_ref, "await_timeout"}}
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert derived.status == :canceled
     assert derived.cancel_reason == "await_timeout"
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "await_generation/3 timeout honors custom cancel reason" do
@@ -686,10 +685,10 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     cancel_reason = "await_turn_timeout"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "please wait")
+             Runtime.send_user_message(conversation_id, "please wait")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 2_000]
@@ -698,29 +697,29 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
 
     assert {:error, :timeout} =
-             Jido.Conversation.Runtime.await_generation(conversation_id, generation_ref,
+             Runtime.await_generation(conversation_id, generation_ref,
                timeout_ms: 10,
                cancel_reason: cancel_reason
              )
 
     assert_receive {:jido_conversation, {:generation_canceled, ^generation_ref, ^cancel_reason}}
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert derived.status == :canceled
     assert derived.cancel_reason == cancel_reason
     assert Enum.map(derived.messages, & &1.content) == ["please wait"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "await_generation/3 timeout can leave generation running" do
     conversation_id = "facade-conv-await-timeout-no-cancel"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "please wait")
+             Runtime.send_user_message(conversation_id, "please wait")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 150]
@@ -729,7 +728,7 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
 
     assert {:error, :timeout} =
-             Jido.Conversation.Runtime.await_generation(conversation_id, generation_ref,
+             Runtime.await_generation(conversation_id, generation_ref,
                timeout_ms: 10,
                cancel_on_timeout?: false
              )
@@ -740,20 +739,20 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
 
     assert result.text == "facade slow reply"
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert Enum.map(derived.messages, & &1.content) == ["please wait", "facade slow reply"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "await_generation/3 timeout without cancel keeps guard until completion" do
     conversation_id = "facade-conv-await-timeout-no-cancel-guard-recovery"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "please wait")
+             Runtime.send_user_message(conversation_id, "please wait")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 300]
@@ -762,13 +761,13 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
 
     assert {:error, :timeout} =
-             Jido.Conversation.Runtime.await_generation(conversation_id, generation_ref,
+             Runtime.await_generation(conversation_id, generation_ref,
                timeout_ms: 10,
                cancel_on_timeout?: false
              )
 
     assert {:error, :generation_in_progress} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "blocked while pending")
+             Runtime.send_user_message(conversation_id, "blocked while pending")
 
     assert_receive {:jido_conversation,
                     {:generation_result, ^generation_ref, {:ok, %LLMResult{} = result}}},
@@ -777,9 +776,9 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert result.text == "facade slow reply"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "after completion")
+             Runtime.send_user_message(conversation_id, "after completion")
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
 
     assert Enum.map(derived.messages, & &1.content) == [
              "please wait",
@@ -787,17 +786,17 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
              "after completion"
            ]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "await_generation/3 can be retried after no-cancel timeout to get final result" do
     conversation_id = "facade-conv-await-timeout-no-cancel-reawait"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "please wait")
+             Runtime.send_user_message(conversation_id, "please wait")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 200]
@@ -806,24 +805,22 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
 
     assert {:error, :timeout} =
-             Jido.Conversation.Runtime.await_generation(conversation_id, generation_ref,
+             Runtime.await_generation(conversation_id, generation_ref,
                timeout_ms: 10,
                cancel_on_timeout?: false
              )
 
     assert {:ok, %LLMResult{} = result} =
-             Jido.Conversation.Runtime.await_generation(conversation_id, generation_ref,
-               timeout_ms: 1_000
-             )
+             Runtime.await_generation(conversation_id, generation_ref, timeout_ms: 1_000)
 
     assert result.text == "facade slow reply"
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert derived.status == :responding
     assert derived.cancel_reason == nil
     assert Enum.map(derived.messages, & &1.content) == ["please wait", "facade slow reply"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "await_generation/3 can be retried after timeout-cancel to get canceled tuple" do
@@ -831,10 +828,10 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     cancel_reason = "await_retry_cancel"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "please wait")
+             Runtime.send_user_message(conversation_id, "please wait")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 2_000]
@@ -843,32 +840,30 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_slow_backend_started, _request_id}
 
     assert {:error, :timeout} =
-             Jido.Conversation.Runtime.await_generation(conversation_id, generation_ref,
+             Runtime.await_generation(conversation_id, generation_ref,
                timeout_ms: 10,
                cancel_reason: cancel_reason
              )
 
     assert {:error, {:canceled, ^cancel_reason}} =
-             Jido.Conversation.Runtime.await_generation(conversation_id, generation_ref,
-               timeout_ms: 1_000
-             )
+             Runtime.await_generation(conversation_id, generation_ref, timeout_ms: 1_000)
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert derived.status == :canceled
     assert derived.cancel_reason == cancel_reason
     assert Enum.map(derived.messages, & &1.content) == ["please wait"]
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "await_generation/3 returns backend errors" do
     conversation_id = "facade-conv-await-error"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "return error")
+             Runtime.send_user_message(conversation_id, "return error")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_error_stub},
                llm_config: llm_config(:facade_error_stub, FacadeErrorBackendStub),
                backend_opts: [test_pid: self()]
@@ -877,52 +872,48 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert_receive {:facade_error_backend_called, _request_id}
 
     assert {:error, %LLMError{} = error} =
-             Jido.Conversation.Runtime.await_generation(conversation_id, generation_ref,
-               timeout_ms: 1_000
-             )
+             Runtime.await_generation(conversation_id, generation_ref, timeout_ms: 1_000)
 
     assert error.category == :provider
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert Enum.map(derived.messages, & &1.content) == ["return error"]
     assert derived.status == :pending_llm
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "await_generation/3 returns canceled tuples when cancellation was requested" do
     conversation_id = "facade-conv-await-canceled"
 
     assert {:ok, _conversation, _directives} =
-             Jido.Conversation.Runtime.send_user_message(conversation_id, "cancel this run")
+             Runtime.send_user_message(conversation_id, "cancel this run")
 
     assert {:ok, generation_ref} =
-             Jido.Conversation.Runtime.generate_assistant_reply(conversation_id,
+             Runtime.generate_assistant_reply(conversation_id,
                llm: %{backend: :facade_slow_stub},
                llm_config: llm_config(:facade_slow_stub, FacadeSlowBackendStub),
                backend_opts: [test_pid: self(), sleep_ms: 2_000]
              )
 
     assert_receive {:facade_slow_backend_started, _request_id}
-    assert :ok = Jido.Conversation.Runtime.cancel_generation(conversation_id, "manual_cancel")
+    assert :ok = Runtime.cancel_generation(conversation_id, "manual_cancel")
 
     assert {:error, {:canceled, "manual_cancel"}} =
-             Jido.Conversation.Runtime.await_generation(conversation_id, generation_ref,
-               timeout_ms: 1_000
-             )
+             Runtime.await_generation(conversation_id, generation_ref, timeout_ms: 1_000)
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert derived.status == :canceled
     assert derived.cancel_reason == "manual_cancel"
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "send_and_generate/3 propagates backend errors and keeps assistant history unchanged" do
     conversation_id = "facade-conv-turn-error"
 
     assert {:error, %LLMError{} = error} =
-             Jido.Conversation.Runtime.send_and_generate(conversation_id, "error turn",
+             Runtime.send_and_generate(conversation_id, "error turn",
                generation_opts: [
                  llm: %{backend: :facade_error_stub},
                  llm_config: llm_config(:facade_error_stub, FacadeErrorBackendStub),
@@ -934,28 +925,28 @@ defmodule Jido.Conversation.ManagedRuntimeApiTest do
     assert error.category == :provider
     assert_receive {:facade_error_backend_called, _request_id}
 
-    assert {:ok, derived} = Jido.Conversation.Runtime.derived_state(conversation_id)
+    assert {:ok, derived} = Runtime.derived_state(conversation_id)
     assert Enum.map(derived.messages, & &1.content) == ["error turn"]
     assert derived.status == :pending_llm
 
-    assert :ok = Jido.Conversation.Runtime.stop_conversation(conversation_id)
+    assert :ok = Runtime.stop_conversation(conversation_id)
   end
 
   test "managed facade validates locators" do
-    assert {:error, :invalid_locator} = Jido.Conversation.Runtime.conversation("")
-    assert {:error, :invalid_locator} = Jido.Conversation.Runtime.messages("")
-    assert {:error, :invalid_locator} = Jido.Conversation.Runtime.thread("")
-    assert {:error, :invalid_locator} = Jido.Conversation.Runtime.thread_entries("")
-    assert {:error, :invalid_locator} = Jido.Conversation.Runtime.llm_context("")
-    assert {:error, :invalid_locator} = Jido.Conversation.Runtime.configure_llm("", :jido_ai)
+    assert {:error, :invalid_locator} = Runtime.conversation("")
+    assert {:error, :invalid_locator} = Runtime.messages("")
+    assert {:error, :invalid_locator} = Runtime.thread("")
+    assert {:error, :invalid_locator} = Runtime.thread_entries("")
+    assert {:error, :invalid_locator} = Runtime.llm_context("")
+    assert {:error, :invalid_locator} = Runtime.configure_llm("", :jido_ai)
 
     assert {:error, :invalid_locator} =
-             Jido.Conversation.Runtime.record_assistant_message("", "bad")
+             Runtime.record_assistant_message("", "bad")
 
     assert {:error, :invalid_locator} =
-             Jido.Conversation.Runtime.cancel_generation({"project", ""})
+             Runtime.cancel_generation({"project", ""})
 
-    assert {:error, :not_found} = Jido.Conversation.Runtime.conversation("missing-facade-conv")
+    assert {:error, :not_found} = Runtime.conversation("missing-facade-conv")
   end
 
   defp llm_config(backend, backend_module) do

@@ -2,11 +2,11 @@ defmodule Jido.Conversation.ServerTest do
   use ExUnit.Case, async: true
 
   alias Jido.Conversation
-  alias Jido.Conversation.Server
   alias Jido.Conversation.LLM.Backend
   alias Jido.Conversation.LLM.Error, as: LLMError
   alias Jido.Conversation.LLM.Request, as: LLMRequest
   alias Jido.Conversation.LLM.Result, as: LLMResult
+  alias Jido.Conversation.Server
 
   defmodule FastBackendStub do
     @behaviour Backend

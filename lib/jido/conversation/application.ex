@@ -3,16 +3,23 @@ defmodule Jido.Conversation.Application do
 
   use Application
 
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.Ingest.Pipeline
+  alias Jido.Conversation.Runtime.Supervisor, as: RuntimeSystemSupervisor
+  alias Jido.Conversation.RuntimeSupervisor
+  alias Jido.Conversation.Signal.Supervisor, as: SignalSupervisor
+  alias Jido.Conversation.Telemetry
+
   @impl true
   def start(_type, _args) do
-    Jido.Conversation.Config.validate!()
+    Config.validate!()
 
     children = [
-      Jido.Conversation.Telemetry,
-      Jido.Conversation.Signal.Supervisor,
-      Jido.Conversation.Ingest.Pipeline,
-      Jido.Conversation.Runtime.Supervisor,
-      Jido.Conversation.RuntimeSupervisor
+      Telemetry,
+      SignalSupervisor,
+      Pipeline,
+      RuntimeSystemSupervisor,
+      RuntimeSupervisor
     ]
 
     opts = [strategy: :one_for_one, name: Jido.Conversation.Supervisor]

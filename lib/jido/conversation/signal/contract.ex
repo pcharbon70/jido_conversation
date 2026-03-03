@@ -8,8 +8,8 @@ defmodule Jido.Conversation.Signal.Contract do
   stream-specific payload requirements.
   """
 
-  alias Jido.Signal
   alias Jido.Conversation.ConversationRef
+  alias Jido.Signal
 
   @supported_contract_majors [1]
 

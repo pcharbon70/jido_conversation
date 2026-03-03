@@ -4,9 +4,9 @@ defmodule Jido.Conversation.Runtime do
   """
 
   alias Jido.Conversation
-  alias Jido.Conversation.Server
   alias Jido.Conversation.ConversationRef
   alias Jido.Conversation.LLM.Result, as: LLMResult
+  alias Jido.Conversation.Server
 
   @registry_name Jido.Conversation.Registry
   @server_supervisor_name Jido.Conversation.ServerSupervisor

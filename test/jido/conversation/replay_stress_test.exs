@@ -1,8 +1,6 @@
 defmodule Jido.Conversation.ReplayStressTest do
   use ExUnit.Case, async: false
 
-  alias Jido.Signal.Error.ExecutionFailureError
-  alias Jido.Signal.ID
   alias Jido.Conversation.Ingest
   alias Jido.Conversation.Projections
   alias Jido.Conversation.Projections.LlmContext
@@ -10,6 +8,8 @@ defmodule Jido.Conversation.ReplayStressTest do
   alias Jido.Conversation.Runtime.Coordinator
   alias Jido.Conversation.Runtime.EffectManager
   alias Jido.Conversation.Runtime.IngressSubscriber
+  alias Jido.Signal.Error.ExecutionFailureError
+  alias Jido.Signal.ID
 
   setup do
     wait_for_ingress_subscriber!()

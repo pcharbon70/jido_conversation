@@ -13,13 +13,13 @@ defmodule Jido.Conversation.Ingest.Pipeline do
 
   require Logger
 
+  alias Jido.Conversation.Config
+  alias Jido.Conversation.ConversationRef
+  alias Jido.Conversation.Signal.Contract
   alias Jido.Signal
   alias Jido.Signal.Bus
   alias Jido.Signal.Bus.RecordedSignal
   alias Jido.Signal.Journal
-  alias Jido.Conversation.Config
-  alias Jido.Conversation.ConversationRef
-  alias Jido.Conversation.Signal.Contract
 
   @type dedupe_key :: {String.t(), String.t()}
   @type ingest_status :: :published | :duplicate
