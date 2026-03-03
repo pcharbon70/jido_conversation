@@ -33,18 +33,18 @@
 
 ## Test coverage added
 
-- `test/jido_conversation/runtime/scheduler_test.exs`
+- `test/jido/conversation/runtime/scheduler_test.exs`
   - priority model
   - causal readiness
   - FIFO ordering
   - fairness threshold behavior
-- `test/jido_conversation/runtime/reducer_test.exs`
+- `test/jido/conversation/runtime/reducer_test.exs`
   - state updates
   - directive emission
   - in-flight effect lifecycle transitions
   - no nested applied directives for `conv.applied.*`
   - abort flag transition
-- `test/jido_conversation/runtime/partition_worker_test.exs`
+- `test/jido/conversation/runtime/partition_worker_test.exs`
   - cause-before-dependent ordering
   - runtime emission of `conv.applied` markers through ingestion replay
 

@@ -1,4 +1,4 @@
-defmodule JidoConversationTest do
+defmodule Jido.Conversation.SmokeTest do
   use ExUnit.Case, async: true
 
   test "health reports core supervisors as alive" do

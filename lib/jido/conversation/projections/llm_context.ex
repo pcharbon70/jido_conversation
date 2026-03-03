@@ -1,71 +1,80 @@
-defmodule Jido.Conversation.ThreadProjections.LlmContext do
+defmodule Jido.Conversation.Projections.LlmContext do
   @moduledoc """
-  Derives LLM context messages from thread entries.
+  Derives a role/content LLM context projection from timeline entries.
   """
 
-  alias Jido.Thread.Entry
+  alias Jido.Signal
+  alias Jido.Conversation.Projections.Timeline
 
-  @type message :: %{
-          role: :user | :assistant | :system | :tool,
+  @type context_message :: %{
+          role: :user | :assistant | :tool | :system,
           content: String.t(),
-          entry_id: String.t()
+          event_id: String.t()
         }
 
-  @spec from_entries([Entry.t()], keyword()) :: [message()]
-  def from_entries(entries, opts \\ []) when is_list(entries) and is_list(opts) do
+  @spec from_events([Signal.t()], keyword()) :: [context_message()]
+  def from_events(events, opts \\ []) when is_list(events) and is_list(opts) do
+    include_deltas? = Keyword.get(opts, :include_deltas, false)
+    include_tool_status? = Keyword.get(opts, :include_tool_status, true)
     max_messages = Keyword.get(opts, :max_messages, 40)
-    include_system? = Keyword.get(opts, :include_system, false)
-    include_tool? = Keyword.get(opts, :include_tool, false)
 
-    entries
-    |> Enum.sort_by(& &1.seq)
+    events
+    |> Timeline.from_events(coalesce_deltas: true)
     |> Enum.reduce([], fn entry, acc ->
-      case to_context_message(entry, include_system?, include_tool?) do
+      case entry_to_context(entry, include_deltas?, include_tool_status?) do
         nil -> acc
-        message -> [message | acc]
+        context_entry -> [context_entry | acc]
       end
     end)
     |> Enum.reverse()
     |> tail(max_messages)
   end
 
-  defp to_context_message(%Entry{kind: :message} = entry, include_system?, include_tool?) do
-    role = normalize_role(get_field(entry.payload, :role))
-    content = to_string(get_field(entry.payload, :content) || "")
-
-    cond do
-      role == :system and not include_system? ->
-        nil
-
-      role == :tool and not include_tool? ->
-        nil
-
-      String.trim(content) == "" ->
-        nil
-
-      true ->
-        %{role: role, content: content, entry_id: entry.id}
-    end
+  defp entry_to_context(%{role: :user, kind: :message} = entry, _include_deltas?, _include_tool?) do
+    %{
+      role: :user,
+      content: to_string(entry.content || ""),
+      event_id: entry.event_id
+    }
   end
 
-  defp to_context_message(_entry, _include_system?, _include_tool?), do: nil
+  defp entry_to_context(
+         %{role: :assistant, kind: :message} = entry,
+         _include_deltas?,
+         _include_tool?
+       ) do
+    %{
+      role: :assistant,
+      content: to_string(entry.content || ""),
+      event_id: entry.event_id
+    }
+  end
+
+  defp entry_to_context(
+         %{role: :assistant, kind: :delta} = entry,
+         true,
+         _include_tool?
+       ) do
+    %{
+      role: :assistant,
+      content: to_string(entry.content || ""),
+      event_id: entry.event_id
+    }
+  end
+
+  defp entry_to_context(%{role: :tool, kind: :status} = entry, _include_deltas?, true) do
+    %{
+      role: :tool,
+      content: to_string(entry.content || ""),
+      event_id: entry.event_id
+    }
+  end
+
+  defp entry_to_context(_entry, _include_deltas?, _include_tool?), do: nil
 
   defp tail(entries, max_messages) when is_integer(max_messages) and max_messages > 0 do
     Enum.take(entries, -max_messages)
   end
 
   defp tail(entries, _max_messages), do: entries
-
-  defp normalize_role("user"), do: :user
-  defp normalize_role("assistant"), do: :assistant
-  defp normalize_role("system"), do: :system
-  defp normalize_role("tool"), do: :tool
-  defp normalize_role(role) when role in [:user, :assistant, :system, :tool], do: role
-  defp normalize_role(_), do: :user
-
-  defp get_field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, to_string(key))
-  end
-
-  defp get_field(_map, _key), do: nil
 end

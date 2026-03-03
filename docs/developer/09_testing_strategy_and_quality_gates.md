@@ -28,11 +28,11 @@ stability.
 
 ## Key test directories
 
-- `test/jido_conversation/signal/`
-- `test/jido_conversation/ingest/`
-- `test/jido_conversation/runtime/`
-- `test/jido_conversation/llm/`
-- `test/jido_conversation/projections/`
+- `test/jido/conversation/signal/`
+- `test/jido/conversation/ingest/`
+- `test/jido/conversation/runtime/`
+- `test/jido/conversation/llm/`
+- `test/jido/conversation/projections/`
 
 ## Quality gate
 

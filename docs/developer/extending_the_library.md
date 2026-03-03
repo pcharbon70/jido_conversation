@@ -9,7 +9,7 @@ For LLM adapter-specific extension rules, see:
 
 1. Define/confirm stream namespace and payload requirements in
    `Jido.Conversation.Signal.Contract`.
-2. Add or update adapter helpers under `lib/jido_conversation/ingest/adapters/`.
+2. Add or update adapter helpers under `lib/jido/conversation/ingest/adapters/`.
 3. Add reducer behavior (if state transition is needed).
 4. Add projection behavior (if user/model views must include it).
 5. Add tests:
@@ -46,7 +46,7 @@ To add another class:
 
 ## Add a new projection
 
-1. Implement projection module in `lib/jido_conversation/projections/`.
+1. Implement projection module in `lib/jido/conversation/projections/`.
 2. Use `Ingest.conversation_events/1` as canonical source.
 3. Sort/filter consistently and document any options.
 4. Add facade function if needed from `Jido.Conversation`.
@@ -59,7 +59,7 @@ To add another class:
 - If adding required keys for an existing stream, treat it as a contract-major
   change and update tests/documentation accordingly.
 
-Reference: `test/jido_conversation/signal/contract_evolution_test.exs`
+Reference: `test/jido/conversation/signal/contract_evolution_test.exs`
 
 ## Common pitfalls
 

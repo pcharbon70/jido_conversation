@@ -45,13 +45,13 @@
 ## Tests added/updated
 
 - Updated:
-  - `test/jido_conversation/ingest/adapters_test.exs`
-  - `test/jido_conversation/runtime/reducer_test.exs`
-  - `test/jido_conversation/runtime/partition_worker_test.exs`
+  - `test/jido/conversation/ingest/adapters_test.exs`
+  - `test/jido/conversation/runtime/reducer_test.exs`
+  - `test/jido/conversation/runtime/partition_worker_test.exs`
 - Added:
-  - `test/jido_conversation/projections/timeline_test.exs`
-  - `test/jido_conversation/projections/llm_context_test.exs`
-  - `test/jido_conversation/projections_test.exs`
+  - `test/jido/conversation/projections/timeline_test.exs`
+  - `test/jido/conversation/projections/llm_context_test.exs`
+  - `test/jido/conversation/event_projections_test.exs`
 
 ## Quality gates
 

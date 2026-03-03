@@ -21,7 +21,7 @@
 
 ## Tests added
 
-- `test/jido_conversation/telemetry_test.exs`
+- `test/jido/conversation/telemetry_test.exs`
   - validates metric aggregation and reset behavior
 
 ## Quality gates

@@ -130,5 +130,5 @@ Built-in adapter HTTP retryability policy:
 
 See existing adapter tests:
 
-- `test/jido_conversation/llm/adapters/jido_ai_test.exs`
-- `test/jido_conversation/llm/adapters/harness_test.exs`
+- `test/jido/conversation/llm/adapters/jido_ai_test.exs`
+- `test/jido/conversation/llm/adapters/harness_test.exs`

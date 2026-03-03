@@ -14,7 +14,7 @@
 ## Files added/updated
 
 - Added:
-  - `test/jido_conversation/reliability_test.exs`
+  - `test/jido/conversation/reliability_test.exs`
   - `docs/phase_8_reliability_scale_hardening.md`
 
 ## Quality gates

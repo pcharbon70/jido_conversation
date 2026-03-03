@@ -7,7 +7,7 @@
 
 ## Validation coverage
 
-- Updated `test/jido_conversation/runtime/scheduler_test.exs`:
+- Updated `test/jido/conversation/runtime/scheduler_test.exs`:
   - validates bounded interval scheduling for ready lower-priority events during a burst
   - validates a lower-priority event is not forced to wait behind an entire large high-priority backlog
   - uses deterministic scheduler draining to avoid runtime timing flake
