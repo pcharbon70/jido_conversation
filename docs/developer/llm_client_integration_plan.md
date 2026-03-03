@@ -173,17 +173,17 @@ that can execute through:
 ### Completion notes
 
 - Added domain modules:
-  - `lib/jido_conversation/llm/request.ex`
-  - `lib/jido_conversation/llm/result.ex`
-  - `lib/jido_conversation/llm/event.ex`
-  - `lib/jido_conversation/llm/error.ex`
-  - `lib/jido_conversation/llm/backend.ex`
+  - `lib/jido/conversation/llm/request.ex`
+  - `lib/jido/conversation/llm/result.ex`
+  - `lib/jido/conversation/llm/event.ex`
+  - `lib/jido/conversation/llm/error.ex`
+  - `lib/jido/conversation/llm/backend.ex`
 - Added unit tests for normalization/validation and backend behaviour contract:
-  - `test/jido_conversation/llm/request_test.exs`
-  - `test/jido_conversation/llm/result_test.exs`
-  - `test/jido_conversation/llm/event_test.exs`
-  - `test/jido_conversation/llm/error_test.exs`
-  - `test/jido_conversation/llm/backend_test.exs`
+  - `test/jido/conversation/llm/request_test.exs`
+  - `test/jido/conversation/llm/result_test.exs`
+  - `test/jido/conversation/llm/event_test.exs`
+  - `test/jido/conversation/llm/error_test.exs`
+  - `test/jido/conversation/llm/backend_test.exs`
 - Fixed boolean-field normalization for string/atom-key lookups to preserve explicit `false`.
 
 ## Phase 2: Configuration and backend resolution
@@ -218,18 +218,18 @@ that can execute through:
 ### Completion notes
 
 - Extended config schema and validation in:
-  - `lib/jido_conversation/config.ex`
+  - `lib/jido/conversation/config.ex`
 - Added LLM config accessors:
   - `llm/0`
   - `llm_default_backend/0`
   - `llm_backend_config/1`
   - `llm_backend_module/1`
 - Added deterministic resolution helper with explicit precedence and module availability checks:
-  - `lib/jido_conversation/llm/resolver.ex`
+  - `lib/jido/conversation/llm/resolver.ex`
 - Added tests for config defaults/merging/validation:
-  - `test/jido_conversation/config_test.exs`
+  - `test/jido/conversation/config_test.exs`
 - Added tests for backend/model/provider resolution precedence and missing-module errors:
-  - `test/jido_conversation/llm/resolver_test.exs`
+  - `test/jido/conversation/llm/resolver_test.exs`
 
 ## Phase 3: JidoAI backend adapter
 
@@ -259,14 +259,14 @@ that can execute through:
 ### Completion notes
 
 - Added adapter implementation:
-  - `lib/jido_conversation/llm/adapters/jido_ai.ex`
+  - `lib/jido/conversation/llm/adapters/jido_ai.ex`
 - Adapter includes:
   - dynamic `Jido.AI` / `Jido.AI.LLMClient` invocation (optional dependency-safe)
   - model/provider resolution with alias + `provider:model` support
   - normalized streaming lifecycle events (`started`, `delta`, `thinking`, `completed`, `failed`)
   - normalized result/usage/metadata mapping and error categorization
 - Added adapter contract tests:
-  - `test/jido_conversation/llm/adapters/jido_ai_test.exs`
+  - `test/jido/conversation/llm/adapters/jido_ai_test.exs`
 
 ## Phase 4: JidoHarness backend adapter
 
@@ -294,7 +294,7 @@ that can execute through:
 ### Completion notes
 
 - Added adapter implementation:
-  - `lib/jido_conversation/llm/adapters/harness.ex`
+  - `lib/jido/conversation/llm/adapters/harness.ex`
 - Adapter includes:
   - dynamic `Jido.Harness` invocation (optional dependency-safe)
   - `run/2` and `run/3` integration with prompt + options mapping
@@ -302,7 +302,7 @@ that can execute through:
   - best-effort fallback extraction for provider event variance (`assistant`, `result`, `output_text` shapes)
   - explicit cancellation support through `Jido.Harness.cancel/2`
 - Added adapter contract tests:
-  - `test/jido_conversation/llm/adapters/harness_test.exs`
+  - `test/jido/conversation/llm/adapters/harness_test.exs`
 
 ## Phase 5: Runtime effect integration
 
@@ -329,7 +329,7 @@ that can execute through:
 ### Completion notes
 
 - Integrated real LLM execution into runtime effect worker:
-  - `lib/jido_conversation/runtime/effect_worker.ex`
+  - `lib/jido/conversation/runtime/effect_worker.ex`
 - Runtime now:
   - resolves backend/module/provider/model/stream settings via `LLM.Resolver`
   - builds normalized `LLM.Request` values from effect input payloads
@@ -338,9 +338,9 @@ that can execute through:
   - emits normalized completion/failure payloads for reducer/output projections
 - Kept tool/timer execution path and effect-manager orchestration unchanged.
 - Added runtime integration coverage for real LLM backend execution through effect manager:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 - Updated assistant-delta extraction to avoid treating generic progress statuses as content:
-  - `lib/jido_conversation/runtime/reducer.ex`
+  - `lib/jido/conversation/runtime/reducer.ex`
 
 ## Phase 6: Cancellation, retries, and timeout semantics
 
@@ -515,7 +515,7 @@ that can execute through:
   - verifies `Projections.timeline/2` parity against replay reconstruction
   - verifies `Projections.llm_context/2` parity against replay reconstruction
 - Extended determinism/reliability suite with:
-  - `test/jido_conversation/runtime/llm_reliability_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_reliability_matrix_test.exs`
 
 ## Phase 10: Documentation and migration
 
@@ -583,11 +583,11 @@ that can execute through:
 ### Completion notes
 
 - Updated adapter error normalization retryability for HTTP status classes:
-  - `lib/jido_conversation/llm/adapters/jido_ai.ex`
-  - `lib/jido_conversation/llm/adapters/harness.ex`
+  - `lib/jido/conversation/llm/adapters/jido_ai.ex`
+  - `lib/jido/conversation/llm/adapters/harness.ex`
 - Added regression tests for non-retryable vs retryable provider statuses:
-  - `test/jido_conversation/llm/adapters/jido_ai_test.exs`
-  - `test/jido_conversation/llm/adapters/harness_test.exs`
+  - `test/jido/conversation/llm/adapters/jido_ai_test.exs`
+  - `test/jido/conversation/llm/adapters/harness_test.exs`
 - Updated developer contract guide with resolved decision details:
   - `docs/developer/llm_backend_adapter_contract.md`
 
@@ -620,7 +620,7 @@ that can execute through:
 ### Completion notes
 
 - Added end-to-end retry policy matrix coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_matrix_test.exs`
 - Matrix verifies:
   - non-retryable provider `422` paths emit single-attempt failure (no retry)
   - retryable provider `503` paths emit retry lifecycle and eventual completion
@@ -655,7 +655,7 @@ that can execute through:
 ### Completion notes
 
 - Added end-to-end stream retry policy matrix coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
 - Stream matrix verifies:
   - non-retryable provider `422` paths emit single-attempt failure
   - retryable provider `503` paths emit retry lifecycle and eventual completion
@@ -690,7 +690,7 @@ that can execute through:
 ### Completion notes
 
 - Extended end-to-end runtime retry matrix tests with telemetry parity checks:
-  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_matrix_test.exs`
 - Added explicit assertions for:
   - no `provider` retry increment on non-retryable `422` failures
   - `provider` retry increments on retryable `503` failures
@@ -725,7 +725,7 @@ that can execute through:
 ### Completion notes
 
 - Extended stream retry policy matrix with telemetry parity checks:
-  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
 - Added explicit assertions for:
   - no `provider` retry increment on non-retryable stream `422` failures
   - `provider` retry increments on retryable stream `503` failures
@@ -762,7 +762,7 @@ that can execute through:
 ### Completion notes
 
 - Added end-to-end cancel telemetry parity coverage:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 - Matrix verifies:
   - `ok`, `not_available`, and `failed` cancel result classes across backends
   - canceled lifecycle emitted without completed lifecycle on cancel paths
@@ -800,7 +800,7 @@ that can execute through:
 ### Completion notes
 
 - Extended runtime retry policy matrix with timeout/transport category coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_matrix_test.exs`
 - Added explicit assertions for:
   - timeout retry category increments and completion for both backends
   - transport retry category increments and completion for both backends
@@ -838,7 +838,7 @@ that can execute through:
 ### Completion notes
 
 - Extended stream retry policy matrix with timeout/transport category coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
 - Added explicit assertions for:
   - stream timeout retry category increments and completion for both backends
   - stream transport retry category increments and completion for both backends
@@ -877,7 +877,7 @@ that can execute through:
 ### Completion notes
 
 - Extended runtime retry policy matrix with auth non-retryable coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_matrix_test.exs`
 - Added explicit assertions for:
   - no retry attempts on `401/403` auth failures
   - failed lifecycle payload category/retryable invariants (`auth`, `false`)
@@ -917,7 +917,7 @@ that can execute through:
 ### Completion notes
 
 - Extended stream retry policy matrix with auth non-retryable coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
 - Added explicit assertions for:
   - no retry attempts on stream `401/403` auth failures
   - stream failed lifecycle payload category/retryable invariants
@@ -958,7 +958,7 @@ that can execute through:
 ### Completion notes
 
 - Extended runtime retry policy matrix with unknown non-retryable coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_matrix_test.exs`
 - Added explicit assertions for:
   - no retry attempts on unknown classified failures
   - failed lifecycle payload category/retryable invariants (`unknown`, `false`)
@@ -1001,9 +1001,9 @@ that can execute through:
 
 - Updated Harness stream failure normalization to preserve `unknown` category
   for structured map errors:
-  - `lib/jido_conversation/llm/adapters/harness.ex`
+  - `lib/jido/conversation/llm/adapters/harness.ex`
 - Extended stream retry policy matrix with unknown non-retryable coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
 - Added explicit assertions for:
   - no retry attempts on unknown classified stream failures
   - failed stream lifecycle payload category/retryable invariants
@@ -1045,7 +1045,7 @@ that can execute through:
 ### Completion notes
 
 - Extended runtime retry policy matrix with config non-retryable coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_matrix_test.exs`
 - Added explicit assertions for:
   - no retry attempts on config-classified failures
   - failed lifecycle payload category/retryable invariants (`config`, `false`)
@@ -1087,7 +1087,7 @@ that can execute through:
 ### Completion notes
 
 - Extended stream retry policy matrix with config non-retryable coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
 - Added explicit assertions for:
   - no retry attempts on config-classified stream failures
   - failed stream lifecycle payload category/retryable invariants
@@ -1130,11 +1130,11 @@ that can execute through:
 ### Completion notes
 
 - Updated `jido_ai` error normalization to classify canceled reasons:
-  - `lib/jido_conversation/llm/adapters/jido_ai.ex`
+  - `lib/jido/conversation/llm/adapters/jido_ai.ex`
 - Added adapter normalization coverage:
-  - `test/jido_conversation/llm/adapters/jido_ai_test.exs`
+  - `test/jido/conversation/llm/adapters/jido_ai_test.exs`
 - Extended runtime retry policy matrix with canceled non-retryable coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_matrix_test.exs`
 - Added explicit assertions for:
   - no retry attempts on canceled-classified failures
   - failed lifecycle payload category/retryable invariants
@@ -1177,7 +1177,7 @@ that can execute through:
 ### Completion notes
 
 - Extended stream retry policy matrix with canceled non-retryable coverage:
-  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
 - Added explicit assertions for:
   - no retry attempts on canceled-classified stream failures
   - failed stream lifecycle payload category/retryable invariants
@@ -1220,7 +1220,7 @@ that can execute through:
 
 - Hardened provider `4xx` non-retryable runtime tests to assert failed payload
   category/retryable invariants:
-  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_matrix_test.exs`
 - Unified provider non-retryable assertions with retry-category helper
   patterns used by later phase slices.
 
@@ -1259,7 +1259,7 @@ that can execute through:
 
 - Hardened provider `4xx` non-retryable stream runtime tests to assert failed
   payload category/retryable invariants:
-  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
 - Unified stream provider non-retryable assertions with retry-category helper
   patterns used by adjacent phase slices.
 
@@ -1299,10 +1299,10 @@ that can execute through:
 
 - Updated runtime retrying lifecycle payload emission for LLM effects to include
   normalized `error_category`:
-  - `lib/jido_conversation/runtime/effect_worker.ex`
+  - `lib/jido/conversation/runtime/effect_worker.ex`
 - Hardened non-stream retry helper assertions to validate retrying progress
   payload category/retryable invariants:
-  - `test/jido_conversation/runtime/llm_retry_policy_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_matrix_test.exs`
 - Refactored non-stream provider retryable recovery tests to use the shared
   retry-category helper path for consistent parity checks.
 
@@ -1342,7 +1342,7 @@ that can execute through:
 
 - Hardened stream retry helper assertions to validate retrying progress payload
   category/retryable invariants:
-  - `test/jido_conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_retry_policy_stream_matrix_test.exs`
 - Refactored stream provider retryable recovery tests to use the shared
   retry-category helper path for consistent parity checks.
 
@@ -1374,7 +1374,7 @@ that can execute through:
 ### Completion notes
 
 - Added retry-category precedence/fallback parity test:
-  - `test/jido_conversation/telemetry_test.exs`
+  - `test/jido/conversation/telemetry_test.exs`
 
 ## Phase 32: Effect-manager LLM retry lifecycle parity hardening
 
@@ -1409,7 +1409,7 @@ that can execute through:
 ### Completion notes
 
 - Added retryable provider backend stub and recovery assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 33: Effect-manager LLM start-path retry parity hardening
 
@@ -1447,7 +1447,7 @@ that can execute through:
 
 - Added non-stream retryable provider recovery assertions and stream-mode test
   helper override in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 34: Effect-manager LLM start-path non-retry parity hardening
 
@@ -1483,7 +1483,7 @@ that can execute through:
 ### Completion notes
 
 - Added non-stream non-retryable config failure assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 35: Effect-manager LLM stream-path non-retry parity hardening
 
@@ -1517,7 +1517,7 @@ that can execute through:
 ### Completion notes
 
 - Extended stream non-retryable config failure assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 36: Effect-manager LLM stream-path retry cardinality parity hardening
 
@@ -1548,7 +1548,7 @@ that can execute through:
 ### Completion notes
 
 - Extended stream retryable provider failure assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 37: Effect-manager LLM start-path retry cardinality parity hardening
 
@@ -1580,7 +1580,7 @@ that can execute through:
 ### Completion notes
 
 - Extended non-stream retryable provider failure assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 38: Effect-manager LLM stream-path retry-attempt-start parity hardening
 
@@ -1612,7 +1612,7 @@ that can execute through:
 ### Completion notes
 
 - Extended stream retryable provider failure assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 39: Effect-manager LLM start-path retry-attempt-start parity hardening
 
@@ -1644,7 +1644,7 @@ that can execute through:
 ### Completion notes
 
 - Extended non-stream retryable provider failure assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 40: Effect-manager LLM cancel lifecycle/telemetry parity hardening
 
@@ -1678,7 +1678,7 @@ that can execute through:
 ### Completion notes
 
 - Extended cancellation-path assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 41: Effect-manager LLM cancel-without-context parity hardening
 
@@ -1717,7 +1717,7 @@ that can execute through:
 ### Completion notes
 
 - Extended no-context cancellation assertions and backend stub options in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 42: Effect-manager LLM cancel-failed parity hardening
 
@@ -1758,7 +1758,7 @@ that can execute through:
 ### Completion notes
 
 - Extended cancel-failed cancellation assertions and backend stub options in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 43: Effect-manager LLM cancel attribution parity hardening
 
@@ -1792,7 +1792,7 @@ that can execute through:
 
 - Extended cancel-failed attribution and backend lifecycle telemetry assertions
   in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 44: Effect-manager LLM cancel cause-link parity hardening
 
@@ -1825,7 +1825,7 @@ that can execute through:
 ### Completion notes
 
 - Added explicit cancel cause-link tracing assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 45: Effect-manager LLM cancel invalid-cause fallback parity hardening
 
@@ -1860,7 +1860,7 @@ that can execute through:
 ### Completion notes
 
 - Added invalid cancel cause fallback tracing assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 46: Effect-manager LLM cancel-failed cause-link parity hardening
 
@@ -1899,7 +1899,7 @@ that can execute through:
 ### Completion notes
 
 - Added failed-cancel explicit cause-link tracing assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 47: Effect-manager LLM cancel-failed invalid-cause fallback parity hardening
 
@@ -1937,7 +1937,7 @@ that can execute through:
 ### Completion notes
 
 - Added failed-cancel invalid cause fallback tracing assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 48: Effect-manager LLM cancel-failed invalid-cause attribution parity hardening
 
@@ -1977,7 +1977,7 @@ that can execute through:
 
 - Extended failed-cancel invalid-cause attribution/category and backend
   lifecycle telemetry assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 49: Cancel-failed invalid-cause fallback matrix parity hardening
 
@@ -2018,7 +2018,7 @@ that can execute through:
 
 - Added cross-backend failed-cancel invalid cause fallback tracing and
   telemetry attribution assertions in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 50: Cancel-failed cause-link matrix parity hardening
 
@@ -2060,7 +2060,7 @@ that can execute through:
 
 - Added cross-backend failed-cancel explicit cause-link tracing and telemetry
   attribution assertions in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 51: Cancel-ok cause-link matrix parity hardening
 
@@ -2101,7 +2101,7 @@ that can execute through:
 
 - Added cross-backend cancel-ok explicit cause-link tracing and telemetry
   assertions in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 52: Cancel-ok invalid-cause fallback matrix parity hardening
 
@@ -2143,7 +2143,7 @@ that can execute through:
 
 - Added cross-backend cancel-ok invalid cause fallback tracing and telemetry
   attribution assertions in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 53: Cancel-not-available invalid-cause fallback matrix parity hardening
 
@@ -2186,7 +2186,7 @@ that can execute through:
 
 - Added cross-backend cancel-not-available invalid cause fallback tracing and
   telemetry attribution assertions in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 54: Cancel-not-available cause-link matrix parity hardening
 
@@ -2228,7 +2228,7 @@ that can execute through:
 
 - Added cross-backend cancel-not-available explicit cause-link tracing and
   telemetry attribution assertions in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 55: Cancel-not-available baseline attribution matrix parity hardening
 
@@ -2268,7 +2268,7 @@ that can execute through:
 
 - Extended baseline cancel-not-available payload attribution and backend
   lifecycle telemetry assertions in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 56: Cancel-failed baseline attribution matrix parity hardening
 
@@ -2311,7 +2311,7 @@ that can execute through:
 
 - Extended baseline cancel-failed payload attribution/error metadata and
   backend lifecycle telemetry assertions in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 57: Cancel-ok baseline attribution matrix parity hardening
 
@@ -2351,7 +2351,7 @@ that can execute through:
 
 - Extended baseline cancel-ok payload attribution and backend lifecycle/
   retry-category telemetry assertions in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 58: Cancel baseline terminal-exclusivity matrix parity hardening
 
@@ -2390,7 +2390,7 @@ that can execute through:
 
 - Added shared terminal-exclusivity helper and applied it to baseline cancel
   matrix tests in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 59: Cancel cause-variant terminal-exclusivity matrix parity hardening
 
@@ -2428,7 +2428,7 @@ that can execute through:
 
 - Applied shared terminal-exclusivity helper to cause-variant cancel matrix
   tests in:
-  - `test/jido_conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
+  - `test/jido/conversation/runtime/llm_cancel_telemetry_matrix_test.exs`
 
 ## Phase 60: Effect-manager cancel cause-variant terminal-exclusivity parity hardening
 
@@ -2468,7 +2468,7 @@ that can execute through:
 
 - Added a shared terminal-exclusivity helper and applied it to effect-manager
   cancel cause-variant tests in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 61: Effect-manager cancel cause-variant telemetry parity hardening
 
@@ -2509,7 +2509,7 @@ that can execute through:
 
 - Extended effect-manager cause-variant cancel payload and telemetry assertions
   in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 62: Effect-manager cancel-not-available cause-variant parity hardening
 
@@ -2555,7 +2555,7 @@ that can execute through:
 
 - Added explicit/invalid `cause_id` not-available cancel coverage and telemetry
   assertions in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 63: Effect-manager harness baseline cancel-ok parity hardening
 
@@ -2603,7 +2603,7 @@ that can execute through:
 
 - Added harness baseline cancel-ok parity test and backend-selectable test
   runtime config helper in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 64: Effect-manager harness baseline cancel-not-available parity hardening
 
@@ -2648,7 +2648,7 @@ that can execute through:
 ### Completion notes
 
 - Added harness baseline cancel-not-available parity test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 65: Effect-manager harness baseline cancel-failed parity hardening
 
@@ -2694,7 +2694,7 @@ that can execute through:
 ### Completion notes
 
 - Added harness baseline cancel-failed parity test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 66: Effect-manager harness cancel-ok cause-link parity hardening
 
@@ -2740,7 +2740,7 @@ that can execute through:
 ### Completion notes
 
 - Added harness cancel-ok explicit cause-link parity test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 67: Effect-manager harness cancel-ok invalid-cause fallback parity hardening
 
@@ -2786,7 +2786,7 @@ that can execute through:
 ### Completion notes
 
 - Added harness cancel-ok invalid-cause fallback parity test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 68: Effect-manager harness cancel-not-available cause-link parity hardening
 
@@ -2834,7 +2834,7 @@ that can execute through:
 ### Completion notes
 
 - Added harness cancel-not-available explicit cause-link parity test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 69: Effect-manager harness cancel-not-available invalid-cause fallback parity hardening
 
@@ -2882,7 +2882,7 @@ that can execute through:
 ### Completion notes
 
 - Added harness cancel-not-available invalid-cause fallback parity test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 70: Effect-manager harness cancel-failed cause-link parity hardening
 
@@ -2931,7 +2931,7 @@ that can execute through:
 ### Completion notes
 
 - Added harness cancel-failed explicit cause-link parity test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 71: Effect-manager harness cancel-failed invalid-cause fallback parity hardening
 
@@ -2979,7 +2979,7 @@ that can execute through:
 ### Completion notes
 
 - Added harness cancel-failed invalid-cause fallback parity test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 72: Effect-manager jido_ai cancel-failed invalid-cause coverage consolidation
 
@@ -3022,9 +3022,9 @@ that can execute through:
 ### Completion notes
 
 - Removed duplicated legacy-path jido_ai failed-cancel invalid-cause test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 - Hardened canonical jido_ai failed-cancel invalid-cause test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Phase 73: Effect-manager jido_ai baseline cancel-ok parity hardening
 
@@ -3066,7 +3066,7 @@ that can execute through:
 ### Completion notes
 
 - Hardened jido_ai baseline cancel-ok parity test in:
-  - `test/jido_conversation/runtime/effect_manager_test.exs`
+  - `test/jido/conversation/runtime/effect_manager_test.exs`
 
 ## Cross-phase quality gates
 

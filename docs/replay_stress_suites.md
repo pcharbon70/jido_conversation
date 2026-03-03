@@ -8,7 +8,7 @@
 
 ## Validation coverage
 
-- Added `test/jido_conversation/replay_stress_test.exs`:
+- Added `test/jido/conversation/replay_stress_test.exs`:
   - `large audit traces remain fully replayable by stream pattern`
     - ingests a large `conv.audit.*` trace for one conversation
     - asserts replay includes the full ingested trace id set

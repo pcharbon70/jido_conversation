@@ -8,7 +8,7 @@
 
 ## Validation coverage
 
-- Added `test/jido_conversation/signal/contract_evolution_test.exs`:
+- Added `test/jido/conversation/signal/contract_evolution_test.exs`:
   - validates canonical v1 payload acceptance for:
     - `conv.in.*`
     - `conv.applied.*`

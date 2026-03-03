@@ -7,9 +7,9 @@ reliability.
 
 ### Contract and boundary tests
 
-- `test/jido_conversation/signal/contract_test.exs`
-- `test/jido_conversation/signal/contract_evolution_test.exs`
-- `test/jido_conversation/ingest/pipeline_test.exs`
+- `test/jido/conversation/signal/contract_test.exs`
+- `test/jido/conversation/signal/contract_evolution_test.exs`
+- `test/jido/conversation/ingest/pipeline_test.exs`
 
 Focus:
 
@@ -20,10 +20,10 @@ Focus:
 
 ### Runtime logic tests
 
-- `test/jido_conversation/runtime/scheduler_test.exs`
-- `test/jido_conversation/runtime/reducer_test.exs`
-- `test/jido_conversation/runtime/partition_worker_test.exs`
-- `test/jido_conversation/runtime/effect_manager_test.exs`
+- `test/jido/conversation/runtime/scheduler_test.exs`
+- `test/jido/conversation/runtime/reducer_test.exs`
+- `test/jido/conversation/runtime/partition_worker_test.exs`
+- `test/jido/conversation/runtime/effect_manager_test.exs`
 
 Focus:
 
@@ -34,8 +34,8 @@ Focus:
 
 ### Projection and replay parity tests
 
-- `test/jido_conversation/determinism_test.exs`
-- `test/jido_conversation/replay_stress_test.exs`
+- `test/jido/conversation/determinism_test.exs`
+- `test/jido/conversation/replay_stress_test.exs`
 
 Focus:
 
@@ -44,7 +44,7 @@ Focus:
 
 ### Reliability tests
 
-- `test/jido_conversation/reliability_test.exs`
+- `test/jido/conversation/reliability_test.exs`
 
 Focus:
 

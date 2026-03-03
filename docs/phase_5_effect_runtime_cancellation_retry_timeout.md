@@ -40,7 +40,7 @@
 
 ## Test coverage added/updated
 
-- Added `test/jido_conversation/runtime/effect_manager_test.exs`:
+- Added `test/jido/conversation/runtime/effect_manager_test.exs`:
   - successful start -> started/progress/completed + cleanup
   - timeout -> retry and terminal failed event
   - cancellation -> canceled lifecycle + cleanup
